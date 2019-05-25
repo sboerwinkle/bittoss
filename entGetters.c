@@ -1,0 +1,109 @@
+#include "ent.h"
+#include "ts_macros.h"
+#include "main.h"
+
+static pointer ts_typ_p(scheme *sc, pointer args) {
+	if (list_length(sc, args) != 2) {
+		fputs("typ? requires 2 args\n", stderr);
+		return sc->NIL;
+	}
+	pointer E = pair_car(args);
+	if (!is_c_ptr(E, 0)) {
+		fputs("typ? arg 1 must be ent*\n", stderr);
+		return sc->NIL;
+	}
+	pointer V = pair_car(pair_cdr(args));
+	if (!is_integer(V)) {
+		fputs("typ? arg 2 must be int\n", stderr);
+		return sc->NIL;
+	}
+	if (((ent*) c_ptr_value(E))->typeMask & (int32_t) ivalue(V)) return sc->T;
+	return sc->F;
+}
+
+static pointer ts_getAxis(scheme *sc, pointer args) {
+	if (list_length(sc, args) != 1) {
+		fputs("get-axis requires 1 arg\n", stderr);
+		return sc->NIL;
+	}
+	pointer E = pair_car(args);
+	if (!is_c_ptr(E, 0)) {
+		fputs("get-axis arg must be an ent*\n", stderr);
+		return sc->NIL;
+	}
+	ent* e = (ent*) c_ptr_value(E);
+	return cons(sc, mk_integer(sc, e->ctrl.axis1.v[0]), cons(sc, mk_integer(sc, e->ctrl.axis1.v[1]), sc->NIL));
+}
+
+static pointer ts_getVel(scheme *sc, pointer args) {
+	if (list_length(sc, args) != 2) {
+		fputs("get-vel requires 2 args\n", stderr);
+		return sc->NIL;
+	}
+	pointer E1 = pair_car(args);
+	pointer E2 = pair_car(pair_cdr(args));
+	if (!is_c_ptr(E1, 0) || !is_c_ptr(E2, 0)) {
+		fputs("get-vel args must both be ent*\n", stderr);
+		return sc->NIL;
+	}
+	ent* e1 = (ent*) c_ptr_value(E1);
+	ent* e2 = (ent*) c_ptr_value(E2);
+	return cons(sc, mk_integer(sc, e2->vel[0] - e1->vel[0]), cons(sc, mk_integer(sc, e2->vel[1] - e1->vel[1]), sc->NIL));
+}
+
+static pointer ts_getAbsPos(scheme *sc, pointer args) {
+	_size("get-abs-pos", 2);
+	_ent(e);
+	_pair(x, y);
+	int32_t *center = e->center;
+	return cons(sc, mk_integer(sc, center[0] + x), cons(sc, mk_integer(sc, center[1] + y), sc->NIL));
+}
+
+static pointer ts_getRadius(scheme *sc, pointer args) {
+	_size("get-radius", 1);
+	_ent(e);
+	return cons(sc, mk_integer(sc, e->radius[0]), cons(sc, mk_integer(sc, e->radius[1]), sc->NIL));
+}
+
+static pointer ts_getState(scheme *sc, pointer args) {
+	if (list_length(sc, args) != 1) {
+		fputs("get-state requires 1 arg\n", stderr);
+		return sc->NIL;
+	}
+	pointer E = pair_car(args);
+	if (!is_c_ptr(E, 0)) {
+		fputs("get-state arg must be an ent*\n", stderr);
+		return sc->NIL;
+	}
+	return mk_c_ptr(sc, &((ent*) c_ptr_value(E))->state, 1);
+}
+
+static pointer ts_getSlider(scheme *sc, pointer args) {
+	if (list_length(sc, args) != 2) {
+		fputs("get-slider requires 2 args\n", stderr);
+		return sc->NIL;
+	}
+	pointer S = pair_car(args);
+	pointer Ix = pair_car(pair_cdr(args));
+	if (!is_c_ptr(S, 1) || !is_integer(Ix)) {
+		fputs("get-slider args must be entState* and int\n", stderr);
+		return sc->NIL;
+	}
+	entState *s = (entState*) c_ptr_value(S);
+	int ix = ivalue(Ix);
+	if (ix < 0 || ix >= s->numSliders) {
+		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, s->numSliders);
+		return sc->NIL;
+	}
+	return mk_integer(sc, ((entState*) c_ptr_value(S))->sliders[ix].v);
+}
+
+void registerTsGetters() {
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "typ?"), mk_foreign_func(sc, ts_typ_p));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-axis"), mk_foreign_func(sc, ts_getAxis));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-vel"), mk_foreign_func(sc, ts_getVel));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-state"), mk_foreign_func(sc, ts_getState));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-slider"), mk_foreign_func(sc, ts_getSlider));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-abs-pos"), mk_foreign_func(sc, ts_getAbsPos));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-radius"), mk_foreign_func(sc, ts_getRadius));
+}

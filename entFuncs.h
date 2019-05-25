@@ -1,0 +1,43 @@
+
+extern int whoMovesDefault(ent *me, ent *him, byte axis, int dir);
+
+extern void onTickDefault(ent *me);
+
+extern void onTickHeldDefault(ent *me);
+
+extern int tickTypeDefault(ent *a, ent *b);
+
+extern void onDrawDefault(ent *me, int layer);
+
+extern void onCrushDefault(ent *me);
+
+//default for onFree
+extern void doNothing(ent *me);
+
+//extern void onPushDefault(ent *cd, ent *me, ent *leaf, ent *him);
+
+extern void onPushedDefault(ent *cd, ent *me, ent *leaf, ent *him);
+
+/*
+extern void onPushedFriction(ent *cd, ent *me, ent *leaf, ent *him);
+*/
+
+extern void onFumbleDefault(ent *me, ent *him);
+
+extern void onFumbledDefault(ent *me);
+
+extern void onPickUpDefault(ent *me, ent *him);
+
+extern void onPickedUpDefault(ent *me, ent *him);
+
+extern char okayFumbleDefault(ent *me);
+
+extern char okayFumbleHimDefault(ent *me, ent *him);
+
+extern ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int numRefs);
+
+extern pointer createHelper(scheme *sc, pointer args, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask);
+
+extern void setWhoMoves(ent *e, const char* text);
+
+extern void registerTsFuncSetters();
