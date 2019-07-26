@@ -20,7 +20,7 @@
 (define (player-tick me)
 	(let ((state (get-state me)))
 	(let ((axis (get-axis me)) (grounded (> (get-slider state 1) 0)) (slider (get-slider state 0)))
-		(let ((dx (bound (- (* 4 (car axis)) slider) 8)))
+		(let ((dx (bound (- (* 4 (car axis)) slider) 10)))
 			(set-slider state 0 (+ slider dx))
 			(accel me (quotient dx (if grounded 1 2)) 0)
 		)

@@ -1,4 +1,4 @@
-(define (crate-who-moves a b axis dir) (if (or (not (typ? b T_HEAVY)) (and axis (= 1 dir))) MOVE_HIM MOVE_ME))
+(define (crate-who-moves a b axis dir) (if (and axis (= 1 dir)) MOVE_HIM MOVE_ME))
 (define (crate-pushed me him axis dir dx dv)
 	(let ((state (get-state me)) (slider (/ (+ 1 dir) 2)))
 		(if (and (not axis) (= 0 (get-slider state slider)))
@@ -15,7 +15,7 @@
 			(if (= 2 (get-slider state slider))
 				(begin
 					(set-slider state slider 1)
-					(pickup me (mk-crate-inner (get-abs-pos me (list (* dir (+ w r r)) (- 0 h r))) r))
+					(pickup me (mk-crate-inner me (get-abs-pos me (list (* dir (+ w r r)) (- 0 h r))) r))
 				)
 			)
 		)))
@@ -28,12 +28,12 @@
 (define crate-draw (base-draw 0.7 0.7 0.0))
 
 
-(define (mk-crate-inner pos r)
+(define (mk-crate-inner owner pos r)
 	(set-tick
 		(set-pushed
 			(set-draw
 				(set-who-moves
-					(create r r (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 2)
+					(create owner r r (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 2)
 					'crate-who-moves
 				)
 				'crate-draw
@@ -43,4 +43,4 @@
 		'crate-tick
 	)
 )
-(define (mk-crate pos) (mk-crate-inner pos 512))
+(define (mk-crate pos) (mk-crate-inner '() pos 512))

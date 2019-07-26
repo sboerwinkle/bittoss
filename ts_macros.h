@@ -23,6 +23,24 @@ int var; \
 }
 
 
+#define _opt_ent(var) \
+_count++; \
+ent *var; \
+{ \
+	pointer tmp = pair_car(args); \
+	args = pair_cdr(args); \
+	if (tmp == sc->NIL) { \
+		var = NULL; \
+	} else { \
+		if (!is_c_ptr(tmp, 0)) { \
+			fprintf(stderr, "%s arg #%d must be an ent*\n", _name, _count); \
+			return sc->NIL; \
+		} \
+		var = (ent*)c_ptr_value(tmp); \
+	} \
+}
+
+
 #define _ent(var) \
 _count++; \
 ent *var; \

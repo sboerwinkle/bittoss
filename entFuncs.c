@@ -115,7 +115,7 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int
 	return ret;
 }
 
-pointer createHelper(scheme *sc, pointer args, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask) {
+pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask) {
 	_size("create-tmp", 2);
 	_pair(x, y);
 	_int(sliders);
@@ -123,6 +123,10 @@ pointer createHelper(scheme *sc, pointer args, int32_t rx, int32_t ry, int32_t t
 	pos[0] = x;
 	pos[1] = y;
 	int32_t vel[2] = {0, 0};
+	if (parent) {
+		memcpy(vel, parent->vel, sizeof(vel));
+		printf("Initial velocity %d, %d\n", vel[0], vel[1]);
+	}
 	ent *e = initEnt(pos, vel, rx, ry, sliders, 0);
 	e->typeMask = typeMask;
 	e->collideMask = collideMask;
@@ -130,12 +134,13 @@ pointer createHelper(scheme *sc, pointer args, int32_t rx, int32_t ry, int32_t t
 }
 
 pointer ts_create(scheme *sc, pointer args) {
-	_size("create", 6);
+	_size("create", 7);
+	_opt_ent(parent);
 	_int(w);
 	_int(h);
 	_int(typ);
 	_int(col);
-	return createHelper(sc, args, w, h, typ, col);
+	return createHelper(sc, args, parent, w, h, typ, col);
 }
 
 void setWhoMoves(ent *e, const char* func) {

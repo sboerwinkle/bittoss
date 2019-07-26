@@ -5,7 +5,8 @@
 (c-c-t -21 -49)
 (c-c-t -4 -49)
 
-(c-c-t -80 0)
+;(c-c-t -80 0)
+(mk-crate-inner '() (list (* 64 200) (* 64 130)) 256)
 
 (define (mk-hero n t) (mk-player (list
 	(+ 6400 (quotient (* n 6400) t))

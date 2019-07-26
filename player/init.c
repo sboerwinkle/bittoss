@@ -37,7 +37,7 @@ static void player_onPushed(ent *cd, ent *me, ent *leaf, ent *him) {
 */
 
 static pointer player_create_tmp(scheme *sc, pointer args) {
-	pointer ret = createHelper(sc, args, 16 * PTS_PER_PX, 16 * PTS_PER_PX, T_HEAVY, T_HEAVY | T_OBSTACLE | T_TERRAIN);
+	pointer ret = createHelper(sc, args, NULL, 16 * PTS_PER_PX, 16 * PTS_PER_PX, T_OBSTACLE, T_HEAVY | T_OBSTACLE | T_TERRAIN);
 	/*
 	if (is_c_ptr(ret, 0)) {
 		((ent*)c_ptr_value(ret))->onTick = player_onTick;

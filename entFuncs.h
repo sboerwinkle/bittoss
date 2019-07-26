@@ -36,7 +36,7 @@ extern char okayFumbleHimDefault(ent *me, ent *him);
 
 extern ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int numRefs);
 
-extern pointer createHelper(scheme *sc, pointer args, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask);
+extern pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask);
 
 extern void setWhoMoves(ent *e, const char* text);
 

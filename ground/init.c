@@ -1,6 +1,6 @@
 
 static pointer ground_create_tmp(scheme *sc, pointer args) {
-	return createHelper(sc, args, 16 * PTS_PER_PX, 16 * PTS_PER_PX, T_TERRAIN | T_HEAVY | T_WEIGHTLESS, 0);
+	return createHelper(sc, args, NULL, 16 * PTS_PER_PX, 16 * PTS_PER_PX, T_TERRAIN | T_HEAVY | T_WEIGHTLESS, 0);
 }
 
 static void *ground_init() {

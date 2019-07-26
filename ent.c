@@ -146,9 +146,9 @@ static void fumble(ent *h) {
 			x = y;
 		}
 	}
-	if (a->LL.n) a->LL.n->LL.p = a->LL.p;
-	if (a->LL.p) a->LL.p->LL.n = a->LL.n;
-	else h->holdee = a->LL.n;
+	if (h->LL.n) h->LL.n->LL.p = h->LL.p;
+	if (h->LL.p) h->LL.p->LL.n = h->LL.n;
+	else a->holdee = h->LL.n;
 	h->holder = NULL;
 	addRootEnt(h);
 }
@@ -160,6 +160,7 @@ static void rmRootEnt(ent *e) {
 }
 
 static void pickup(ent *x, ent *y) {
+	printf("pickup, ff is %d\n", flipFlop_pickup);
 	x->onPickUp(x, y);
 	y->onPickedUp(y, x);
 	rmRootEnt(y);
@@ -241,25 +242,42 @@ int getAxisAndDir(ent *a, ent *b) {
 	//d1 is now the old vector from a to b
 	//and d2 is a's velocity relative to b
 
-	//TODO: Should already-overlapping ents be handled differently?
-	//TODO: Something more useful than clockwise resolution
-	int first, x, y;
+	// Put the object to our upper right (in cartesian coordinates)
+	int ret_x;
+	if (d1[0] >= 0) {
+		ret_x = -1;
+	} else {
+		ret_x = 1;
+		d1[0] *= -1;
+		d2[0] *= -1;
+	}
+	int ret_y;
+	if (d1[1] >= 0) {
+		ret_y = -2;
+	} else {
+		ret_y = 2;
+		d1[1] *= -1;
+		d2[1] *= -1;
+	}
+	// Now find the lower-left corner
+	int chir;
 	d1[0] -= w[0];
 	d1[1] -= w[1];
-	first = x = getChirality(d1, d2);
-	d1[0] += 2*w[0];
-	y = getChirality(d1, d2);
-	if (x == -1 && y >= 0) return -2;
-	x = y;
-	d1[1] += 2*w[1];
-	y = getChirality(d1, d2);
-	if (x == -1 && y >= 0) return 1;
-	x = y;
-	d1[0] -= 2*w[0];
-	y = getChirality(d1, d2);
-	if (x == -1 && y >= 0) return 2;
-	if (y == -1 && first >= 0) return -1;
-	return 0;
+	chir = getChirality(d1, d2);
+	if (chir > 0) {
+		d1[1] += w[1]*2;
+		return getChirality(d1, d2) < 0 ? ret_x : 0;
+	} else if (chir < 0) {
+		d1[0] += w[0]*2;
+		return getChirality(d1, d2) > 0 ? ret_y : 0;
+		// Compare w/ lower-right corner
+	} else {
+		if (d2[0] <= 0 || d2[1] <= 0) return 0;
+		if (d2[0] > d2[1]) return ret_x;
+		if (d2[0] < d2[1]) return ret_y;
+		// All tied up - determine by chirality
+		return ((ret_x > 0) ^ (ret_y > 0)) ? ret_x : ret_y;
+	}
 }
 
 static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, char mutual) {
@@ -276,8 +294,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//Criteria for ranking collisions:
 	//Prefer non-mutual collisions
 	//cb_helper(1^mutuals[i]);
+	// Distance to lateral clearance (maximize, old)
+	cb_helper(folks[i]->radius[1^axes[i]] + leafs[i]->radius[1^axes[i]] - abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
+	/* Removed in favor of maximizing distance to lateral miss
 	//prior edge overlap (exists, old)
 	cb_helper(folks[i]->radius[1^axes[i]] + leafs[i]->radius[1^axes[i]] > abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
+	*/
 	//required displacement (maximize, current)
 	cb_helper(folks[i]->radius[axes[i]]+leafs[i]->radius[axes[i]] + (folks[i]->center[axes[i]] - leafs[i]->center[axes[i]])*dirs[i]);
 	/* //Actually I don't want to do this, because area should really be in an int64_t
@@ -292,7 +314,7 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//TODO; If that fails, maybe try exposed broadside surface of the leaf's recursive holders?
 	//puts("Using a collision-ranking criterion which I should not!");
 	//clockwise bias
-	//puts("Using collision-ranking criteria which break reflectional symmetry!");
+	puts("Using collision-ranking criteria which break reflectional symmetry!");
 /*
 dir\axis|   0	|   1	
 -------------------------
@@ -620,9 +642,10 @@ static void flushDrops() {
 }
 
 static void flushPickups() {
-	ent *i;
+	ent *i, *next;
 	byte ff = 1^flipFlop_pickup;
-	for (i = rootEnts; i; i = i->LL.n) {
+	for (i = rootEnts; i; i = next) {
+		next = i->LL.n;
 
 		//If I'm picking someone else up, clean up and move along.
 		if (i->pickup_max[ff]) {
@@ -633,6 +656,7 @@ static void flushPickups() {
 		ent *x = i->holder_max[ff];
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;
+		// TODO this ruins i->LL.n for the next iteration of the loop
 		if (x != i && !x->dead) pickup(x, i);
 		i->holder_max[ff] = NULL;
 	}
@@ -661,7 +685,6 @@ static void flush() {
 }
 
 void doPhysics() {
-
 	flush();
 	clearDeads();
 	ent *i;

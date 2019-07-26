@@ -103,6 +103,7 @@ static pointer ts_pickup(scheme *sc, pointer args) {
 		fputs("pickup requires 2 args\n", stderr);
 		return sc->NIL;
 	}
+	printf("Requested pickup, ff is %d\n", flipFlop_pickup);
 	pointer A = pair_car(args);
 	pointer B = pair_car(pair_cdr(args));
 	if (!is_c_ptr(A, 0) || !is_c_ptr(B, 0)) {
