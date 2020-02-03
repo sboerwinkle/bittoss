@@ -15,7 +15,7 @@
 			(if (= 2 (get-slider state slider))
 				(begin
 					(set-slider state slider 1)
-					(pickup me (mk-crate-inner me (get-abs-pos me (list (* dir (+ w r r)) (- 0 h r))) r))
+					(pickup me (mk-crate-inner me (list (* dir (+ w r r)) (- 0 h r)) r))
 				)
 			)
 		)))

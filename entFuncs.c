@@ -25,9 +25,9 @@ void onDrawDefault(ent *me, int layer, int dx, int dy) {
 	ent *i;
 	for (i = me->holdee; i; i = i->LL.n) i->onDraw(i, layer, dx + i->center[0] - me->center[0], dy + i->center[1] - me->center[1]);
 }
-*/
 
 void onCrushDefault(ent *me) {}
+*/
 
 //default for onFree
 void doNothing(ent *me) {}
@@ -100,7 +100,8 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int
 	ret->tickType = tickTypeDefault;
 	//ret->onDraw = onDrawDefault;
 	ret->draw = sc->F;
-	ret->onCrush = onCrushDefault;
+	//ret->onCrush = onCrushDefault;
+	ret->crush = sc->F;
 	ret->onFree = doNothing;
 	ret->onPush = onPushDefault;
 	//ret->onPushed = onPushedDefault;
@@ -126,6 +127,9 @@ pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t rx, int32_t 
 	if (parent) {
 		memcpy(vel, parent->vel, sizeof(vel));
 		printf("Initial velocity %d, %d\n", vel[0], vel[1]);
+
+		int32_t* p_pos = parent->pos;
+		for (int i = 0; i < 2; i++) pos[i] += p_pos[i];
 	}
 	ent *e = initEnt(pos, vel, rx, ry, sliders, 0);
 	e->typeMask = typeMask;
@@ -181,11 +185,16 @@ static pointer ts_setPushed(scheme *sc, pointer args) {
 	return setHandler(sc, args, "set-pushed", &ent::pushed);
 }
 
+static pointer ts_setCrush(scheme *sc, pointer args) {
+	return setHandler(sc, args, "set-crush", &ent::crush);
+}
+
 void registerTsFuncSetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-tick"), mk_foreign_func(sc, ts_setTick));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-who-moves"), mk_foreign_func(sc, ts_setWhoMoves));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-draw"), mk_foreign_func(sc, ts_setDraw));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-pushed"), mk_foreign_func(sc, ts_setPushed));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-crush"), mk_foreign_func(sc, ts_setCrush));
 
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "create"), mk_foreign_func(sc, ts_create));
 }

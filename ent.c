@@ -190,6 +190,10 @@ void killEntNoHandlers(ent *e) {
 
 void crushEnt(ent *e) {
 	e->onCrush(e);
+	if (e->onCrush != sc->F) {
+		save_from_C_call(sc);
+		scheme_eval(sc, cons(sc, e->crush, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
+	}
 	killEntNoHandlers(e);
 }
 
@@ -276,7 +280,7 @@ int getAxisAndDir(ent *a, ent *b) {
 		if (d2[0] > d2[1]) return ret_x;
 		if (d2[0] < d2[1]) return ret_y;
 		// All tied up - determine by chirality
-		return ((ret_x > 0) ^ (ret_y > 0)) ? ret_x : ret_y;
+		return ((ret_x > 0) ^ (ret_y > 0)) ? ret_y : ret_x;
 	}
 }
 

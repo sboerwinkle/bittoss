@@ -147,7 +147,8 @@ typedef struct ent {
 	int (*tickType)(struct ent *me, struct ent *him);
 	//void (*onDraw)(struct ent *me, int layer, int dx, int dy);
 	pointer draw;
-	void (*onCrush)(struct ent *me);
+	//void (*onCrush)(struct ent *me);
+	pointer crush;
 	//This should only do pointer management etc., nothing in-game
 	void (*onFree)(struct ent *me);
 	void (*onPush)(struct ent *me, struct ent *him, byte axis, int dir, int displacement, int dv);
