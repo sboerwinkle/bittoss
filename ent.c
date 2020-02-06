@@ -189,8 +189,7 @@ void killEntNoHandlers(ent *e) {
 }
 
 void crushEnt(ent *e) {
-	e->onCrush(e);
-	if (e->onCrush != sc->F) {
+	if (e->crush != sc->F) {
 		save_from_C_call(sc);
 		scheme_eval(sc, cons(sc, e->crush, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 	}
@@ -569,15 +568,22 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	}
 }
 
-//TODO: This is a thing for later, but we should probably burn this down and just do recursive ticks.
+//TODO: This is a thing for later, but we should probably burn this down and just do recursive ticks
+//      (Eliminating the need for e.g. tickType as a fn)
 static void _doTick(ent *e) {
 	if (e->tick == sc->F) return;
 	save_from_C_call(sc);
 	scheme_eval(sc, cons(sc, e->tick, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 }
 
+static void _doTickHeld(ent *e) {
+	if (e->tickHeld == sc->F) return;
+	save_from_C_call(sc);
+	scheme_eval(sc, cons(sc, e->tickHeld, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
+}
+
 static void doTick(ent *e, int type) {
-	if (type == 1) e->onTickHeld(e);
+	if (type == 1) _doTickHeld(e);
 	else _doTick(e);
 
 	ent *i;

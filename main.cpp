@@ -233,6 +233,7 @@ int main(int argc, char **argv) {
 	//Main loop
 	al_start_timer(timer);
 	ALLEGRO_EVENT evnt;
+	ent *selectedEnt = NULL;
 	while (1) {
 		al_wait_for_event(queue, &evnt);
 		switch(evnt.type) {
@@ -272,8 +273,36 @@ int main(int argc, char **argv) {
 #endif
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-				//crate_create(evnt.mouse.x*PTS_PER_PX, evnt.mouse.y*PTS_PER_PX);
-				//crate_create(evnt.mouse.x*PTS_PER_PX, 81*PTS_PER_PX);
+				{
+				int x = evnt.mouse.x * PTS_PER_PX;
+				int y = evnt.mouse.y * PTS_PER_PX;
+				for (ent* e = ents; e; e = e->ll.n) {
+					// TODO we can get more accuate sub-pixel selection if we want
+					if (abs(e->center[0] - x) < e->radius[0] && abs(e->center[1] - y) < e->radius[1]) {
+						selectedEnt = e;
+						break;
+					}
+				}
+				}
+				break;
+			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
+				selectedEnt = NULL;
+				break;
+			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+				if (selectedEnt) {
+					save_from_C_call(sc);
+					scheme_eval(sc,
+						cons(sc, mk_symbol(sc, "move-to-test"),
+						cons(sc, mk_c_ptr(sc, selectedEnt, 0),
+						cons(sc,
+							cons(sc, mk_symbol(sc, "list"),
+							cons(sc, mk_integer(sc, evnt.mouse.x*PTS_PER_PX),
+							cons(sc, mk_integer(sc, evnt.mouse.y*PTS_PER_PX),
+							sc->NIL))),
+						sc->NIL)))
+					);
+					selectedEnt = NULL;
+				}
 				break;
 		}
 	}

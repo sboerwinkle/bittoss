@@ -39,7 +39,7 @@ static pointer ts_getPos(scheme *sc, pointer args) {
 	_size("get-pos", 2);
 	_ent(e1);
 	_ent(e2);
-	return cons(sc, mk_integer(sc, e2->pos[0] - e1->pos[0]), cons(sc, mk_integer(sc, e2->pos[1] - e1->pos[1]), sc->NIL));
+	return cons(sc, mk_integer(sc, e2->center[0] - e1->center[0]), cons(sc, mk_integer(sc, e2->center[1] - e1->center[1]), sc->NIL));
 }
 
 static pointer ts_getVel(scheme *sc, pointer args) {
@@ -75,6 +75,12 @@ static pointer ts_getRadius(scheme *sc, pointer args) {
 	_size("get-radius", 1);
 	_ent(e);
 	return cons(sc, mk_integer(sc, e->radius[0]), cons(sc, mk_integer(sc, e->radius[1]), sc->NIL));
+}
+
+static pointer ts_getHolder(scheme *sc, pointer args) {
+	_size("get-holder", 1);
+	_ent(e);
+	return e->holder == NULL ? sc->NIL : mk_c_ptr(sc, e->holder, 0);
 }
 
 static pointer ts_getState(scheme *sc, pointer args) {
@@ -117,6 +123,8 @@ void registerTsGetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-vel"), mk_foreign_func(sc, ts_getVel));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-state"), mk_foreign_func(sc, ts_getState));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-slider"), mk_foreign_func(sc, ts_getSlider));
-	// scheme_define(sc, sc->global_env, mk_symbol(sc, "get-abs-pos"), mk_foreign_func(sc, ts_getAbsPos));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-radius"), mk_foreign_func(sc, ts_getRadius));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-holder"), mk_foreign_func(sc, ts_getHolder));
+	// TODO This is only for debugging, shouldn't be in the public scripting API
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-abs-pos"), mk_foreign_func(sc, ts_getAbsPos));
 }

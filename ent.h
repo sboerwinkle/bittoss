@@ -143,7 +143,8 @@ typedef struct ent {
 	pointer tick;
 	//void (*onTick)(struct ent *me);
 	// Like above, but when someone is holding me. Doesn't technically have to be a separate method, but a lot of things are going to do nothing when held, so this encourages that "default" behavior.
-	void (*onTickHeld)(struct ent *me);
+	pointer tickHeld;
+	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
 	//void (*onDraw)(struct ent *me, int layer, int dx, int dy);
 	pointer draw;

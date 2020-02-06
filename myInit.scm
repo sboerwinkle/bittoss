@@ -18,3 +18,31 @@
 (define (cadr x) (car (cdr x)))
 
 (define (list . x) x)
+
+(define (foldr f x lst)
+     (if (null? lst)
+          x
+          (foldr f (f x (car lst)) (cdr lst))))
+
+(define (unzip1 lists)
+	(if (null? lists)
+		(cons '() '())
+		(let
+			(
+				(list1 (car lists))
+				(unzipped (unzip1 (cdr lists)))
+			)
+			(cons (cons (car list1) (car unzipped)) (cons (cdr list1) (cdr unzipped)))
+		)
+	)
+)
+
+(define (map proc . lists)
+  (if (null? lists)
+      (apply proc)
+      (if (null? (car lists))
+        '()
+        (let* ((unz (unzip1 lists))
+               (cars (car unz))
+               (cdrs (cdr unz)))
+          (cons (apply proc cars) (apply map (cons proc cdrs)))))))

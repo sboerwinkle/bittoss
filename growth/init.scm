@@ -1,3 +1,5 @@
+; NOTE - this file seems to be unfinished so far as I can tell. A WIP copy of crate?
+; Anyway at this time I'm going to try to just make something that moves to a desired point.
 (define (move-me a b axis dir) MOVE_ME)
 (define (die-on-pushed me him axis dir dx dv) R_DIE)
 (define (growth-crush me)

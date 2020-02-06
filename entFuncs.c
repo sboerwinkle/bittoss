@@ -15,7 +15,9 @@ int whoMovesDefault(ent *me, ent *him, byte axis, int dir) {
 
 void onTickDefault(ent *me) {}
 
+/*
 void onTickHeldDefault(ent *me) {}
+*/
 
 int tickTypeDefault(ent *a, ent *b) {return 1;}
 
@@ -96,7 +98,8 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int
 	ret->whoMoves = sc->F;
 	//ret->onTick = onTickDefault;
 	ret->tick = sc->F;
-	ret->onTickHeld = onTickHeldDefault;
+	//ret->onTickHeld = onTickHeldDefault;
+	ret->tickHeld = sc->F;
 	ret->tickType = tickTypeDefault;
 	//ret->onDraw = onDrawDefault;
 	ret->draw = sc->F;
@@ -127,8 +130,8 @@ pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t rx, int32_t 
 	if (parent) {
 		memcpy(vel, parent->vel, sizeof(vel));
 		printf("Initial velocity %d, %d\n", vel[0], vel[1]);
-
-		int32_t* p_pos = parent->pos;
+		// TODO Should this be "center" or "old" or what
+		int32_t* p_pos = parent->center;
 		for (int i = 0; i < 2; i++) pos[i] += p_pos[i];
 	}
 	ent *e = initEnt(pos, vel, rx, ry, sliders, 0);
@@ -173,6 +176,10 @@ static pointer ts_setTick(scheme *sc, pointer args) {
 	return setHandler(sc, args, "set-tick", &ent::tick);
 }
 
+static pointer ts_setTickHeld(scheme *sc, pointer args) {
+	return setHandler(sc, args, "set-tick-held", &ent::tickHeld);
+}
+
 static pointer ts_setWhoMoves(scheme *sc, pointer args) {
 	return setHandler(sc, args, "set-who-moves", &ent::whoMoves);
 }
@@ -191,6 +198,7 @@ static pointer ts_setCrush(scheme *sc, pointer args) {
 
 void registerTsFuncSetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-tick"), mk_foreign_func(sc, ts_setTick));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-tick-held"), mk_foreign_func(sc, ts_setTickHeld));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-who-moves"), mk_foreign_func(sc, ts_setWhoMoves));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-draw"), mk_foreign_func(sc, ts_setDraw));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-pushed"), mk_foreign_func(sc, ts_setPushed));
