@@ -1,0 +1,8 @@
+*.o
+*.png
+tinyscheme/*.txt
+
+vgcore*
+game
+tinyscheme/run
+Makefile.old

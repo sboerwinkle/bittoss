@@ -1,0 +1,190 @@
+Okay, we're well on our way!
+We've got
+a probably-working physics engine
+some basic Allegro thrown in
+
+Holding things goes as follows
+	Either end can request
+	If more than one request for holding, doesn't.
+	On impact:
+		Leaf ends determine *who* moves
+			Leafs can defer decision to parents, but at own risk
+		Holdee gets first choice:
+			Yield
+			Remove
+			Transfer to parent
+		Parent gets choices:
+			Yield
+			Remove
+			Handle as my own
+		Root gets no choice
+	Most decisions can be made strictly on basis of property flags
+		Property falgs updated in parallel, blindly
+	Queries:
+		Note that all of this may disagree with and is probably less well thought out than what's in the header file currently
+		"Who would move?"
+			Answers:
+				Him
+				Me
+				Nvm (trump)
+			Can read internal state
+			Can't write internal state
+		"You pushed this guy"
+			No answer
+			Can read/write internal state
+				Is this sequenced?
+		"Ur being moved"
+			Given both leaves of impact
+			See "On impact"
+			Can read/write internal state
+				Is this sequenced?
+		"Ur being crushed, lol"
+			Can put more stuff on the board, but still going to die regardless
+			Can read internal state
+	New Steps:
+		Resolve children
+		Pick from children who want me moved
+			recursively tell the children who caused this to update their forced directions
+		If I think I can handle it, handle it myself
+			Add it to the list of directions I've been forced
+			If it conflicts, get crushed
+				which probably pops off a child
+			Otherwise
+				Either pop off
+				Or glide
+		Otherwise say my parent has to deal with it
+
+-Each cluster can only collide with one thing per turn. The root gets to decide what this is.
+	-This means the "which collision is better" function needs to be generalized.
+		-"A on B  or  C on D?"
+		If it gets too close to call, start moving back up the tree before we get to the really weird ones
+-Also collisions don't have to be mututal to go through, else we could get deadlock.
+-On the resolution stage, each root takes the collision it decided to roll with and tells the appropriate child to handle it.
+	The child might end up recursively passing the onus of moving back up to the parent.
+	Its other options are to yield or pop off (in which case it becomes a root for next time)
+		... or die. Str8-up death is an option, in which we will call the onDeath handler for it also.
+		Also, change onCrush to onDeath. Better name.
+	Of course, if any node is ever forced from both directions, it immediately either pops something off or dies a fiery death
+
+So how to handle pushing. The decision needs to have access to everything publicly available about the responsible party.
+	Show it the item at the time, and it can:
+		Send commands
+		Add to lists
+		Maybe other state changes
+
+-Whenever something pops off, it recursively un-forces its parents
+	-Each parent only stores who was immediately responsible for the forcing
+
+-There are 3 ticks types: Tick, tick held, and (implicitly) no tick.
+	-Each root item gets a tick.
+		-Each item which gets any sort of tick gets to choose what sort of tick its children experience.
+	-If an ent wants to track another ent, it requests an entTracker
+		entTrackers form a linked list - when dead ents are freed, the corresponding entTrackers are set to point to the special "deadEnt"
+		This prevents ents who skipped a tick from causing a segfault.
+-Ticks take a control vector.
+An agent (read: player) starts out inhabiting "their" ent.
+	If their inhabited ent sticks to something, they inhabit that ent.
+	If "their" ent is destroyed, they die regardless.
+	If "their" ent is fumbled / dropped by the ent they're inhabitting, they go to the highest ent they're still being held by.
+	Whatever ent an agent is inhabiting gets that agent's control signals.
+Ents also need a "draw inhabited" function, which sets parameters for the view and lets them describe overlays (probably as sprites in world-space coordinates)
+When an ent is told to draw, it gets to control when in relation to it its children are drawn. Not sure how that works out. Presumably the relationship between sprite layers isn't numerical, but allows nesting somehow.
+	So like, a sprite level is actually a set of sprite levels if you choose to expand it. And it can have as many as you require.
+	Most people just draw to the sprite level they're given. This doesn't do anything special. But you can specify children be drawn in sublevel -1, 0, 1, etc.
+	Base sprites drawn to sublevel 0 of level X get drawn to the same list as regular level X.
+
+Also Jesus we have to make the code for orientations
+	Basically this just affects all the information given to the handlers, by transforming it correspondingly.
+-Remove 'mutual' collisions - it just resolves to a collision on both of them.
+At some point we also want the global size multiplier.
+-Finally, with the advent of very likely wrapping issues, we need one last safety check - pushing objects need to inherit the maximal coordinate they've been pushed from, being killed in the appropriate situation.
+
+At some point in my crazy list of things to implement, I should probably also make it so item handlers are put into guile
+	One side effect of this is that numbers polled from the environment have wrappers
+		So you can't set a vel directly, but you can add a scaled number to another vel!
+		You can't multiply a vel, but you can multiply the balanced difference of some number of vels!
+
+Next steps, broadly speaking:
+Game loop in Allegro
+Layered rendering of entities
+Rough integration of physics engine
+Player control (basic game right there)
+-Gearing up physics engine for full 'holding' support
+Objects:
+	Terrain blocks
+	metal crates
+	paper crates
+	player
+-Mess around / basic level design
+-Enemies, which entail the following objects:
+	optons
+	bullets
+	guns?
+	A slightly different build function for enemies, so they release optons and respond appropriately
+-More level design
+-Menu level, which entails another object:
+	level warp blocks
+-What's this, more level design?
+
+
+
+At this point things have gotten extremely vague, and it's really just a wishlist that can be implemented in any order:
+
+Crafting stations
+Cabinets (for storage!)
+Proper collision detection with libVelbox (Or maybe just a nice B-tree?)
+Flying transport
+Gunship
+Missilecopter
+Construction walker
+Destruction walker
+Battle platform walker
+Powered exoskeleton
+Plasma turret
+explosives
+buttons
+missiles
+Nicer particles: blood, guts, gears, dirt, shrapnel
+Laz gun
+Chaingun
+Shotgun
+Grenade launcher
+Sticky launcher
+Metal crate launcher
+Flamethrower
+Missile launcher
+Knives
+Swords
+weapon mods
+Mover blocks
+destructible terrain blocks
+Apple trees
+More enemy types
+pouncer enemies
+Crawlers
+Clams
+Missile Clams
+Sound fx
+controller support
+multiplayer support
+Planets (freefall launch system)
+Swarming, muliplying insects
+Modular Maimbots
+Dialog (monolog really)
+Allies
+Autoturret
+Sticky Autoturrets
+Glass
+Patrol patterns for enemies
+Earthworms
+Jetpack
+Tentacle beasts (Dwell in caverns?)
+Tentacle eggs
+Level editor
+Portals
+Boosters
+Building materials (break on heavy impact)
+Kudzu
+Basic construction powers - think King Arthur's gold-style gameplay
+Stations with 'divert power' mechanics
+Station battles
