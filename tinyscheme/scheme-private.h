@@ -143,6 +143,7 @@ long gensym_cnt;
 struct scheme_interface *vptr;
 void *dump_base;    /* pointer to base of allocated dump stack */
 int dump_size;      /* number of frames allocated for dump stack */
+int dump_zero;      /* where the dump stack ends, i.e. where to return to C execution */
 };
 
 /* operator code */

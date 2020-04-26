@@ -7,6 +7,7 @@
 (define T_TERRAIN 2)
 (define T_OBSTACLE 4)
 (define T_WEIGHTLESS 8)
+(define T_GROW 16)
 
 (define R_DIE 0)
 (define R_DROP 1)

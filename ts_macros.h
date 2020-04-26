@@ -55,6 +55,16 @@ ent *var; \
 }
 
 
+#define _func(var) \
+_count++; \
+pointer var = pair_car(args); \
+args = pair_cdr(args); \
+if (!is_closure(var)) { \
+	fprintf(stderr, "%s arg #%d must be a function\n", _name, _count); \
+	return sc->NIL; \
+}
+
+
 #define _pair(var1, var2) \
 _count++; \
 int var1, var2; \

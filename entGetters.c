@@ -83,6 +83,19 @@ static pointer ts_getHolder(scheme *sc, pointer args) {
 	return e->holder == NULL ? sc->NIL : mk_c_ptr(sc, e->holder, 0);
 }
 
+static pointer ts_countHoldees(scheme *sc, pointer args) {
+	_size("count-holdees", 2);
+	_ent(e);
+	_func(f);
+	int ret = 0;
+	for (ent *child = e->holdee; child; child = child->LL.n) {
+		save_from_C_call(sc);
+		scheme_call(sc, f, cons(sc, mk_c_ptr(sc, child, 0), sc->NIL));
+		if (sc->value != sc->F && sc->value != sc->NIL) ret++;
+	}
+	return mk_integer(sc, ret);
+}
+
 static pointer ts_getState(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 1) {
 		fputs("get-state requires 1 arg\n", stderr);
@@ -125,6 +138,7 @@ void registerTsGetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-slider"), mk_foreign_func(sc, ts_getSlider));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-radius"), mk_foreign_func(sc, ts_getRadius));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-holder"), mk_foreign_func(sc, ts_getHolder));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "count-holdees"), mk_foreign_func(sc, ts_countHoldees));
 	// TODO This is only for debugging, shouldn't be in the public scripting API
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-abs-pos"), mk_foreign_func(sc, ts_getAbsPos));
 }

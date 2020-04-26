@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "ent.h"
 #include "main.h"
+#include "ts_macros.h"
 
 void pushBtn1(ent *who) {who->ctrl.btn1.v2 = 1;}
 void pushBtn2(ent *who) {who->ctrl.btn2.v2 = 1;}
@@ -49,26 +50,26 @@ void uVel(ent *e, int32_t *a) {
 }
 
 static pointer ts_accel(scheme *sc, pointer args) {
-	if (list_length(sc, args) != 3) {
-		fputs("accel requires 3 args\n", stderr);
-		return sc->NIL;
-	}
-	pointer E = pair_car(args);
-	args = pair_cdr(args);
-	pointer X = pair_car(args);
-	args = pair_cdr(args);
-	pointer Y = pair_car(args);
-	if (!is_c_ptr(E, 0) || !is_integer(X) || !is_integer(Y)) {
-		fputs("accel args must be ent*, int, int\n", stderr);
-		return sc->NIL;
-	}
-	int32_t a[2] = {(int32_t) ivalue(X), (int32_t) ivalue(Y)};
-	uVel((ent*)c_ptr_value(E), a);
-	return E;
+	_size("accel", 3);
+	pointer ret = pair_car(args); // Cheaty cheaty
+	_ent(e);
+	_int(x);
+	_int(y);
+	int32_t a[2] = {(int32_t) x, (int32_t) y};
+	uVel(e, a);
+	return ret;
 }
 
 void uDead(ent *e) {
 	e->dead_max[flipFlop_death] = 1;
+}
+
+static pointer ts_kill(scheme *sc, pointer args) {
+	_size("kill", 1);
+	pointer ret = pair_car(args);
+	_ent(e);
+	uDead(e);
+	return ret;
 }
 
 void uDrop(ent *e) {
@@ -189,4 +190,5 @@ void registerTsUpdaters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "accel"), mk_foreign_func(sc, ts_accel));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "pickup"), mk_foreign_func(sc, ts_pickup));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-slider"), mk_foreign_func(sc, ts_setSlider));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "kill"), mk_foreign_func(sc, ts_kill));
 }

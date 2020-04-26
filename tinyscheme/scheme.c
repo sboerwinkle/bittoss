@@ -2398,7 +2398,7 @@ static pointer _s_return(scheme *sc, pointer a)
   struct dump_stack_frame *frame;
 
   sc->value = (a);
-  if (nframes <= 0) {
+  if (nframes <= sc->dump_zero) {
     return sc->NIL;
   }
   nframes--;
@@ -2414,13 +2414,16 @@ static pointer _s_return(scheme *sc, pointer a)
 static INLINE void dump_stack_reset(scheme *sc)
 {
   /* in this implementation, sc->dump is the number of frames on the stack */
-  sc->dump = 0;
+  // Note that this assignment could easily go the other way -
+  //   Both "empty" the stack, but one preserves what was there previously in case needed later.
+  sc->dump = sc->dump_zero;
 }
 
 static INLINE void dump_stack_initialize(scheme *sc)
 {
-  sc->dump_size = 0;
   sc->dump_base = NULL;
+  sc->dump_size = 0;
+  sc->dump_zero = 0;
   dump_stack_reset(sc);
 }
 
@@ -2428,8 +2431,6 @@ static void dump_stack_free(scheme *sc)
 {
   free(sc->dump_base);
   sc->dump_base = NULL;
-  sc->dump = 0;
-  sc->dump_size = 0;
 }
 
 static INLINE void dump_stack_mark(scheme *sc)
@@ -4854,19 +4855,19 @@ void save_from_C_call(scheme *sc)
          carSink,
          cons(sc,
               sc->envir,
-              mk_integer(sc, sc->dump)));
+              mk_integer(sc, sc->dump_zero)));
   /* Push */
   sc->c_nest = cons(sc, saved_data, sc->c_nest);
   /* Truncate the dump stack so TS will return here when done, not
      directly resume pre-C-call operations. */
-  dump_stack_reset(sc);
+  sc->dump_zero = sc->dump;
 }
 void restore_from_C_call(scheme *sc)
 {
   pointer saved_data = car(sc->c_nest);
   car(sc->sink) = car(saved_data);
   sc->envir = cadr(saved_data);
-  sc->dump = ivalue(cddr(saved_data));
+  sc->dump_zero = ivalue(cddr(saved_data));
   /* Pop */
   sc->c_nest = cdr(sc->c_nest);
 }
@@ -4876,7 +4877,8 @@ pointer scheme_call(scheme *sc, pointer func, pointer args)
 {
   int old_repl = sc->interactive_repl;
   sc->interactive_repl = 0;
-  save_from_C_call(sc);
+  // This is now hanlded by the caller, so that any args they create get appropriately reclaimed
+  //save_from_C_call(sc);
   sc->envir = sc->global_env;
   sc->args = args;
   sc->code = func;

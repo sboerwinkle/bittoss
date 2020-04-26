@@ -274,26 +274,33 @@ int main(int argc, char **argv) {
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 				{
-				int x = evnt.mouse.x * PTS_PER_PX;
-				int y = evnt.mouse.y * PTS_PER_PX;
-				for (ent* e = ents; e; e = e->ll.n) {
-					// TODO we can get more accuate sub-pixel selection if we want
-					if (abs(e->center[0] - x) < e->radius[0] && abs(e->center[1] - y) < e->radius[1]) {
-						selectedEnt = e;
-						break;
+					int x = evnt.mouse.x * PTS_PER_PX;
+					int y = evnt.mouse.y * PTS_PER_PX;
+					for (ent* e = ents; e; e = e->ll.n) {
+						// TODO we can get more accuate sub-pixel selection if we want
+						if (abs(e->center[0] - x) < e->radius[0] && abs(e->center[1] - y) < e->radius[1]) {
+							selectedEnt = e;
+							break;
+						}
 					}
-				}
 				}
 				break;
 			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
 				selectedEnt = NULL;
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-				if (selectedEnt) {
+				{
 					save_from_C_call(sc);
+					pointer owner;
+					if (selectedEnt) {
+						owner = mk_c_ptr(sc, selectedEnt, 0);
+						selectedEnt = NULL;
+					} else {
+						owner = sc->NIL;
+					}
 					scheme_eval(sc,
 						cons(sc, mk_symbol(sc, "move-to-test"),
-						cons(sc, mk_c_ptr(sc, selectedEnt, 0),
+						cons(sc, owner,
 						cons(sc,
 							cons(sc, mk_symbol(sc, "list"),
 							cons(sc, mk_integer(sc, evnt.mouse.x*PTS_PER_PX),
@@ -301,7 +308,6 @@ int main(int argc, char **argv) {
 							sc->NIL))),
 						sc->NIL)))
 					);
-					selectedEnt = NULL;
 				}
 				break;
 		}
