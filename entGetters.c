@@ -22,17 +22,15 @@ static pointer ts_typ_p(scheme *sc, pointer args) {
 }
 
 static pointer ts_getAxis(scheme *sc, pointer args) {
-	if (list_length(sc, args) != 1) {
-		fputs("get-axis requires 1 arg\n", stderr);
-		return sc->NIL;
-	}
-	pointer E = pair_car(args);
-	if (!is_c_ptr(E, 0)) {
-		fputs("get-axis arg must be an ent*\n", stderr);
-		return sc->NIL;
-	}
-	ent* e = (ent*) c_ptr_value(E);
+	_size("get-axis", 1);
+	_ent(e);
 	return cons(sc, mk_integer(sc, e->ctrl.axis1.v[0]), cons(sc, mk_integer(sc, e->ctrl.axis1.v[1]), sc->NIL));
+}
+
+static pointer ts_getButton(scheme *sc, pointer args) {
+	_size("get-button", 1);
+	_ent(e);
+	return e->ctrl.btn1.v ? sc->T : sc->F;
 }
 
 static pointer ts_getPos(scheme *sc, pointer args) {
@@ -132,6 +130,7 @@ static pointer ts_getSlider(scheme *sc, pointer args) {
 void registerTsGetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "typ?"), mk_foreign_func(sc, ts_typ_p));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-axis"), mk_foreign_func(sc, ts_getAxis));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-button"), mk_foreign_func(sc, ts_getButton));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-pos"), mk_foreign_func(sc, ts_getPos));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-vel"), mk_foreign_func(sc, ts_getVel));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-state"), mk_foreign_func(sc, ts_getState));

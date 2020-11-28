@@ -28,6 +28,7 @@
 			(accel me 0 -192)
 		)
 		(set-slider state 1 0)
+		(if (get-button me) (kill me) '())
 	)
 	)
 )
