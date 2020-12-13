@@ -33,7 +33,7 @@
 (define (move-me a b axis dir) MOVE_ME)
 (define (dont-move-terrain a b axis dir) (if (typ? b T_TERRAIN) MOVE_ME MOVE_HIM))
 (define (pushed-pass me him axis dir dx dv) R_PASS)
-(define (kill-me me) (kill me))
+;(define (kill-me me) (kill me))
 
 (define (mk-move-to-tester owner pos w h x y)
 	(let ((new (create owner w h (+ T_GROW T_OBSTACLE) (+ T_OBSTACLE T_TERRAIN) pos 3)))
@@ -42,7 +42,7 @@
 			(set-slider s 1 y)
 		)
 		(set-tick-held new 'move-to-tester-tick-held)
-		(set-tick new 'kill-me)
+		(set-tick new 'kill)
 		(set-pushed new 'pushed-pass)
 		(set-draw new 'move-to-tester-draw)
 		(set-who-moves new 'move-me)

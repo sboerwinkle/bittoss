@@ -7,6 +7,7 @@
 #define PREV_FUNC NULL
 
 //Ideally these will re-define PREV_FUNC to chain them together.
+#include "spawner/init.c"
 #include "crate/init.c"
 #include "ground/init.c"
 #include "player/init.c"
