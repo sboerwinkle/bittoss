@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/time.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_primitives.h>
@@ -31,23 +32,19 @@ scheme *sc;
 
 int32_t gravity;
 
-#define displayWidth 1024
-#define displayHeight 1024
+#define displayWidth 1000
+#define displayHeight 700
 
 static ALLEGRO_VERTEX vertices[4];
 //const int indices[6] = {0, 1, 2, 3, 2, 1};
 //static int32_t cx = (displayWidth / 2) * PTS_PER_PX;
 //static int32_t cy = (displayHeight / 2) * PTS_PER_PX;
 
-void rect(int32_t X, int32_t Y, float z, int32_t RX, int32_t RY, float r, float g, float b) {
-	if (X < 0) X -= PTS_PER_PX - 1;
-	if (Y < 0) Y -= PTS_PER_PX - 1;
-	int32_t x = X / PTS_PER_PX;
-	int32_t y = Y / PTS_PER_PX;
-	int32_t rx = RX / PTS_PER_PX;
-	int32_t ry = RY / PTS_PER_PX;
-	ALLEGRO_COLOR c = al_map_rgb_f(r, g, b);
+#define micro_hist_num 5
+static int historical_micros[micro_hist_num];
+static int micro_hist_ix = micro_hist_num-1;
 
+static void rect_inner(int32_t x, int32_t y, float z, int32_t rx, int32_t ry, ALLEGRO_COLOR c) {
 	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = c;
 	vertices[0].z = vertices[1].z = vertices[2].z = vertices[3].z = z;
 
@@ -64,6 +61,33 @@ void rect(int32_t X, int32_t Y, float z, int32_t RX, int32_t RY, float r, float 
 	vertices[3].y = y + ry;
 
 	al_draw_prim(vertices, NULL, NULL, 0, 4, ALLEGRO_PRIM_TRIANGLE_STRIP);
+}
+
+void rect(int32_t X, int32_t Y, float z, int32_t RX, int32_t RY, float r, float g, float b) {
+	if (X < 0) X -= PTS_PER_PX - 1;
+	if (Y < 0) Y -= PTS_PER_PX - 1;
+	int32_t x = X / PTS_PER_PX;
+	int32_t y = Y / PTS_PER_PX;
+	int32_t rx = RX / PTS_PER_PX;
+	int32_t ry = RY / PTS_PER_PX;
+	ALLEGRO_COLOR c = al_map_rgb_f(r, g, b);
+	rect_inner(x, y, z, rx, ry, c);
+}
+
+#define micros_per_frame (1000000 / FRAMERATE)
+static void drawMicroHist() {
+	int sum = 0;
+	int max = 0;
+	int i;
+	for (i = 0; i < micro_hist_num; i++) {
+		int x = historical_micros[i];
+		sum += x;
+		if (x > max) max = x;
+	}
+	ALLEGRO_COLOR c = al_map_rgb_f(1, 1, 1);
+	// TODO be less lazy - I'm drawing the bars centered on the left edge of the screen, like the animal I am.
+	rect_inner(0, displayHeight-15, 0, displayWidth*sum/(micros_per_frame * micro_hist_num), 5, c);
+	rect_inner(0, displayHeight-5, 0, displayWidth*max/micros_per_frame, 5, c);
 }
 
 void loadFile(const char* file) {
@@ -234,6 +258,7 @@ int main(int argc, char **argv) {
 	al_start_timer(timer);
 	ALLEGRO_EVENT evnt;
 	ent *selectedEnt = NULL;
+	struct timeval t1, t2;
 	while (1) {
 		al_wait_for_event(queue, &evnt);
 		switch(evnt.type) {
@@ -242,6 +267,7 @@ int main(int argc, char **argv) {
 				break;
 #ifndef MANUAL_STEP
 			case ALLEGRO_EVENT_TIMER:
+				gettimeofday(&t1, NULL);
 				doGravity();
 				doLava();
 				// Heroes must be after Lava, or they can be killed and then cleaned up immediately
@@ -249,7 +275,13 @@ int main(int argc, char **argv) {
 				doPhysics();
 				al_clear_to_color(al_map_rgb(0, 0, 0));
 				doDrawing();
+				drawMicroHist();
 				al_flip_display();
+				gettimeofday(&t2, NULL);
+				{
+					int micros = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
+					historical_micros[micro_hist_ix = (micro_hist_ix+1)%micro_hist_num] = micros;
+				}
 				break;
 #endif
 			case ALLEGRO_EVENT_KEY_UP:
