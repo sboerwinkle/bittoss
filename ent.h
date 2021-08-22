@@ -77,9 +77,9 @@ typedef struct ent {
 	int collisionDir;
 	// which direction, if any, this ent has been forced this tick. If forced in conflicting ways, splatters.
 	//	If forced the same direction too many times, splatters anyway, because funky business is probably afoot.
-	int32_t forced[2];
+	int32_t forced[3];
 	// Which of my descendants this forcing came from.
-	struct ent *forcedHoldees[2];
+	struct ent *forcedHoldees[3];
 
 	uint32_t typeMask, collideMask;
 	uint32_t d_typeMask_min, d_typeMask_max;
