@@ -119,7 +119,7 @@ static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
 	who->needsCollision = 1;
 	who->needsPhysUpdate = 1;
 	int i;
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		who->center2[i] = who->center[i] + dc[i];
 		who->vel2[i] = who->vel[i] + dv[i];
 	}
@@ -139,7 +139,7 @@ static void fumble(ent *h) {
 	(h->onFumbled)(h, a);
 	int i;
 	ent *x, *y;
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		x = h;
 		while ( (y = x->holder) && y->forced[i] && y->forcedHoldees[i] == x) {
 			y->forced[i] = 0;
@@ -191,6 +191,8 @@ void killEntNoHandlers(ent *e) {
 void crushEnt(ent *e) {
 	if (e->crush != sc->F) {
 		save_from_C_call(sc);
+		e->crush->references++;
+		sc->NIL->references++;
 		scheme_eval(sc, cons(sc, e->crush, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 	}
 	killEntNoHandlers(e);
@@ -204,7 +206,10 @@ static int whoMoves(ent *a, ent *b, byte axis, int dir) {
 	}
 #endif
 	save_from_C_call(sc);
-	scheme_eval(sc, cons(sc, a->whoMoves, cons(sc, mk_c_ptr(sc, a, 0), cons(sc, mk_c_ptr(sc, b, 0), cons(sc, axis ? sc->T : sc->F, cons(sc, mk_integer(sc, dir), sc->NIL))))));
+	// TODO ents have an orientation and they can perceive all 3 axes differently
+	a->whoMoves->references++;
+	sc->NIL->references++;
+	scheme_eval(sc, cons(sc, a->whoMoves, cons(sc, mk_c_ptr(sc, a, 0), cons(sc, mk_c_ptr(sc, b, 0), cons(sc, mk_integer(sc, axis), cons(sc, mk_integer(sc, dir), sc->NIL))))));
 	if (!is_integer(sc->value)) {
 		fputs("That's not an int!\n", stderr);
 		return ME;
@@ -221,17 +226,10 @@ static int arbitrateMovement(ent *a, ent *b, byte axis, int dir) {
 	return A?A:BOTH;
 }
 
-int getChirality(int *v1, int *v2) {
-	int64_t ans = ((int64_t)v1[0])*v2[1] - ((int64_t)v1[1])*v2[0];
-	if (ans < 0) return -1;
-	if (ans) return 1;
-	return 0;
-}
-
 int getAxisAndDir(ent *a, ent *b) {
-	int d1[2], d2[2], w[2];
+	int d1[3], d2[3], w[3];
 	int i;
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		d1[i] = b->old[i] - a->old[i];
 		d2[i] = b->center[i] - a->center[i];
 		w[i] = a->radius[i] + b->radius[i];
@@ -246,47 +244,70 @@ int getAxisAndDir(ent *a, ent *b) {
 	//and d2 is a's velocity relative to b
 
 	// Put the object to our upper right (in cartesian coordinates)
-	int ret_x;
-	if (d1[0] >= 0) {
-		ret_x = -1;
-	} else {
-		ret_x = 1;
-		d1[0] *= -1;
-		d2[0] *= -1;
-	}
-	int ret_y;
-	if (d1[1] >= 0) {
-		ret_y = -2;
-	} else {
-		ret_y = 2;
-		d1[1] *= -1;
-		d2[1] *= -1;
+	int dir_by_axis[3];
+	for (i = 0; i < 3; i++) {
+		if (d2[i] >= 0) {
+			dir_by_axis[i] = -(i+1);
+		} else {
+			dir_by_axis[i] = (i+1);
+			d1[i] *= -1;
+			d2[i] *= -1;
+		}
 	}
 	// Now find the lower-left corner
-	int chir;
-	d1[0] -= w[0];
-	d1[1] -= w[1];
-	chir = getChirality(d1, d2);
-	if (chir > 0) {
-		d1[1] += w[1]*2;
-		return getChirality(d1, d2) < 0 ? ret_x : 0;
-	} else if (chir < 0) {
-		d1[0] += w[0]*2;
-		return getChirality(d1, d2) > 0 ? ret_y : 0;
-		// Compare w/ lower-right corner
-	} else {
-		if (d2[0] <= 0 || d2[1] <= 0) return 0;
-		if (d2[0] > d2[1]) return ret_x;
-		if (d2[0] < d2[1]) return ret_y;
-		// All tied up - determine by chirality
-		return ((ret_x > 0) ^ (ret_y > 0)) ? ret_y : ret_x;
+	for (i = 0; i < 3; i++) d1[i] -= w[i];
+	int best;
+#define compare(target, a, b) do {\
+	int64_t cmp = ((int64_t)d1[a])*d2[b] - ((int64_t)d1[b])*d2[a]; \
+	if (cmp > 0) target = a; \
+	else if (cmp < 0) target = b; \
+	else { \
+		/* TODO I had intended to also check by angle of attack compared to the dimensions */ \
+		if (w[a] > w[b]) target = b; \
+		else target = a; \
+	} \
+} while(0)
+	compare(best, 0, 1);
+	compare(best, best, 2);
+#undef compare
+	if (d1[best] < 0) {
+		// In this case we've always been inside! The scandal! Time to decide if we're actively leaving
+		// Here we define 'best' as 'closest to the surface', regardless of velocities.
+		int depth = INT32_MAX;
+		int ret;
+		for (i = 0; i < 3; i++) {
+			int d = d1[i] + w[i];
+			int new_depth;
+			int new_ret;
+			if (d >= 0) {
+				new_depth = w[i] - d;
+				new_ret = dir_by_axis[i];
+			} else {
+				new_depth = w[i] + d;
+				// Center is behind us, so if we have non-zero velocity along this axis we're leaving.
+				new_ret = d2[i] ? 0 : -dir_by_axis[i];
+			}
+			if (new_depth < depth) {
+				depth = new_depth;
+				ret = new_ret;
+			}
+		}
+		return ret;
 	}
+	// Otherwise, the collision is at some point in the future, and we need do decide if we're going to dodge it or not
+	for (i = 0; i < 3; i++) {
+		int far = d1[i] + 2*w[i];
+		int64_t cmp = ((int64_t)d1[best])*d2[i] - ((int64_t)far)*d2[best];
+		if (cmp >= 0) return 0;
+	}
+	return dir_by_axis[best];
 }
+
+static inline int min(int a, int b) { return a < b ? a : b; }
 
 static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, char mutual) {
 	if (!root->collisionBuddy) return 1;
 	ent *folks[] = {n, root->collisionBuddy};
-	if (folks[1] == NULL) return 1;
 	ent *leafs[] = {leaf, root->collisionLeaf};
 	byte axes[] = {axis, root->collisionAxis};
 	int dirs[] = {dir, root->collisionDir};
@@ -298,7 +319,9 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//Prefer non-mutual collisions
 	//cb_helper(1^mutuals[i]);
 	// Distance to lateral clearance (maximize, old)
-	cb_helper(folks[i]->radius[1^axes[i]] + leafs[i]->radius[1^axes[i]] - abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
+#define clearance(x) folks[i]->radius[x] + leafs[i]->radius[x] - abs(folks[i]->old[x] - leafs[i]->old[x])
+	cb_helper(min(clearance((axes[i]+1)%3), clearance((axes[i]+2)%3)));
+#undef clearance
 	/* Removed in favor of maximizing distance to lateral miss
 	//prior edge overlap (exists, old)
 	cb_helper(folks[i]->radius[1^axes[i]] + leafs[i]->radius[1^axes[i]] > abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
@@ -311,22 +334,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	*/
 	//TODO: In this case, miminize holder distance to colliding leaf
 	//exposed surface of other (maximize)
-	cb_helper(folks[i]->radius[1^axes[i]]);
+	//cb_helper(folks[i]->radius[1^axes[i]]);
 	//Sideways offset (miminize, old)
-	cb_helper(-abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
+	//cb_helper(-abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
 	//TODO; If that fails, maybe try exposed broadside surface of the leaf's recursive holders?
 	//puts("Using a collision-ranking criterion which I should not!");
-	//clockwise bias
-	puts("Using collision-ranking criteria which break reflectional symmetry!");
-/*
-dir\axis|   0	|   1	
--------------------------
-  -1	| -1\1	|  1\0
-   1	|  1\1	| -1\0
-
-*/
-	cb_helper((folks[i]->old[1^axes[i]]-leafs[i]->old[1^axes[i]])*dirs[i]*(1-2*axes[i]));
-	puts("Using collision-ranking criteria which break rotational symmetry!");
+	puts("Using collision-ranking criteria which break symmetry!");
 	cb_helper(axes[i]);
 	cb_helper(dirs[i]);
 	puts("Using the most evil collision-ranking criterion");
@@ -356,10 +369,10 @@ static byte checkCollision(ent *a, ent *b) {
 	if (dir == 0) return 0;
 	byte axis;
 	if (dir < 0) {
-		axis = dir < -1;
+		axis = (byte)(-dir - 1);
 		dir = -1;
 	} else {
-		axis = dir > 1;
+		axis = (byte)(dir - 1);
 		dir = 1;
 	}
 	//Okay, so we definitely have a collision now.
@@ -391,7 +404,7 @@ static byte checkCollision(ent *a, ent *b) {
 	return tryCollide(b, a, axis, -dir, 0);
 }
 
-static char doIteration() { // TODO: Make this threaded? It's already supposed to run order-independent...
+static char doIteration() {
 	//TODO: Quadtrees
 	char ret = 0;
 	ent *i, *j;
@@ -436,10 +449,15 @@ static void setDeads() {
 static void clearDeads() {
 	ent *d;
 	while ( (d = deadTail) ) {
-		puts("Cleaning up a dead guy...");
 		deadTail = d->ll.p;
 		freeEntState(&d->state);
 		(d->onFree)(d);
+		decrem(sc, d->tick);
+		decrem(sc, d->tickHeld);
+		decrem(sc, d->crush);
+		decrem(sc, d->pushed);
+		decrem(sc, d->draw);
+		decrem(sc, d->whoMoves);
 		free(d);
 	}
 }
@@ -534,11 +552,13 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 			ret = r_pass;
 		} else {
 			save_from_C_call(sc);
+			e->pushed->references++;
+			sc->NIL->references++;
 			pointer Ret = scheme_eval(sc,
 				cons(sc, e->pushed,
 				cons(sc, mk_c_ptr(sc, e, 0),
 				cons(sc, mk_c_ptr(sc, o, 0),
-				cons(sc, axis ? sc->T : sc->F,
+				cons(sc, mk_integer(sc, axis),
 				cons(sc, mk_integer(sc, dir),
 				cons(sc, mk_integer(sc, displacement),
 				cons(sc, mk_integer(sc, accel),
@@ -559,8 +579,8 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 		}
 		if (ret == r_pass && e) continue;
 		if (ret == r_drop && e) fumble(prev);
-		int32_t dc[2], dv[2];
-		dc[axis^1] = dv[axis^1] = 0;
+		int32_t dc[3], dv[3];
+		dc[(axis+1)%3] = dv[(axis+1)%3] = dc[(axis+2)%3] = dv[(axis+2)%3] = 0;
 		dc[axis] = displacement*dir;
 		dv[axis] = accel*dir;
 		moveRecursive(prev, dc, dv);
@@ -573,12 +593,16 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 static void _doTick(ent *e) {
 	if (e->tick == sc->F) return;
 	save_from_C_call(sc);
+	e->tick->references++;
+	sc->NIL->references++;
 	scheme_eval(sc, cons(sc, e->tick, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 }
 
 static void _doTickHeld(ent *e) {
 	if (e->tickHeld == sc->F) return;
 	save_from_C_call(sc);
+	e->tickHeld->references++;
+	sc->NIL->references++;
 	scheme_eval(sc, cons(sc, e->tickHeld, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 }
 
@@ -606,7 +630,7 @@ void flushMisc(ent *e) {
 	e->d_collideMask_max = e->d_collideMask_min = 0;
 
 	int i;
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		e->center[i] += (e->d_center_min[i] + e->d_center_max[i]) / 2;
 		e->vel[i] += e->d_vel[i];
 		e->d_center_min[i] = e->d_center_max[i] = e->d_vel[i] = 0;
@@ -706,7 +730,7 @@ void doPhysics() {
 	for (i = ents; i; i = i->ll.n) {
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
-		for (j = 0; j < 2; j++) {
+		for (j = 0; j < 3; j++) {
 			i->center[j] += i->vel[j];
 			i->forced[j] = 0;
 		}
@@ -741,26 +765,29 @@ void doPhysics() {
 	*/
 }
 
-static void drawEnt(ent *e, float center, float width) {
+static void drawEnt(ent *e) {
 	if (e->draw == sc->F) {
 		fputs("Entity draw function unset\n", stderr);
 		return;
 	}
 	save_from_C_call(sc);
-	scheme_eval(sc, cons(sc, e->draw, cons(sc, mk_c_ptr(sc, e, 0), cons(sc, mk_real(sc, center), cons(sc, mk_real(sc, width), sc->NIL)))));
+	e->draw->references++;
+	sc->NIL->references++;
+	scheme_eval(sc, cons(sc, e->draw, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
 }
 
 void doDrawing() {
 	ent *i;
 	//for (i = rootEnts; i; i = i->LL.n) {
 	for (i = ents; i; i = i->ll.n) {
-		drawEnt(i, 0, 1);
+		drawEnt(i);
 	}
 }
 
 pointer ts_draw(scheme *sc, pointer args) {
-	if (list_length(sc, args) != 5) {
-		fputs("draw requires 5 args\n", stderr);
+	if (list_length(sc, args) != 4) {
+		fputs("draw requires 4 args\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer E = pair_car(args);
@@ -770,19 +797,20 @@ pointer ts_draw(scheme *sc, pointer args) {
 	pointer g = pair_car(args);
 	args = pair_cdr(args);
 	pointer b = pair_car(args);
-	args = pair_cdr(args);
-	pointer z = pair_car(args);
 
 	if (!is_c_ptr(E, 0)) {
 		fputs("draw arg 1 must be an ent*\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
-	if (!is_real(r) || !is_real(g) || !is_real(b) || !is_real(z)) {
-		fputs("draw args 2-5 must be reals\n", stderr);
+	if (!is_real(r) || !is_real(g) || !is_real(b)) {
+		fputs("draw args 2-4 must be reals\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 
 	ent* e = (ent*) c_ptr_value(E);
-	rect(e->center[0], e->center[1], rvalue(z), e->radius[0], e->radius[1], rvalue(r), rvalue(g), rvalue(b));
+	rect(e->center, e->radius, rvalue(r), rvalue(g), rvalue(b));
+	sc->NIL->references++;
 	return sc->NIL;
 }

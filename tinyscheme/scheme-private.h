@@ -43,6 +43,7 @@ typedef struct port {
 /* cell structure */
 struct cell {
   unsigned int _flag;
+  int references; // TODO maybe make this unsigned once I'm sure I don't have bugs
   union {
     struct {
       char   *_svalue;

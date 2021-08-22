@@ -29,7 +29,7 @@ void pushAxis1(ent *who, int *x) {
 }
 
 void uCenter(ent *e, int32_t *p) {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 3; i++) {
 		if (p[i] > e->d_center_max[i]) {
 			e->d_center_max[i] = p[i];
 		}
@@ -40,7 +40,7 @@ void uCenter(ent *e, int32_t *p) {
 }
 
 void uVel(ent *e, int32_t *a) {
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 3; i++) {
 		e->d_vel[i] += a[i];
 	}
 	ent *child;
@@ -50,13 +50,12 @@ void uVel(ent *e, int32_t *a) {
 }
 
 static pointer ts_accel(scheme *sc, pointer args) {
-	_size("accel", 3);
-	pointer ret = pair_car(args); // Cheaty cheaty
+	_size("accel", 2);
+	pointer ret = pair_car(args); // What am I even trying to accomplish here? Isn't this just `e`?
 	_ent(e);
-	_int(x);
-	_int(y);
-	int32_t a[2] = {(int32_t) x, (int32_t) y};
+	_vec(a);
 	uVel(e, a);
+	ret->references++;
 	return ret;
 }
 
@@ -69,6 +68,7 @@ static pointer ts_kill(scheme *sc, pointer args) {
 	pointer ret = pair_car(args);
 	_ent(e);
 	uDead(e);
+	ret->references++;
 	return ret;
 }
 
@@ -102,6 +102,7 @@ void uPickup(ent *p, ent *e) {
 static pointer ts_pickup(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 2) {
 		fputs("pickup requires 2 args\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	printf("Requested pickup, ff is %d\n", flipFlop_pickup);
@@ -109,9 +110,11 @@ static pointer ts_pickup(scheme *sc, pointer args) {
 	pointer B = pair_car(pair_cdr(args));
 	if (!is_c_ptr(A, 0) || !is_c_ptr(B, 0)) {
 		fputs("pickup args must be ent*, ent*\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	uPickup((ent*)c_ptr_value(A), (ent*)c_ptr_value(B));
+	A->references++;
 	return A;
 }
 
@@ -165,6 +168,7 @@ static pointer ts_setSlider(scheme *sc, pointer args) {
 	}
 
 	uStateSlider((entState*)c_ptr_value(S), ivalue(Ix), ivalue(Val));
+	S->references++;
 	return S;
 }
 

@@ -81,11 +81,11 @@ extern "C" {
 
 /* To force system errors through user-defined error handling (see *error-hook*) */
 #ifndef USE_ERROR_HOOK
-# define USE_ERROR_HOOK 1
+# define USE_ERROR_HOOK 0
 #endif
 
 #ifndef USE_COLON_HOOK   /* Enable qualified qualifier */
-# define USE_COLON_HOOK 1
+# define USE_COLON_HOOK 0
 #endif
 
 #ifndef USE_STRCASECMP   /* stricmp for Unix */
@@ -140,6 +140,7 @@ SCHEME_EXPORT void scheme_load_file(scheme *sc, FILE *fin);
 SCHEME_EXPORT void scheme_load_named_file(scheme *sc, FILE *fin, const char *filename);
 SCHEME_EXPORT void scheme_load_string(scheme *sc, const char *cmd);
 SCHEME_EXPORT void save_from_C_call(scheme *sc);
+SCHEME_EXPORT void decrem(scheme *sc, pointer x); // TODO put this on a line that makes more sense
 SCHEME_EXPORT pointer scheme_apply0(scheme *sc, const char *procname);
 SCHEME_EXPORT pointer scheme_call(scheme *sc, pointer func, pointer args);
 SCHEME_EXPORT pointer scheme_eval(scheme *sc, pointer obj);

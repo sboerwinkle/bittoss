@@ -1,15 +1,17 @@
+; TODO: Not working in 3D yet
+
 ; defines a simple helper, and then a test object that uses it.
 
 (define (move-to me pos spd)
 	(let ((h (get-holder me)))
 		(let ((dx (map - pos (get-pos h me))))
-			(apply accel (cons me (map
+			(accel me (map
 				; "bound" defned in player/init.scm
 				(lambda (dx v) (- (bound dx spd) v))
 				dx
 				(get-vel h me)
-			)))
-			(and (= (car dx) 0) (= (cadr dx) 0)) ; TODO Just use eq?, maybe?
+			))
+			(and (= (car dx) 0) (= (cadr dx) 0) (= (cadr (cdr dx)) 0)) ; TODO Just use eq?, maybe?
 		)
 	)
 )
@@ -41,11 +43,11 @@
 			(set-slider s 0 x)
 			(set-slider s 1 y)
 		)
-		(set-tick-held new 'move-to-tester-tick-held)
-		(set-tick new 'kill)
-		(set-pushed new 'pushed-pass)
-		(set-draw new 'move-to-tester-draw)
-		(set-who-moves new 'move-me)
+		(set-tick-held new move-to-tester-tick-held)
+		(set-tick new kill)
+		(set-pushed new pushed-pass)
+		(set-draw new move-to-tester-draw)
+		(set-who-moves new move-me)
 	)
 )
 
@@ -54,11 +56,11 @@
 		(set-who-moves
 			(set-draw
 				(create '() 256 256 T_OBSTACLE (+ T_OBSTACLE T_TERRAIN) pos 1)
-				'move-to-tester-draw
+				move-to-tester-draw
 			)
-			'move-me
+			move-me
 		)
-		'seed-tick
+		seed-tick
 	)
 )
 
@@ -66,9 +68,9 @@
 	(set-who-moves
 		(set-draw
 			(create owner w h (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 0)
-			'brick-draw
+			brick-draw
 		)
-		'dont-move-terrain
+		dont-move-terrain
 	)
 )
 

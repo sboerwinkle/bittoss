@@ -10,6 +10,6 @@ extern scheme *sc;
 
 extern int32_t gravity;
 
-extern void rect(int32_t x, int32_t y, float z, int32_t rx, int32_t ry, float r, float g, float b);
+extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
 
 extern void loadFile(const char* file);

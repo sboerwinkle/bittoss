@@ -5,39 +5,52 @@
 static pointer ts_typ_p(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 2) {
 		fputs("typ? requires 2 args\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer E = pair_car(args);
 	if (!is_c_ptr(E, 0)) {
 		fputs("typ? arg 1 must be ent*\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer V = pair_car(pair_cdr(args));
 	if (!is_integer(V)) {
 		fputs("typ? arg 2 must be int\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
-	if (((ent*) c_ptr_value(E))->typeMask & (int32_t) ivalue(V)) return sc->T;
-	return sc->F;
+	pointer ret;
+	if (((ent*) c_ptr_value(E))->typeMask & (int32_t) ivalue(V)) ret = sc->T;
+	else ret = sc->F;
+	ret->references++;
+	return ret;
 }
 
 static pointer ts_getAxis(scheme *sc, pointer args) {
 	_size("get-axis", 1);
 	_ent(e);
+	sc->NIL->references++;
 	return cons(sc, mk_integer(sc, e->ctrl.axis1.v[0]), cons(sc, mk_integer(sc, e->ctrl.axis1.v[1]), sc->NIL));
 }
 
 static pointer ts_getButton(scheme *sc, pointer args) {
 	_size("get-button", 1);
 	_ent(e);
-	return e->ctrl.btn1.v ? sc->T : sc->F;
+	pointer ret = e->ctrl.btn1.v ? sc->T : sc->F;
+	ret->references++;
+	return ret;
 }
 
 static pointer ts_getPos(scheme *sc, pointer args) {
 	_size("get-pos", 2);
 	_ent(e1);
 	_ent(e2);
-	return cons(sc, mk_integer(sc, e2->center[0] - e1->center[0]), cons(sc, mk_integer(sc, e2->center[1] - e1->center[1]), sc->NIL));
+	sc->NIL->references++;
+	return cons(sc, mk_integer(sc, e2->center[0] - e1->center[0]),
+		cons(sc, mk_integer(sc, e2->center[1] - e1->center[1]),
+		cons(sc, mk_integer(sc, e2->center[2] - e1->center[2]),
+		sc->NIL)));
 }
 
 static pointer ts_getVel(scheme *sc, pointer args) {
@@ -58,27 +71,41 @@ static pointer ts_getVel(scheme *sc, pointer args) {
 	_size("get-vel", 2);
 	_ent(e1);
 	_ent(e2);
-	return cons(sc, mk_integer(sc, e2->vel[0] - e1->vel[0]), cons(sc, mk_integer(sc, e2->vel[1] - e1->vel[1]), sc->NIL));
+	sc->NIL->references++;
+	return cons(sc, mk_integer(sc, e2->vel[0] - e1->vel[0]),
+		cons(sc, mk_integer(sc, e2->vel[1] - e1->vel[1]),
+		cons(sc, mk_integer(sc, e2->vel[2] - e1->vel[2]),
+		sc->NIL)));
 }
 
 static pointer ts_getAbsPos(scheme *sc, pointer args) {
 	_size("get-abs-pos", 2);
 	_ent(e);
-	_pair(x, y);
+	_vec(vec);
 	int32_t *center = e->center;
-	return cons(sc, mk_integer(sc, center[0] + x), cons(sc, mk_integer(sc, center[1] + y), sc->NIL));
+	sc->NIL->references++;
+	return cons(sc, mk_integer(sc, center[0] + vec[0]),
+		cons(sc, mk_integer(sc, center[1] + vec[1]),
+		cons(sc, mk_integer(sc, center[2] + vec[2]),
+		sc->NIL)));
 }
 
 static pointer ts_getRadius(scheme *sc, pointer args) {
 	_size("get-radius", 1);
 	_ent(e);
-	return cons(sc, mk_integer(sc, e->radius[0]), cons(sc, mk_integer(sc, e->radius[1]), sc->NIL));
+	sc->NIL->references++;
+	return cons(sc, mk_integer(sc, e->radius[0]),
+		cons(sc, mk_integer(sc, e->radius[1]),
+		cons(sc, mk_integer(sc, e->radius[2]),
+		sc->NIL)));
 }
 
 static pointer ts_getHolder(scheme *sc, pointer args) {
 	_size("get-holder", 1);
 	_ent(e);
-	return e->holder == NULL ? sc->NIL : mk_c_ptr(sc, e->holder, 0);
+	if (e->holder) return mk_c_ptr(sc, e->holder, 0);
+	sc->NIL->references++;
+	return sc->NIL;
 }
 
 static pointer ts_countHoldees(scheme *sc, pointer args) {
@@ -88,6 +115,8 @@ static pointer ts_countHoldees(scheme *sc, pointer args) {
 	int ret = 0;
 	for (ent *child = e->holdee; child; child = child->LL.n) {
 		save_from_C_call(sc);
+		f->references++;
+		sc->NIL->references++;
 		scheme_call(sc, f, cons(sc, mk_c_ptr(sc, child, 0), sc->NIL));
 		if (sc->value != sc->F && sc->value != sc->NIL) ret++;
 	}
@@ -97,31 +126,37 @@ static pointer ts_countHoldees(scheme *sc, pointer args) {
 static pointer ts_getState(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 1) {
 		fputs("get-state requires 1 arg\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer E = pair_car(args);
 	if (!is_c_ptr(E, 0)) {
 		fputs("get-state arg must be an ent*\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
+	// TODO We need to make sure these c_ptr thinggies expire appropriately so they can't be stashed away
 	return mk_c_ptr(sc, &((ent*) c_ptr_value(E))->state, 1);
 }
 
 static pointer ts_getSlider(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 2) {
 		fputs("get-slider requires 2 args\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer S = pair_car(args);
 	pointer Ix = pair_car(pair_cdr(args));
 	if (!is_c_ptr(S, 1) || !is_integer(Ix)) {
 		fputs("get-slider args must be entState* and int\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	entState *s = (entState*) c_ptr_value(S);
 	int ix = ivalue(Ix);
 	if (ix < 0 || ix >= s->numSliders) {
 		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, s->numSliders);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	return mk_integer(sc, ((entState*) c_ptr_value(S))->sliders[ix].v);

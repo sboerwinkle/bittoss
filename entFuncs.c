@@ -83,17 +83,17 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 //this will probably just take a type identifier, and will index into a large list of handler sets.
 //Alternatively, it could just take a list of handlers directly, which could be called from guile and would technically allow for more flexibility.
 //TODO: Orientation is an arg here.
-ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int numRefs) {
+ent *initEnt(int32_t *c, int32_t *v, int32_t *r, int numSliders, int numRefs) {
 	ent *ret = (ent*) calloc(1, sizeof(ent));
 	flushCtrls(ret);
 	flushMisc(ret);
 	memcpy(ret->center, c, sizeof(ret->center));
 	memcpy(ret->vel, v, sizeof(ret->vel));
-	ret->radius[0] = rx;
-	ret->radius[1] = ry;
+	memcpy(ret->radius, r, sizeof(ret->radius));
 
 	setupEntState(&ret->state, numSliders, numRefs);
 
+	sc->F->references += 6;
 	//ret->whoMoves = whoMovesDefault;
 	ret->whoMoves = sc->F;
 	//ret->onTick = onTickDefault;
@@ -119,57 +119,54 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t rx, int32_t ry, int numSliders, int
 	return ret;
 }
 
-pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t rx, int32_t ry, int32_t typeMask, int32_t collideMask) {
+pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t typeMask, int32_t collideMask) {
 	_size("create-tmp", 2);
-	_pair(x, y);
+	_vec(pos);
 	_int(sliders);
-	int32_t pos[2];
-	pos[0] = x;
-	pos[1] = y;
-	int32_t vel[2] = {0, 0};
+	int32_t vel[3] = {0, 0, 0};
 	if (parent) {
 		memcpy(vel, parent->vel, sizeof(vel));
-		printf("Initial velocity %d, %d\n", vel[0], vel[1]);
 		// TODO Should this be "center" or "old" or what
 		int32_t* p_pos = parent->center;
-		for (int i = 0; i < 2; i++) pos[i] += p_pos[i];
+		for (int i = 0; i < 3; i++) pos[i] += p_pos[i];
 	}
-	ent *e = initEnt(pos, vel, rx, ry, sliders, 0);
+	ent *e = initEnt(pos, vel, r, sliders, 0);
 	e->typeMask = typeMask;
 	e->collideMask = collideMask;
 	return mk_c_ptr(sc, e, 0);
 }
 
 pointer ts_create(scheme *sc, pointer args) {
-	_size("create", 7);
+	_size("create", 6);
 	_opt_ent(parent);
-	_int(w);
-	_int(h);
+	_vec(r);
 	_int(typ);
 	_int(col);
-	return createHelper(sc, args, parent, w, h, typ, col);
-}
-
-void setWhoMoves(ent *e, const char* func) {
-	e->whoMoves = mk_symbol(sc, func);
+	return createHelper(sc, args, parent, r, typ, col);
 }
 
 static pointer setHandler(scheme *sc, pointer args, const char* name, pointer ent::*field) {
 	if (list_length(sc, args) != 2) {
 		fputs(name, stderr);
 		fputs(" requires 2 args\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
 	pointer E = pair_car(args);
 	pointer S = pair_car(pair_cdr(args));
-	if (!is_c_ptr(E, 0) || !is_symbol(S)) {
+	if (!is_c_ptr(E, 0) || !is_closure(S)) {
 		fputs(name, stderr);
-		fputs(" args must be ent* and symbol\n", stderr);
+		fputs(" args must be ent* and lambda\n", stderr);
+		sc->NIL->references++;
 		return sc->NIL;
 	}
-	((ent*)c_ptr_value(E))->*field = S;
-	return E;
+	pointer* target = &(((ent*)c_ptr_value(E))->*field);
+	decrem(sc, *target);
+	*target = S;
+	S->references++;
 
+	E->references++;
+	return E;
 }
 
 static pointer ts_setTick(scheme *sc, pointer args) {

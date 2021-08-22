@@ -1,3 +1,6 @@
+; Disregard the below comment, I think it actually was finished!
+; But it's broken again, what with the switch to 3D.
+
 ; NOTE - this file seems to be unfinished so far as I can tell. A WIP copy of crate?
 ; Anyway at this time I'm going to try to just make something that moves to a desired point.
 (define (move-me a b axis dir) MOVE_ME)
@@ -39,12 +42,12 @@
 			(set-draw
 				(set-who-moves
 					(create owner r r (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 2)
-					'crate-who-moves
+					crate-who-moves
 				)
-				'crate-draw
+				crate-draw
 			)
-			'crate-pushed
+			crate-pushed
 		)
-		'crate-tick
+		crate-tick
 	)
 )

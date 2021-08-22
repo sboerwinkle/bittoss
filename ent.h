@@ -85,15 +85,14 @@ typedef struct ent {
 	uint32_t d_typeMask_min, d_typeMask_max;
 	uint32_t d_collideMask_min, d_collideMask_max;
 	// Relative to the world even when held.
-	int32_t center[2], d_center_min[2], d_center_max[2];
+	int32_t center[3], d_center_min[3], d_center_max[3];
 	// Where the center will be at the end of this iteration
-	int32_t center2[2];
+	int32_t center2[3];
 	// Center at the beginning of this tick
-	int32_t old[2];
-	// For reasons, this actually doesn't play much of a roll during collisions. Collisions affect it, and it affects future positions, but it doesn't directly affect collisions.
-	int32_t vel[2], d_vel[2];
-	int32_t vel2[2];
-	int32_t radius[2];
+	int32_t old[3];
+	int32_t vel[3], d_vel[3];
+	int32_t vel2[3];
+	int32_t radius[3];
 
 #define axisMaxis 32
 	struct {
@@ -136,8 +135,8 @@ typedef struct ent {
 	// This is guaranteed to be set for one tick before the memory address is freed.
 	char dead, dead_max[2];
 
+	// Many, many event handlers.
 	//TODO: Make all this run in TinyScheme
-	//A f*ck ton of event handlers. Defaults will exist for most of these, and any non-default ones should probably call the default ones first to handle pointer management etc.
 	pointer whoMoves;
 	//int (*whoMoves)(struct ent *me, struct ent *him, byte axis, int dir);
 	pointer tick;
