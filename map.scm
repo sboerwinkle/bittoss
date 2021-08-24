@@ -17,12 +17,14 @@
 	6400
 )))
 
-(define (loop x)
-(let ((y (* 150 64)))
-	(if (< x (* 300 64)) (begin
-		(mk-ground (list x 0 y))
-		(loop (+ x (* 16 64)))
-	))
-)
-)
-(loop (* 50 64))
+;(define (loop x)
+;(let ((y (* 150 64)))
+;	(if (< x (* 300 64)) (begin
+;		(mk-ground (list x 0 y))
+;		(loop (+ x (* 16 64)))
+;	))
+;)
+;)
+;(loop (* 50 64))
+
+(mk-ground-inner (list (* 175 64) 0 (* 150 64)) (list (* 130 64) (* 130 64) 512))
