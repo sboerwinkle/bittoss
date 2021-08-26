@@ -79,6 +79,11 @@ void flushCtrls(ent *who) {
 		who->ctrl.axis1.min[i] = axisMaxis;
 		who->ctrl.axis1.max[i] = -axisMaxis;
 	}
+	for (i = 0; i < 3; i++) {
+		who->ctrl.look.v[i] = (who->ctrl.look.max[i] + who->ctrl.look.min[i]) / 2;
+		who->ctrl.look.min[i] = axisMaxis;
+		who->ctrl.look.max[i] = -axisMaxis;
+	}
 }
 
 static void recursiveHoldRoot(ent *who, ent *r) {

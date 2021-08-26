@@ -1,6 +1,7 @@
 extern void pushBtn1(ent *who);
 extern void pushBtn2(ent *who);
 extern void pushAxis1(ent *who, int *x);
+extern void pushEyes(ent *who, int *x);
 extern void uCenter(ent *e, int32_t *p);
 extern void uVel(ent *e, int32_t *a);
 extern void uDead(ent *e);

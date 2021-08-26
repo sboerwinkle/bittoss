@@ -16,8 +16,6 @@ We allow a special "holding" relation between objects that allows them to aglome
 
 typedef unsigned char byte;
 
-//#define getDir(a, b, axis) ((a)->old[axis]>(b)->old[axis] ? 1 : -1)
-
 /*
 Anatomy of a tick
 tasks run
@@ -103,6 +101,10 @@ typedef struct ent {
 			signed char min[2], max[2];
 			signed char v[2];
 		} axis1;
+		struct {
+			signed char min[3], max[3];
+			signed char v[3];
+		} look;
 	} ctrl;
 
 	//TODO: Orientation

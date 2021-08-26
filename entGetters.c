@@ -34,10 +34,28 @@ static pointer ts_getAxis(scheme *sc, pointer args) {
 	return cons(sc, mk_integer(sc, e->ctrl.axis1.v[0]), cons(sc, mk_integer(sc, e->ctrl.axis1.v[1]), sc->NIL));
 }
 
+static pointer ts_getLook(scheme *sc, pointer args) {
+	_size("get-look", 1);
+	_ent(e);
+	sc->NIL->references++;
+	return cons(sc, mk_integer(sc, e->ctrl.look.v[0]),
+		cons(sc, mk_integer(sc, e->ctrl.look.v[1]),
+		cons(sc, mk_integer(sc, e->ctrl.look.v[2]),
+		sc->NIL)));
+}
+
 static pointer ts_getButton(scheme *sc, pointer args) {
 	_size("get-button", 1);
 	_ent(e);
 	pointer ret = e->ctrl.btn1.v ? sc->T : sc->F;
+	ret->references++;
+	return ret;
+}
+
+static pointer ts_getTrigger(scheme *sc, pointer args) {
+	_size("get-trigger", 1);
+	_ent(e);
+	pointer ret = e->ctrl.btn2.v ? sc->T : sc->F;
 	ret->references++;
 	return ret;
 }
@@ -165,7 +183,9 @@ static pointer ts_getSlider(scheme *sc, pointer args) {
 void registerTsGetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "typ?"), mk_foreign_func(sc, ts_typ_p));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-axis"), mk_foreign_func(sc, ts_getAxis));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-look"), mk_foreign_func(sc, ts_getLook));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-button"), mk_foreign_func(sc, ts_getButton));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-trigger"), mk_foreign_func(sc, ts_getTrigger));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-pos"), mk_foreign_func(sc, ts_getPos));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-vel"), mk_foreign_func(sc, ts_getVel));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-state"), mk_foreign_func(sc, ts_getState));

@@ -27,6 +27,27 @@ void pushAxis1(ent *who, int *x) {
 		}
 	}
 }
+void pushEyes(ent *who, int *x) {
+	int i;
+	for (i = 0; i < 3; i++) {
+		if (x[i] > who->ctrl.look.max[i]) {
+			who->ctrl.look.max[i] = x[i];
+#ifndef NODEBUG_SCRIPT
+			if (x[i] > axisMaxis) {
+				printf("Invalid look component %d on dimension %d\n", x[i], i);
+			}
+#endif
+		}
+		if (x[i] < who->ctrl.look.min[i]) {
+			who->ctrl.look.min[i] = x[i];
+#ifndef NODEBUG_SCRIPT
+			if (x[i] < -axisMaxis) {
+				printf("Invalid axis component %d on dimension %d\n", x[i], i);
+			}
+#endif
+		}
+	}
+}
 
 void uCenter(ent *e, int32_t *p) {
 	for (int i = 0; i < 3; i++) {

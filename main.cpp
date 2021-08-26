@@ -31,10 +31,9 @@ static player *players;
 static int myPlayer;
 static int numPlayers;
 
-//TODO: New control scheme. For now, stick with the idea that every player has a single ent (no entering other things)
-
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE};
 char p1Keys[numKeys];
+static char mouseBtnDown = 0;
 
 scheme *sc;
 
@@ -194,19 +193,23 @@ static void doInputs(ent *e, char *data) {
 			else if (dv[i] < -axisMaxis) dv[i] = -axisMaxis;
 		}
 		*/
-	if (data[0]) pushBtn1(e);
+	if (data[0] & 1) pushBtn1(e);
+	if (data[0] & 2) pushBtn2(e);
 	if (data[1] || data[2]) {
 		int axis[2] = {data[1], data[2]};
 		pushAxis1(e, axis);
 	}
-	// data[3] - data[5] unused for the moment, represent look direction
+	if (data[3] || data[4] || data[5]) {
+		int look[3] = {data[3], data[4], data[5]};
+		pushEyes(e, look);
+	}
 }
 
 static void sendControls(int frame) {
 	char data[8];
 	data[0] = (char) frame;
 	data[1] = 6;
-	data[2] = p1Keys[4]; // Other buttons also go here, once they exist; bitfield
+	data[2] = p1Keys[4] + 2 * mouseBtnDown; // Other buttons also go here, once they exist; bitfield
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
@@ -329,7 +332,7 @@ static void doLava() {
 	}
 }
 
-static void* gameEngineThread(void *arg) {
+static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
 	ALLEGRO_EVENT evnt;
 	while (1) {
@@ -361,12 +364,15 @@ static void* gameEngineThread(void *arg) {
 					}
 					break;
 				}
+				mouseBtnDown = 1;
 				break;
 			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
 				mouse_grabbed = 0;
+				mouseBtnDown = 0;
 				al_show_mouse_cursor(display);
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+				mouseBtnDown = 0;
 				break;
 			case ALLEGRO_EVENT_MOUSE_AXES:
 				{
@@ -458,6 +464,7 @@ int main(int argc, char **argv) {
 	 */
 	numPlayers = 1;
 	al_set_new_display_flags(ALLEGRO_OPENGL);
+	al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
 	display = al_create_display(displayWidth, displayHeight);
 	if (!display) {
 		fputs("Couldn't create our display\n", stderr);
@@ -511,9 +518,9 @@ int main(int argc, char **argv) {
 	}
 
 	//Main loop
-	pthread_t engineThread;
+	pthread_t inputThread;
 	{
-		int ret = pthread_create(&engineThread, NULL, &gameEngineThread, display);
+		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, display);
 		if (ret) {
 			printf("pthread_create returned %d\n", ret);
 			return 1;
@@ -521,7 +528,7 @@ int main(int argc, char **argv) {
 	}
 	// TODO: If view direction ever matters, that should carry over rather than have a constant default
 	// (buttons, move_x, move_y, look_x, look_y, look_z)
-	char defaultData[6] = {0, 0, 0, 32, 0, 0};
+	char defaultData[6] = {0, 0, 0, 0, 0, 0};
 	char actualData[6];
 	ALLEGRO_EVENT customEvent;
 	customEvent.user.type = CUSTOM_EVT_TYPE;
@@ -576,12 +583,12 @@ int main(int argc, char **argv) {
 	}
 	done:;
 	puts("Beginning cleanup.");
-	puts("Cancelling main engine thread...");
+	puts("Cancelling input thread...");
 	{
-		int ret = pthread_cancel(engineThread);
-		if (ret) printf("Error cancelling engine thread: %d\n", ret);
-		ret = pthread_join(engineThread, NULL);
-		if (ret) printf("Error while joining engine thread: %d\n", ret);
+		int ret = pthread_cancel(inputThread);
+		if (ret) printf("Error cancelling input thread: %d\n", ret);
+		ret = pthread_join(inputThread, NULL);
+		if (ret) printf("Error while joining input thread: %d\n", ret);
 	}
 	puts("Done.");
 	closeSocket();
