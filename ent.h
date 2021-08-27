@@ -69,8 +69,8 @@ typedef struct ent {
 	struct ent *collisionLeaf;
 	// The best collision we've found so far
 	struct ent *collisionBuddy;
-	// Only true in the event of two equal objects colliding, where the velocities must be avg'd
-	//char collisionMutual;
+	// Pending collision is for both people; used to rank which collision to process first
+	char collisionMutual;
 	byte collisionAxis;
 	int collisionDir;
 	// which direction, if any, this ent has been forced this tick. If forced in conflicting ways, splatters.

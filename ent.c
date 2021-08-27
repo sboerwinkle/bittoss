@@ -316,13 +316,13 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	ent *leafs[] = {leaf, root->collisionLeaf};
 	byte axes[] = {axis, root->collisionAxis};
 	int dirs[] = {dir, root->collisionDir};
-	//char mutuals[] = {mutual, root->collisionMutual};
+	char mutuals[] = {mutual, root->collisionMutual};
 	int vals[2];
 	int i;
 #define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
 	//Criteria for ranking collisions:
-	//Prefer non-mutual collisions
-	//cb_helper(1^mutuals[i]);
+	//Prefer mutual collisions, reduces weirdness where one half will "miss" the collision by processing a different collision.
+	cb_helper(mutuals[i]);
 	// Distance to lateral clearance (maximize, old)
 #define clearance(x) folks[i]->radius[x] + leafs[i]->radius[x] - abs(folks[i]->old[x] - leafs[i]->old[x])
 	cb_helper(min(clearance((axes[i]+1)%3), clearance((axes[i]+2)%3)));
@@ -357,7 +357,7 @@ static byte tryCollide(ent *leaf, ent *buddy, byte axis, int dir, char mutual) {
 	if (collisionBetter(root, leaf, buddy, axis, dir, mutual)) {
 		root->collisionLeaf = leaf;
 		root->collisionBuddy = buddy;
-		//root->collisionMutual = mutual;
+		root->collisionMutual = mutual;
 		root->collisionAxis = axis;
 		root->collisionDir = dir;
 		return 1;
