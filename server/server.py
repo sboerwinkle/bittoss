@@ -92,9 +92,9 @@ def loop(clients, latency, framerate = 30):
                             print(f"Bad frame number {src_frame}, raising exception now")
                             raise Exception("Bad frame number, invalid network communication")
                         good = True
-                        delt = (frame + 16 - src_frame) % 16
-                        if delt == 0 or delt > latency:
-                            print(f"late packet received for client {ix}")
+                        delt = (frame + 15 - src_frame) % 16 + 1
+                        if delt > latency:
+                            print(f"client {ix} delivered packet {delt-latency} frames late")
                             good = False
                         dest_frame = (src_frame + latency) % 16
                         while len(data) < 2:
@@ -131,8 +131,8 @@ def loop(clients, latency, framerate = 30):
         for ix in range(num_clients):
             b = pieces[ix]
             pieces[ix] = b'\0'
-            if b == b'\0' and clients[ix] is not None:
-                print(f"No packet for client {ix}")
+            #if b == b'\0' and clients[ix] is not None:
+            #    print(f"No packet for client {ix}") # Kinda excessive when combined with the "packet came late" messages
             msg += b
         for c in active_clients:
             try:
