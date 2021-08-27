@@ -27,6 +27,12 @@ static pointer ts_typ_p(scheme *sc, pointer args) {
 	return ret;
 }
 
+static pointer ts_getType(scheme *sc, pointer args) {
+	_size("get-typ", 1);
+	_ent(e);
+	return mk_integer(sc, e->typeMask);
+}
+
 static pointer ts_getAxis(scheme *sc, pointer args) {
 	_size("get-axis", 1);
 	_ent(e);
@@ -182,6 +188,7 @@ static pointer ts_getSlider(scheme *sc, pointer args) {
 
 void registerTsGetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "typ?"), mk_foreign_func(sc, ts_typ_p));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-type"), mk_foreign_func(sc, ts_getType));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-axis"), mk_foreign_func(sc, ts_getAxis));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-look"), mk_foreign_func(sc, ts_getLook));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "get-button"), mk_foreign_func(sc, ts_getButton));

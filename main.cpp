@@ -55,7 +55,7 @@ static double viewYaw = 0;
 static double viewPitch = 0;
 static int mouseX = 0;
 static int mouseY = 0;
-static char thirdPerson = 0;
+static char thirdPerson = 1;
 
 //static ALLEGRO_VERTEX vertices[4];
 //const int indices[6] = {0, 1, 2, 3, 2, 1};
@@ -87,7 +87,7 @@ static void setupFrame() {
 	if (p) {
 		glTranslatef(-p->center[0], -p->center[2], -p->center[1]);
 	} else {
-		glTranslatef(0, 0, -1000*PTS_PER_PX);
+		glTranslatef(0, 15000, -500*PTS_PER_PX);
 	}
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -240,8 +240,8 @@ static void sendControls(int frame) {
 	mag2 = abs(pitchSine);
 	if (mag2 > mag) mag = mag2;
 	double divisor = mag / axisMaxis;
-	data[5] = round(cosine / divisor);
-	data[6] = round(sine / divisor);
+	data[5] = round(sine / divisor);
+	data[6] = round(-cosine / divisor);
 	data[7] = round(pitchSine / divisor);
 	sendData(data, 8);
 }
@@ -266,8 +266,8 @@ static void doHeroes() {
 			}
 			p->entity = (ent*)c_ptr_value(hero);
 			if (i == myPlayer) {
-				viewPitch = 0;
-				viewYaw = 90;
+				viewPitch = 90;
+				viewYaw = 0;
 			}
 		}
 		if (p->entity->dead) {

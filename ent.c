@@ -344,10 +344,10 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//cb_helper(-abs(folks[i]->old[1^axes[i]] - leafs[i]->old[1^axes[i]]));
 	//TODO; If that fails, maybe try exposed broadside surface of the leaf's recursive holders?
 	//puts("Using a collision-ranking criterion which I should not!");
-	puts("Using collision-ranking criteria which break symmetry!");
+	//puts("Using collision-ranking criteria which break symmetry!");
 	cb_helper(axes[i]);
 	cb_helper(dirs[i]);
-	puts("Using the most evil collision-ranking criterion");
+	//puts("Using the most evil collision-ranking criterion");
 	return 0;
 #undef cb_helper
 }

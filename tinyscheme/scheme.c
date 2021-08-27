@@ -3658,6 +3658,15 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
        }
        s_return(sc,mk_number(sc, v));
 
+     case OP_BIT_AND:        // &
+       {
+         long ret = -1; // All bits set
+         for (x = sc->args; x != sc->NIL; x = cdr(x)) {
+           ret &= ivalue_unchecked(car(x));
+         }
+         s_return(sc,mk_integer(sc, ret));
+       }
+
      case OP_INTDIV:        /* quotient */
           if(cdr(sc->args)==sc->NIL) {
                x=sc->args;

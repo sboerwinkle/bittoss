@@ -8,6 +8,8 @@
 (define T_OBSTACLE 4)
 (define T_WEIGHTLESS 8)
 (define T_GROW 16)
+(define TEAM_BIT 32)
+(define TEAM_MASK (* TEAM_BIT 7))
 
 (define R_DIE 0)
 (define R_DROP 1)
@@ -47,3 +49,6 @@
                (cars (car unz))
                (cdrs (cdr unz)))
           (cons (apply proc cars) (apply map (cons proc cdrs)))))))
+
+; Not as fundamental as some of these others, perhaps, but helpful for the kind of stuff we're doing
+(define (bound x b) (if (> x b) b (if (< x (- b)) (- b) x)))
