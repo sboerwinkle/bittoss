@@ -4,6 +4,7 @@
 #include <math.h>
 #include "ent.h"
 #include "main.h"
+#include "graphics.h"
 
 ent *ents = NULL;
 //ent *entsToAdd = NULL;

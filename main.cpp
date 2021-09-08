@@ -5,6 +5,8 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_opengl.h>
 #include <pthread.h>
+
+#include "graphics.h"
 #include "ent.h"
 #include "main.h"
 #include "modules.h"
@@ -40,16 +42,7 @@ scheme *sc;
 static ALLEGRO_DISPLAY *display;
 static ALLEGRO_EVENT_QUEUE *queue;
 
-#define displayWidth 1000
-#define displayHeight 700
-#define mouseSensitivity 0.15
-
-// Person cube radius is 16, and with a 90 deg FOV the closest
-// something touching our surface could be while still being onscreen
-// is 16/sqrt(2) = approx 11.3
-#define nearPlane (11*PTS_PER_PX)
-// Pretty arbitrary; remember that increasing the ratio of far/near decreases z-buffer accuracy
-#define farPlane (1500*PTS_PER_PX)
+#define mouseSensitivity 0.0025
 
 static double viewYaw = 0;
 static double viewPitch = 0;
@@ -66,90 +59,25 @@ static char thirdPerson = 1;
 static int historical_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
 
-static void setupFrame() {
-	// https://github.com/liballeg/allegro5/blob/b70f37412a082293f26e86ff9c0b6ac7c151d2d0/examples/ex_gldepth.c
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glFrustum(
-		// 90 deg horizontal FOV
-		-nearPlane, nearPlane,
-		// Adjust for aspect ratio
-		nearPlane*displayHeight/displayWidth, -nearPlane*displayHeight/displayWidth,
-		nearPlane, farPlane
-	);
+static void outerSetupFrame() {
 	ent *p = players[myPlayer].entity;
+	float up, forward;
 	if (p && thirdPerson) {
-		glTranslatef(0, 32*PTS_PER_PX, -64*PTS_PER_PX);
-	}
-	glRotated(viewPitch, -1, 0, 0);
-	glRotated(viewYaw, 0, 1, 0);
-	if (p) {
-		glTranslatef(-p->center[0], -p->center[2], -p->center[1]);
+		up = 32*PTS_PER_PX;
+		forward = -64*PTS_PER_PX;
 	} else {
-		glTranslatef(0, 15000, -500*PTS_PER_PX);
+		up = forward = 0;
 	}
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-}
-
-void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
-	// TODO If we want to get really fancy this could probably all go
-	//      in a geometry shader or something, or maybe attach color
-	//      information and do it all as one big TRIANGLES call?
-	//      At the very least we only have to send 3 faces per cube if we're smart
-#define L glVertex3i(p[0]-r[0],
-#define R glVertex3i(p[0]+r[0],
-#define U p[2]-r[2],
-#define D p[2]+r[2],
-#define F p[1]-r[1])
-#define B p[1]+r[1])
-	// Top is full color
-	glColor3f(red, grn, blu);
-	glBegin(GL_TRIANGLE_STRIP);
-	L U F;
-	R U F;
-	L U B;
-	R U B;
-	glEnd();
-	// Front is dimmer
-	glColor3f(.85 * red, .85 * grn, .85 * blu);
-	glBegin(GL_TRIANGLE_STRIP);
-	L U F;
-	L D F;
-	R U F;
-	R D F;
-	glEnd();
-	// Sides are a bit dimmer
-	glColor3f(.75 * red, .75 * grn, .75 * blu);
-	glBegin(GL_TRIANGLE_STRIP);
-	L U B;
-	L D B;
-	L U F;
-	L D F;
-	glEnd();
-	glBegin(GL_TRIANGLE_STRIP);
-	R D F;
-	R D B;
-	R U F;
-	R U B;
-	glEnd();
-	// Back is dimmer still
-	glColor3f(.65 * red, .65 * grn, .65 * blu);
-	glBegin(GL_TRIANGLE_STRIP);
-	L U B;
-	R U B;
-	L D B;
-	R D B;
-	glEnd();
-	// Bottom is dimmest
-	glColor3f(.50 * red, .50 * grn, .50 * blu);
-	glBegin(GL_TRIANGLE_STRIP);
-	L D F;
-	L D B;
-	R D F;
-	R D B;
-	glEnd();
+	setupFrame(-viewPitch, viewYaw, up, forward);
+	if (p) {
+		frameOffset[0] = -p->center[0];
+		frameOffset[1] = -p->center[1];
+		frameOffset[2] = -p->center[2];
+	} else {
+		frameOffset[0] = 0;
+		frameOffset[1] = -15000;
+		frameOffset[2] = 500*PTS_PER_PX;
+	}
 }
 
 #define micros_per_frame (1000000 / FRAMERATE)
@@ -213,7 +141,7 @@ static void sendControls(int frame) {
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
-	double angle = viewYaw * M_PI / 180;
+	double angle = viewYaw;
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	if (axis1 || axis2) {
@@ -229,7 +157,7 @@ static void sendControls(int frame) {
 	} else {
 		data[3] = data[4] = 0;
 	}
-	double pitchRadians = viewPitch * M_PI / 180;
+	double pitchRadians = viewPitch;
 	double pitchCos = cos(pitchRadians);
 	cosine *= pitchCos;
 	sine *= pitchCos;
@@ -266,7 +194,7 @@ static void doHeroes() {
 			}
 			p->entity = (ent*)c_ptr_value(hero);
 			if (i == myPlayer) {
-				viewPitch = 90;
+				viewPitch = M_PI_2;
 				viewYaw = 0;
 			}
 		}
@@ -274,7 +202,8 @@ static void doHeroes() {
 			p->entity = NULL;
 			p->reviveCounter = FRAMERATE * 3;
 			if (i == myPlayer) {
-				viewPitch = viewYaw = 0;
+				viewPitch = M_PI_4 / 2;
+				viewYaw = 0;
 			}
 			continue;
 		}
@@ -310,11 +239,11 @@ char handleKey(int code, char pressed) {
 
 static void handleMouseMove(int dx, int dy) {
 	viewYaw += dx * mouseSensitivity;
-	if (viewYaw >= 180) viewYaw -= 360;
-	else if (viewYaw < -180) viewYaw += 360;
+	if (viewYaw >= M_PI) viewYaw -= 2*M_PI;
+	else if (viewYaw < -M_PI) viewYaw += 2*M_PI;
 	viewPitch += dy * mouseSensitivity;
-	if (viewPitch > 90) viewPitch = 90;
-	else if (viewPitch < -90) viewPitch = -90;
+	if (viewPitch > M_PI_2) viewPitch = M_PI_2;
+	else if (viewPitch < -M_PI_2) viewPitch = -M_PI_2;
 }
 
 static void doGravity() {
@@ -478,9 +407,7 @@ int main(int argc, char **argv) {
 		fputs("No mouse support.\n", stderr);
 	}
 	// OpenGL Setup
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_CULL_FACE);
-	glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
+	initGraphics();
 	//Set up other modules
 	initMods();
 
@@ -571,7 +498,7 @@ int main(int argc, char **argv) {
 			}
 		}
 		doPhysics();
-		setupFrame();
+		outerSetupFrame();
 		doDrawing();
 		//drawMicroHist();
 		al_flip_display();
