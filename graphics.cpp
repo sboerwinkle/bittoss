@@ -12,6 +12,8 @@ int frameOffset[3];
 // once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
 GLfloat boxData[216];
 
+static GLuint main_prog, flat_prog;
+
 static GLint u_camera_id = -1;
 static GLuint stream_buffer_id;
 
@@ -79,13 +81,19 @@ void initGraphics() {
 		exit(1);
 	}
 	GLuint vertexShader = mkShader(GL_VERTEX_SHADER, "shaders/solid.vert");
-
+	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/hud.vert");
 	GLuint fragShader = mkShader(GL_FRAGMENT_SHADER, "shaders/color.frag");
 
-	GLuint prog = glCreateProgram();
-	glAttachShader(prog, vertexShader);
-	glAttachShader(prog, fragShader);
-	glLinkProgram(prog);
+	main_prog = glCreateProgram();
+	glAttachShader(main_prog, vertexShader);
+	glAttachShader(main_prog, fragShader);
+	glLinkProgram(main_prog);
+	cerr("Post link");
+
+	flat_prog = glCreateProgram();
+	glAttachShader(flat_prog, vertexShader2d);
+	glAttachShader(flat_prog, fragShader);
+	glLinkProgram(flat_prog);
 	cerr("Post link");
 
 	/* TODO:
@@ -96,18 +104,18 @@ void initGraphics() {
 	 * - Maybe even a geometry shader??? Not sure if that would have a significant improvement or not.
 	 * - As a third option, leverage the indexing thingy for a slight reduction in vertex data needing to be written?
 	 */
-	u_camera_id = glGetUniformLocation(prog, "u_camera");
-	GLint a_loc_id = glGetAttribLocation(prog, "a_loc");
-	GLint a_color_id = glGetAttribLocation(prog, "a_color");
+	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
+	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
+	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
 
 	glEnableVertexAttribArray(a_loc_id);
 	glEnableVertexAttribArray(a_color_id);
-	printGLProgErrors(prog);
+	printGLProgErrors(main_prog);
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
-	glUseProgram(prog);
+	glUseProgram(main_prog);
 
 	glGenBuffers(1, &stream_buffer_id);
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
@@ -133,7 +141,34 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 	mat4x4Multf(mat_final, mat_a, mat_quat);
 
 	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, mat_final);
+
+	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
 }
+
+/* TODO Convert to not-martin-mode
+void drawHudText(char* str, struct font* f, double x, double y, double scale, float* color, int len){
+        glDisable(GL_DEPTH_TEST);
+        glUseProgram(hudShader.program);
+        cerr("After use program (hud)");
+        glBindBuffer(GL_ARRAY_BUFFER, f->vertex_buffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, f->ref_buffer);
+
+        glUniformMatrix4fv(hudShader.u_lens, 1, GL_FALSE, cam_lens_ortho);
+        glUniform1f(hudShader.u_scale, (float)scale);
+        glUniform1f(hudShader.u_aspect, (float)f->invaspect);
+        glUniform4f(hudShader.u_color, color[0], color[1], color[2], color[3]);
+
+        glVertexAttribPointer(hudShader.a_loc, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
+        for(int idx = 0; idx < len; idx++){
+                glUniform2f(hudShader.u_offset, x+(1.0+f->spacing)*scale*idx, y);
+                int letter = str[idx];
+                if(!letter) return;
+                letter -= 33;
+                if(letter < 0 || letter >= 94) continue;
+                glDrawElements(GL_TRIANGLES, f->letterLen[letter], GL_UNSIGNED_SHORT, (void*) (sizeof(short)*f->letterStart[letter]));
+        }
+}
+*/
 
 void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	// TODO This could be improved in a number of ways, see other TODO higher in this file

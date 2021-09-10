@@ -7,6 +7,7 @@
 #include <pthread.h>
 
 #include "graphics.h"
+#include "font.h"
 #include "ent.h"
 #include "main.h"
 #include "modules.h"
@@ -408,6 +409,7 @@ int main(int argc, char **argv) {
 	}
 	// OpenGL Setup
 	initGraphics();
+	initFont(); // must be after graphics, calls GL functions
 	//Set up other modules
 	initMods();
 

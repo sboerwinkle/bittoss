@@ -1,12 +1,6 @@
 TODO:
-I've got a list further on down the file, but this is some older organization, and I like my TODOs at the top.
-Biggest thing right now is we need to hack the garbage collection to protect stuff we have references to in C-land.
-	Right now it has to be attached to a symbol in practice, or it'll be reused.
-	We'll have to mark all of those guys' descendants as well; and we'll have to count references, since there could be multiple.
-	All of this probably amounts to anohter field on the scheme cell struct for the reference count;
-	And then we can dig into how exactly it marks stuff during GC and we can "permanently" mark it while it's got a positive reference count.
-		This is fine for our case, because we don't permit modifications of existing cons, so while it's got a positive count we know exactly which cells it protects.
-		Relatedly, we maybe could update all of them to be reference-counted, assuming we can guarantee no circular references anywhere... including environments... which will always be a thing since they probably have a name for functions, which in turn close over their environment.
+- Complete switch to Scheme ref-counting
+- Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 
 
 Okay, we're well on our way!
