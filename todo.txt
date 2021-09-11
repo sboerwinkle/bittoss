@@ -1,4 +1,5 @@
 TODO:
+/ Server exiting cancels input thread but doesn't exit app
 - Complete switch to Scheme ref-counting
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 

@@ -264,8 +264,9 @@ static void doLava() {
 
 static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
+	char running = 1;
 	ALLEGRO_EVENT evnt;
-	while (1) {
+	while (running) {
 		al_wait_for_event(queue, &evnt);
 		switch(evnt.type) {
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
@@ -333,10 +334,17 @@ static void* inputThreadFunc(void *arg) {
 				break;
 			case CUSTOM_EVT_TYPE:
 				int frame = (int) evnt.user.data1;
-				sendControls(frame);
+				if (frame == -1) running = 0;
+				else sendControls(frame);
 				break;
 		}
 	}
+	puts("\tCleaning up Allegro stuff...");
+	al_unregister_event_source(queue, &customSrc);
+	al_destroy_user_event_source(&customSrc);
+	al_destroy_event_queue(queue);
+	al_destroy_display(display);
+	puts("\tDone.");
 }
 
 static void setupPlayers() {
@@ -514,18 +522,21 @@ int main(int argc, char **argv) {
 	puts("Beginning cleanup.");
 	puts("Cancelling input thread...");
 	{
-		int ret = pthread_cancel(inputThread);
-		if (ret) printf("Error cancelling input thread: %d\n", ret);
-		ret = pthread_join(inputThread, NULL);
+		customEvent.user.data1 = -1;
+		al_emit_user_event(&customSrc, &customEvent, NULL);
+		//int ret = pthread_cancel(inputThread);
+		//if (ret) printf("Error cancelling input thread: %d\n", ret);
+		int ret = pthread_join(inputThread, NULL);
 		if (ret) printf("Error while joining input thread: %d\n", ret);
 	}
 	puts("Done.");
+	puts("Closing socket...");
 	closeSocket();
-	al_destroy_user_event_source(&customSrc);
-	al_destroy_event_queue(queue);
-	al_destroy_display(display);
+	puts("Done.");
+	puts("Cleaning up Scheme...");
 	scheme_deinit(sc);
 	free(sc);
+	puts("Done.");
 	delete[] players;
 	puts("Cleanup complete, goodbye!");
 	return 0;
