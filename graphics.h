@@ -1,6 +1,7 @@
 
 #define displayWidth 1000
 #define displayHeight 700
+#define fontSizePx 16
 #define PTS_PER_PX 32
 
 // Person cube radius is 16, and with a 90 deg FOV the closest
@@ -15,5 +16,7 @@ extern int frameOffset[3];
 extern void initGraphics();
 
 extern void setupFrame(float pitch, float yaw, float up, float forward);
+extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
+extern void drawHudText(char* str, double x, double y, double scale, float* color);

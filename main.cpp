@@ -345,6 +345,7 @@ static void* inputThreadFunc(void *arg) {
 	al_destroy_event_queue(queue);
 	al_destroy_display(display);
 	puts("\tDone.");
+	return NULL;
 }
 
 static void setupPlayers() {
@@ -416,8 +417,7 @@ int main(int argc, char **argv) {
 		fputs("No mouse support.\n", stderr);
 	}
 	// OpenGL Setup
-	initGraphics();
-	initFont(); // must be after graphics, calls GL functions
+	initGraphics(); // calls initFont()
 	//Set up other modules
 	initMods();
 

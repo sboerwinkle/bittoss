@@ -5,6 +5,7 @@
 #include "ExternLinAlg.h"
 #include "Quaternion.h"
 #include "graphics.h"
+#include "font.h"
 
 int frameOffset[3];
 
@@ -13,9 +14,16 @@ int frameOffset[3];
 GLfloat boxData[216];
 
 static GLuint main_prog, flat_prog;
+static GLuint vaos[2];
 
 static GLint u_camera_id = -1;
+static GLint u_flat_camera_id = -1;
+static GLint u_flat_offset_id = -1;
+static GLint u_flat_scale_x_id = -1;
+static GLint u_flat_scale_y_id = -1;
+static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
+static GLfloat cam_lens_ortho[16];
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
 static void printGLProgErrors(GLuint prog){
@@ -108,25 +116,50 @@ void initGraphics() {
 	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
 	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
 
-	glEnableVertexAttribArray(a_loc_id);
-	glEnableVertexAttribArray(a_color_id);
-	printGLProgErrors(main_prog);
+	u_flat_camera_id = glGetUniformLocation(flat_prog, "u_camera");
+	u_flat_offset_id = glGetUniformLocation(flat_prog, "u_offset");
+	u_flat_scale_x_id = glGetUniformLocation(flat_prog, "u_scale_x");
+	u_flat_scale_y_id = glGetUniformLocation(flat_prog, "u_scale_y");
+	u_flat_color_id = glGetUniformLocation(flat_prog, "u_color");
+	GLint a_flat_loc_id = glGetAttribLocation(main_prog, "a_loc");
 
-	glEnable(GL_DEPTH_TEST);
+	printGLProgErrors(main_prog);
+	printGLProgErrors(flat_prog);
+
+	// glEnable(GL_DEPTH_TEST); Set per-program instead, see `setupFrame` / `setupText`
 	glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
-	glUseProgram(main_prog);
+	glGenVertexArrays(2, vaos);
 
+	glBindVertexArray(vaos[0]);
+	glEnableVertexAttribArray(a_loc_id);
+	glEnableVertexAttribArray(a_color_id);
 	glGenBuffers(1, &stream_buffer_id);
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
 	// Position data is first
 	glVertexAttribPointer(a_loc_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (void*) 0);
 	// Followed by color data
 	glVertexAttribPointer(a_color_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (void*) (sizeof(GLfloat) * 3));
+
+	glBindVertexArray(vaos[1]);
+	glEnableVertexAttribArray(a_flat_loc_id);
+	initFont();
+	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
+
+	glOrthoEquiv(cam_lens_ortho, 0, (float) displayWidth / fontSizePx, 0, (float) displayHeight / fontSizePx, -1, 1);
+
+	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
+	// so we can leave it bound for the main_prog.
+	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
+	cerr("End of graphics setup");
 }
 
 void setupFrame(float pitch, float yaw, float up, float forward) {
+	glUseProgram(main_prog);
+	glBindVertexArray(vaos[0]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+
 	float quat[4] = {1,0,0,0};
 	quat_rotY(quat, NULL, yaw);
 	quat_rotX(quat, NULL, pitch);
@@ -141,34 +174,32 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 	mat4x4Multf(mat_final, mat_a, mat_quat);
 
 	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, mat_final);
-
-	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
+	cerr("End of frame setup");
 }
 
-/* TODO Convert to not-martin-mode
-void drawHudText(char* str, struct font* f, double x, double y, double scale, float* color, int len){
-        glDisable(GL_DEPTH_TEST);
-        glUseProgram(hudShader.program);
-        cerr("After use program (hud)");
-        glBindBuffer(GL_ARRAY_BUFFER, f->vertex_buffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, f->ref_buffer);
+void setupText() {
+	glUseProgram(flat_prog);
+	//cerr("After use program (flat_prog)");
+	glBindVertexArray(vaos[1]);
+	glDisable(GL_DEPTH_TEST);
 
-        glUniformMatrix4fv(hudShader.u_lens, 1, GL_FALSE, cam_lens_ortho);
-        glUniform1f(hudShader.u_scale, (float)scale);
-        glUniform1f(hudShader.u_aspect, (float)f->invaspect);
-        glUniform4f(hudShader.u_color, color[0], color[1], color[2], color[3]);
-
-        glVertexAttribPointer(hudShader.a_loc, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
-        for(int idx = 0; idx < len; idx++){
-                glUniform2f(hudShader.u_offset, x+(1.0+f->spacing)*scale*idx, y);
-                int letter = str[idx];
-                if(!letter) return;
-                letter -= 33;
-                if(letter < 0 || letter >= 94) continue;
-                glDrawElements(GL_TRIANGLES, f->letterLen[letter], GL_UNSIGNED_SHORT, (void*) (sizeof(short)*f->letterStart[letter]));
-        }
+	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
 }
-*/
+
+void drawHudText(char* str, double x, double y, double scale, float* color){
+	glUniform1f(u_flat_scale_x_id, (float)scale);
+	glUniform1f(u_flat_scale_y_id, (float)(scale*myfont.invaspect));
+	glUniform3fv(u_flat_color_id, 3, color);
+
+	for(int idx = 0;; idx++){
+		glUniform2f(u_flat_offset_id, x+(1.0+myfont.spacing)*scale*idx, y);
+		int letter = str[idx];
+		if(!letter) return;
+		letter -= 33;
+		if(letter < 0 || letter >= 94) continue;
+		glDrawElements(GL_TRIANGLES, myfont.letterLen[letter], GL_UNSIGNED_SHORT, (void*) (sizeof(short)*myfont.letterStart[letter]));
+	}
+}
 
 void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	// TODO This could be improved in a number of ways, see other TODO higher in this file

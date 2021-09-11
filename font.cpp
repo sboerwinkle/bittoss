@@ -46,7 +46,7 @@ void initFont() {
 
 	glGenBuffers(1, &(myfont.ref_buffer));
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, myfont.ref_buffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short)*formLen, form, GL_STATIC_READ);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short)*formLen, form, GL_STATIC_DRAW);
 	
 	free(form);
 	free(points);

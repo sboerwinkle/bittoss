@@ -22,7 +22,7 @@ char initSocket(char *srvAddr, int port) {
 	}
 
 	struct sockaddr_in server;
-       	server.sin_family = AF_INET;
+	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = inet_addr(srvAddr);
 	server.sin_port=htons(port);
 

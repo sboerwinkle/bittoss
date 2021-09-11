@@ -1,3 +1,7 @@
+/////////////////////////////////
+// Most work by mboerwinkle
+/////////////////////////////////
+
 #ifndef QUATERNION_H
 #define QUATERNION_H
 extern void quat_norm(float* t);
