@@ -19,4 +19,4 @@ extern void setupFrame(float pitch, float yaw, float up, float forward);
 extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
-extern void drawHudText(char* str, double x, double y, double scale, float* color);
+extern void drawHudText(const char* str, double x, double y, double scale, float* color);

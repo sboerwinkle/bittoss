@@ -81,6 +81,12 @@ static void outerSetupFrame() {
 	}
 }
 
+static float hudColor[3] = {0, 0.5, 0.5};
+static void drawHud() {
+	setupText();
+	drawHudText("Hello!", 1, 1, 1, hudColor);
+}
+
 #define micros_per_frame (1000000 / FRAMERATE)
 /*
 static void drawMicroHist() {
@@ -510,6 +516,7 @@ int main(int argc, char **argv) {
 		doPhysics();
 		outerSetupFrame();
 		doDrawing();
+		drawHud();
 		//drawMicroHist();
 		al_flip_display();
 		//gettimeofday(&t2, NULL);

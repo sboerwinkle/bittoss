@@ -121,14 +121,14 @@ void initGraphics() {
 	u_flat_scale_x_id = glGetUniformLocation(flat_prog, "u_scale_x");
 	u_flat_scale_y_id = glGetUniformLocation(flat_prog, "u_scale_y");
 	u_flat_color_id = glGetUniformLocation(flat_prog, "u_color");
-	GLint a_flat_loc_id = glGetAttribLocation(main_prog, "a_loc");
+	GLint a_flat_loc_id = glGetAttribLocation(flat_prog, "a_loc");
 
 	printGLProgErrors(main_prog);
 	printGLProgErrors(flat_prog);
 
 	// glEnable(GL_DEPTH_TEST); Set per-program instead, see `setupFrame` / `setupText`
 	glEnable(GL_CULL_FACE);
-	glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
+	//glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
 	glGenVertexArrays(2, vaos);
 
 	glBindVertexArray(vaos[0]);
@@ -146,7 +146,7 @@ void initGraphics() {
 	initFont();
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
 
-	glOrthoEquiv(cam_lens_ortho, 0, (float) displayWidth / fontSizePx, 0, (float) displayHeight / fontSizePx, -1, 1);
+	glOrthoEquiv(cam_lens_ortho, 0, (float) displayWidth / fontSizePx, (float) displayHeight / fontSizePx, 0, -1, 1);
 
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
@@ -186,10 +186,10 @@ void setupText() {
 	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
 }
 
-void drawHudText(char* str, double x, double y, double scale, float* color){
+void drawHudText(const char* str, double x, double y, double scale, float* color){
 	glUniform1f(u_flat_scale_x_id, (float)scale);
 	glUniform1f(u_flat_scale_y_id, (float)(scale*myfont.invaspect));
-	glUniform3fv(u_flat_color_id, 3, color);
+	glUniform3fv(u_flat_color_id, 1, color);
 
 	for(int idx = 0;; idx++){
 		glUniform2f(u_flat_offset_id, x+(1.0+myfont.spacing)*scale*idx, y);
@@ -236,45 +236,45 @@ void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	boxData[counter++] = b;
 	// Top is full color
 	vtx(L,U,F,r1,g1,b1);
-	vtx(R,U,F,r1,g1,b1);
-	vtx(L,U,B,r1,g1,b1);
 	vtx(L,U,B,r1,g1,b1);
 	vtx(R,U,F,r1,g1,b1);
+	vtx(L,U,B,r1,g1,b1);
 	vtx(R,U,B,r1,g1,b1);
+	vtx(R,U,F,r1,g1,b1);
 	// Front is dimmer
 	vtx(L,U,F,r2,g2,b2);
-	vtx(L,D,F,r2,g2,b2);
-	vtx(R,U,F,r2,g2,b2);
 	vtx(R,U,F,r2,g2,b2);
 	vtx(L,D,F,r2,g2,b2);
+	vtx(R,U,F,r2,g2,b2);
 	vtx(R,D,F,r2,g2,b2);
+	vtx(L,D,F,r2,g2,b2);
 	// Sides are a bit dimmer
 	vtx(L,U,B,r3,g3,b3);
-	vtx(L,D,B,r3,g3,b3);
-	vtx(L,U,F,r3,g3,b3);
 	vtx(L,U,F,r3,g3,b3);
 	vtx(L,D,B,r3,g3,b3);
+	vtx(L,U,F,r3,g3,b3);
 	vtx(L,D,F,r3,g3,b3);
+	vtx(L,D,B,r3,g3,b3);
 	vtx(R,D,F,r3,g3,b3);
-	vtx(R,D,B,r3,g3,b3);
-	vtx(R,U,F,r3,g3,b3);
 	vtx(R,U,F,r3,g3,b3);
 	vtx(R,D,B,r3,g3,b3);
+	vtx(R,U,F,r3,g3,b3);
 	vtx(R,U,B,r3,g3,b3);
+	vtx(R,D,B,r3,g3,b3);
 	// Back is dimmer still
 	vtx(L,U,B,r4,g4,b4);
-	vtx(R,U,B,r4,g4,b4);
-	vtx(L,D,B,r4,g4,b4);
 	vtx(L,D,B,r4,g4,b4);
 	vtx(R,U,B,r4,g4,b4);
+	vtx(L,D,B,r4,g4,b4);
 	vtx(R,D,B,r4,g4,b4);
+	vtx(R,U,B,r4,g4,b4);
 	// Bottom is dimmest
 	vtx(L,D,F,r5,g5,b5);
-	vtx(L,D,B,r5,g5,b5);
-	vtx(R,D,F,r5,g5,b5);
 	vtx(R,D,F,r5,g5,b5);
 	vtx(L,D,B,r5,g5,b5);
+	vtx(R,D,F,r5,g5,b5);
 	vtx(R,D,B,r5,g5,b5);
+	vtx(L,D,B,r5,g5,b5);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*216, boxData, GL_STREAM_DRAW);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }
