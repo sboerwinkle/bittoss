@@ -56,6 +56,10 @@ static char thirdPerson = 1;
 //static int32_t cx = (displayWidth / 2) * PTS_PER_PX;
 //static int32_t cy = (displayHeight / 2) * PTS_PER_PX;
 
+#define TEXT_BUF_LEN 500
+static char textBuffer[TEXT_BUF_LEN];
+static int bufferedTextLen = 0;
+
 #define micro_hist_num 5
 static int historical_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
@@ -84,7 +88,7 @@ static void outerSetupFrame() {
 static float hudColor[3] = {0, 0.5, 0.5};
 static void drawHud() {
 	setupText();
-	drawHudText("Hello!", 1, 1, 1, hudColor);
+	drawHudText(textBuffer, 1, 1, 1, hudColor);
 }
 
 #define micros_per_frame (1000000 / FRAMERATE)
@@ -270,29 +274,55 @@ static void doLava() {
 
 static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
+	char text_input = 0;
 	char running = 1;
 	ALLEGRO_EVENT evnt;
 	while (running) {
 		al_wait_for_event(queue, &evnt);
 		switch(evnt.type) {
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				// Forces main thread to exit as well
+				// Forces main thread to exit, it will then tell us to exit and we'll quit gracefully
 				closeSocket();
-				return NULL;
-#ifndef MANUAL_STEP
-			case ALLEGRO_EVENT_TIMER:
 				break;
-#endif
 			case ALLEGRO_EVENT_KEY_UP:
 				handleKey(evnt.keyboard.keycode, 0);
 				break;
 			case ALLEGRO_EVENT_KEY_DOWN:
+				if (text_input) break;
 				if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
 					al_ungrab_mouse();
 					al_show_mouse_cursor(display);
 					mouse_grabbed = 0;
 				}
 				handleKey(evnt.keyboard.keycode, 1);
+				break;
+			case ALLEGRO_EVENT_KEY_CHAR:
+				if (text_input) {
+					int c = evnt.keyboard.unichar;
+					if (c >= 0x20 && c <= 0xFE && bufferedTextLen+2 < TEXT_BUF_LEN) {
+						textBuffer[bufferedTextLen+2] = '\0';
+						textBuffer[bufferedTextLen+1] = '_';
+						textBuffer[bufferedTextLen] = c;
+						bufferedTextLen++;
+					} else if (c == '\r') {
+						textBuffer[bufferedTextLen] = '\0';
+						text_input = 0;
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
+						textBuffer[0] = '\0';
+						text_input = 0;
+					} else if (c == '\b' && bufferedTextLen) {
+						textBuffer[bufferedTextLen] = '\0';
+						textBuffer[bufferedTextLen-1] = '_';
+						bufferedTextLen--;
+					}
+				} else {
+					if (evnt.keyboard.keycode == ALLEGRO_KEY_T) {
+						text_input = 1;
+						textBuffer[1] = '\0';
+						textBuffer[0] = '_';
+						bufferedTextLen = 0;
+					}
+				}
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
 				if (!mouse_grabbed) {
@@ -459,6 +489,8 @@ int main(int argc, char **argv) {
 		al_register_event_source(queue, al_get_mouse_event_source());
 		// For now, don't capture mouse on startup. Might prevent mouse warpiness in first frame, idk, feel free to mess around
 	}
+
+	textBuffer[0] = textBuffer[TEXT_BUF_LEN-1] = '\0';
 
 	//Main loop
 	pthread_t inputThread;
