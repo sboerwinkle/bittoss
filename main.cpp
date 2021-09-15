@@ -56,9 +56,12 @@ static char thirdPerson = 1;
 //static int32_t cx = (displayWidth / 2) * PTS_PER_PX;
 //static int32_t cy = (displayHeight / 2) * PTS_PER_PX;
 
-#define TEXT_BUF_LEN 500
-static char textBuffer[TEXT_BUF_LEN];
+// At the moment we use a byte to give the network message length, so this has to be fairly small
+#define TEXT_BUF_LEN 200
+static char inputTextBuffer[TEXT_BUF_LEN];
+static char chatBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
+static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
 #define micro_hist_num 5
 static int historical_micros[micro_hist_num];
@@ -88,7 +91,8 @@ static void outerSetupFrame() {
 static float hudColor[3] = {0, 0.5, 0.5};
 static void drawHud() {
 	setupText();
-	drawHudText(textBuffer, 1, 1, 1, hudColor);
+	drawHudText(chatBuffer, 1, 1, 1, hudColor);
+	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
 }
 
 #define micros_per_frame (1000000 / FRAMERATE)
@@ -144,6 +148,12 @@ static void doInputs(ent *e, char *data) {
 	}
 }
 
+static void setupTyping() {
+	inputTextBuffer[1] = '\0';
+	inputTextBuffer[0] = '_';
+	bufferedTextLen = 0;
+}
+
 static void sendControls(int frame) {
 	char data[8];
 	data[0] = (char) frame;
@@ -182,7 +192,13 @@ static void sendControls(int frame) {
 	data[5] = round(sine / divisor);
 	data[6] = round(-cosine / divisor);
 	data[7] = round(pitchSine / divisor);
+	if (textInputMode >= 2) data[1] += bufferedTextLen;
 	sendData(data, 8);
+	if (textInputMode >= 2) {
+		sendData(inputTextBuffer, bufferedTextLen);
+		textInputMode -= 2;
+		if (textInputMode == 1) setupTyping();
+	}
 }
 
 static void doHeroes() {
@@ -274,7 +290,6 @@ static void doLava() {
 
 static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
-	char text_input = 0;
 	char running = 1;
 	ALLEGRO_EVENT evnt;
 	while (running) {
@@ -288,7 +303,7 @@ static void* inputThreadFunc(void *arg) {
 				handleKey(evnt.keyboard.keycode, 0);
 				break;
 			case ALLEGRO_EVENT_KEY_DOWN:
-				if (text_input) break;
+				if (textInputMode == 1) break;
 				if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
 					al_ungrab_mouse();
 					al_show_mouse_cursor(display);
@@ -297,30 +312,27 @@ static void* inputThreadFunc(void *arg) {
 				handleKey(evnt.keyboard.keycode, 1);
 				break;
 			case ALLEGRO_EVENT_KEY_CHAR:
-				if (text_input) {
+				if (textInputMode == 1) {
 					int c = evnt.keyboard.unichar;
 					if (c >= 0x20 && c <= 0xFE && bufferedTextLen+2 < TEXT_BUF_LEN) {
-						textBuffer[bufferedTextLen+2] = '\0';
-						textBuffer[bufferedTextLen+1] = '_';
-						textBuffer[bufferedTextLen] = c;
+						inputTextBuffer[bufferedTextLen+2] = '\0';
+						inputTextBuffer[bufferedTextLen+1] = '_';
+						inputTextBuffer[bufferedTextLen] = c;
 						bufferedTextLen++;
 					} else if (c == '\r') {
-						textBuffer[bufferedTextLen] = '\0';
-						text_input = 0;
+						inputTextBuffer[bufferedTextLen] = '\0';
+						textInputMode = 2;
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
-						textBuffer[0] = '\0';
-						text_input = 0;
+						textInputMode = 0;
 					} else if (c == '\b' && bufferedTextLen) {
-						textBuffer[bufferedTextLen] = '\0';
-						textBuffer[bufferedTextLen-1] = '_';
+						inputTextBuffer[bufferedTextLen] = '\0';
+						inputTextBuffer[bufferedTextLen-1] = '_';
 						bufferedTextLen--;
 					}
 				} else {
 					if (evnt.keyboard.keycode == ALLEGRO_KEY_T) {
-						text_input = 1;
-						textBuffer[1] = '\0';
-						textBuffer[0] = '_';
-						bufferedTextLen = 0;
+						if (textInputMode == 0) setupTyping();
+						textInputMode |= 1;
 					}
 				}
 				break;
@@ -490,7 +502,8 @@ int main(int argc, char **argv) {
 		// For now, don't capture mouse on startup. Might prevent mouse warpiness in first frame, idk, feel free to mess around
 	}
 
-	textBuffer[0] = textBuffer[TEXT_BUF_LEN-1] = '\0';
+	inputTextBuffer[0] = inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
+	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 
 	//Main loop
 	pthread_t inputThread;
@@ -534,12 +547,21 @@ int main(int argc, char **argv) {
 			char *data;
 			if (size == 0) {
 				data = defaultData;
-			} else if (size == 6) {
-				data = actualData;
-				if (readData(data, 6)) goto done;
-			} else {
+			} else if (size < 6) {
 				printf("Fatal error, can't handle player net input of size %d\n", size);
 				goto done;
+			} else {
+				data = actualData;
+				if (readData(data, 6)) goto done;
+				size -= 6;
+				if (size >= TEXT_BUF_LEN) {
+					printf("Fatal error, can't handle player chat of length %d\n", size);
+					goto done;
+				}
+				if (size) {
+					if (readData(chatBuffer, size)) goto done;
+					chatBuffer[size] = '\0';
+				}
 			}
 			if (players[i].entity != NULL) {
 				doInputs(players[i].entity, data);
