@@ -195,6 +195,7 @@ extern void crushEnt(ent *e);
 extern void doPhysics();
 extern void doDrawing();
 extern pointer ts_draw(scheme *sc, pointer args);
+extern void doCleanup();
 
 // A matrix describing the resolution for two different whoMoves calls:
 /* 

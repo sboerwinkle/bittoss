@@ -594,6 +594,9 @@ int main(int argc, char **argv) {
 	puts("Closing socket...");
 	closeSocket();
 	puts("Done.");
+	puts("Cleaning up game objects...");
+	doCleanup();
+	puts("Done.");
 	puts("Cleaning up Scheme...");
 	scheme_deinit(sc);
 	free(sc);

@@ -1285,12 +1285,24 @@ void decrem(scheme *sc, pointer x) {
       }
       reclaim(sc, x);
     }
+    if (is_vector(x)) {
+      printf("Vector %lX still has %d references\n", x, x->references);
+    }
     // Going up
     while (1) {
       if (parent == NULL) return;
       if (is_atom(parent)) {
         if (is_vector(parent)) {
           int ix = parent->references;
+          //printf("Came back from child %d of vector %lX\n", ix, parent);
+          /*
+          if (x != sc->NIL) {
+            //puts("Going in...");
+            if (is_symbol(car(x)) && !strcmp("clr-blue", strvalue(car(car(x))))) {
+              printf("Found him, he now has %d refs\n", x->references);
+            }
+          }
+          */
           // TODO Optimize to just get the `pointer*` and R/W that memory directly
           pointer grandparent = vector_elem(parent, ix);
           set_vector_elem(parent, ix, x);
@@ -1298,6 +1310,14 @@ void decrem(scheme *sc, pointer x) {
           if (ix < ivalue(parent)) {
             parent->references = ix;
             x = vector_elem(parent, ix);
+            /*
+            if (x != sc->NIL) {
+              //puts("Going in...");
+              if (is_symbol(car(x)) && !strcmp("clr-blue", strvalue(car(car(x))))) {
+                printf("Found him, going down he now %d refs\n", x->references);
+              }
+            }
+            */
             set_vector_elem(parent, ix, grandparent);
             break;
           }
@@ -1427,6 +1447,7 @@ static void mark(pointer a) {
 
 /* garbage collection. parameter a, b is marked. */
 static void gc(scheme *sc, pointer a, pointer b) {
+  int bad_reclaims = 0; // For debugging
   pointer p;
   int i;
 
@@ -1491,9 +1512,12 @@ static void gc(scheme *sc, pointer a, pointer b) {
         clrmark(p);
       } else {
         // reclaim cell
-        if (p->references != 0 && gc_okay == -1) {
-          gc_okay = -3;
-          fprintf(stderr, "Reclaiming a cell with %d references\n", p->references);
+        if (p->references != 0) {
+          bad_reclaims++;
+          if (gc_okay == -1) {
+            gc_okay = -3;
+            fprintf(stderr, "Reclaiming a cell with %d references\n", p->references);
+          }
         }
         if (typeflag(p) != 0) {
           finalize_cell(sc, p);
@@ -1511,6 +1535,10 @@ static void gc(scheme *sc, pointer a, pointer b) {
     char msg[80];
     snprintf(msg,80,"done: %ld cells were recovered.\n", sc->fcells);
     putstr(sc,msg);
+  }
+
+  if (bad_reclaims) {
+    fprintf(stderr, "Reclaimed a total of %d cells that still had references\n", bad_reclaims);
   }
 }
 
@@ -2419,7 +2447,11 @@ static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
 
   if (is_vector(car(env))) {
     int location = hash_fn(symname(variable), ivalue_unchecked(car(env)));
-
+    /*
+    if (!strcmp("clr-blue", strvalue(car(variable)))) {
+      puts("Okay, being set");
+    }
+    */
     append_vector_elem(sc, car(env), location, slot);
   } else {
     car(env) = immutable_cons(sc, slot, car(env));
@@ -5327,8 +5359,6 @@ void scheme_deinit(scheme *sc) {
   sc->NIL->references += 10;
   decrem(sc, sc->oblist);
   sc->oblist=sc->NIL;
-  decrem(sc, sc->global_env);
-  sc->global_env=sc->NIL;
   dump_stack_free(sc);
   decrem(sc, sc->envir);
   sc->envir=sc->NIL;
@@ -5355,6 +5385,12 @@ void scheme_deinit(scheme *sc) {
   }
   decrem(sc, sc->loadport);
   sc->loadport=sc->NIL;
+  // decrem: maybe this won't work when stuff is actually be reclaimed?
+  // The one place we (hopefully) allow circular references is top-level functions pointing to the global_env.
+  // During cleanup we manually break this circular dependency.
+  sc->global_env->references = 1;
+  decrem(sc, sc->global_env);
+  sc->global_env=sc->NIL;
   sc->gc_verbose=0;
   gc(sc,sc->NIL,sc->NIL);
 

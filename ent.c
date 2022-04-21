@@ -820,3 +820,8 @@ pointer ts_draw(scheme *sc, pointer args) {
 	sc->NIL->references++;
 	return sc->NIL;
 }
+
+void doCleanup() {
+	while (rootEnts) killEntNoHandlers(rootEnts);
+	clearDeads();
+}
