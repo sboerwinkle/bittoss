@@ -1286,24 +1286,12 @@ void decrem(scheme *sc, pointer x) {
       }
       reclaim(sc, x);
     }
-    if (is_vector(x)) {
-      printf("Vector %lX still has %d references\n", x, x->references);
-    }
     // Going up
     while (1) {
       if (parent == NULL) return;
       if (is_atom(parent)) {
         if (is_vector(parent)) {
           int ix = parent->references;
-          //printf("Came back from child %d of vector %lX\n", ix, parent);
-          /*
-          if (x != sc->NIL) {
-            //puts("Going in...");
-            if (is_symbol(car(x)) && !strcmp("clr-blue", strvalue(car(car(x))))) {
-              printf("Found him, he now has %d refs\n", x->references);
-            }
-          }
-          */
           // TODO Optimize to just get the `pointer*` and R/W that memory directly
           pointer grandparent = vector_elem(parent, ix);
           set_vector_elem(parent, ix, x);
@@ -1311,14 +1299,6 @@ void decrem(scheme *sc, pointer x) {
           if (ix < ivalue(parent)) {
             parent->references = ix;
             x = vector_elem(parent, ix);
-            /*
-            if (x != sc->NIL) {
-              //puts("Going in...");
-              if (is_symbol(car(x)) && !strcmp("clr-blue", strvalue(car(car(x))))) {
-                printf("Found him, going down he now %d refs\n", x->references);
-              }
-            }
-            */
             set_vector_elem(parent, ix, grandparent);
             break;
           }
@@ -2449,11 +2429,6 @@ static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
 
   if (is_vector(car(env))) {
     int location = hash_fn(symname(variable), ivalue_unchecked(car(env)));
-    /*
-    if (!strcmp("clr-blue", strvalue(car(variable)))) {
-      puts("Okay, being set");
-    }
-    */
     append_vector_elem(sc, car(env), location, slot);
   } else {
     car(env) = immutable_cons(sc, slot, car(env));
