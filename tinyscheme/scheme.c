@@ -773,11 +773,12 @@ static pointer get_vector_object(scheme *sc, int len)
   int vec_cell_count = (len+1)/2 + 1;
   pointer cells = get_consecutive_cells(sc,vec_cell_count);
   if(sc->no_memory) { return sc->sink; }
-  cells->references = 1;
   // Record it as a vector so that gc understands it.
   typeflag(cells) = (T_VECTOR | T_ATOM);
   ivalue_unchecked(cells)=len;
   set_num_integer(cells);
+  // decrem: Probably only the first cell needs references counted
+  while(vec_cell_count--) cells[vec_cell_count].references = 1;
   push_recent_alloc(sc, cells, sc->NIL);
   return cells;
 }
@@ -1322,7 +1323,10 @@ void decrem(scheme *sc, pointer x) {
             break;
           }
           // Done iterating the vector
-          parent->references = 0;
+          ix = (ivalue(parent)+3)/2;
+          // decrem: Don't know if we need to explicitly clear it at this point,
+          //         and even if we do we don't have to bother with the "tail" cells.
+          while(ix--) parent[ix].references = 0;
           x = parent;
           parent = grandparent;
           reclaim_vector(sc, x);
@@ -1383,8 +1387,6 @@ E2:  setmark(p);
           int i;
           int num=(ivalue_unchecked(p)+1)/2;
           for(i=0; i<num; i++) {
-               /* Vector cells will be treated like ordinary cells */
-               (p+1+i)->references = 1;
                markle(p+1+i, 0);
 	       if (gc_okay == 0) fputs("... was in a vector\n", stderr);
           }
@@ -5355,42 +5357,47 @@ void scheme_deinit(scheme *sc) {
 #if SHOW_ERROR_LINE
   char *fname;
 #endif
+#define CLEANUP(x) decrem(sc, x); x=sc->NIL
 
-  sc->NIL->references += 10;
-  decrem(sc, sc->oblist);
-  sc->oblist=sc->NIL;
+  sc->NIL->references += 20;
+  CLEANUP(sc->oblist);
   dump_stack_free(sc);
-  decrem(sc, sc->envir);
-  sc->envir=sc->NIL;
-  decrem(sc, sc->code);
-  sc->code=sc->NIL;
-  decrem(sc, sc->args);
-  sc->args=sc->NIL;
-  decrem(sc, sc->value);
-  sc->value=sc->NIL;
+  CLEANUP(sc->envir);
+  CLEANUP(sc->code);
+  CLEANUP(sc->args);
+  CLEANUP(sc->value);
   if(is_port(sc->inport)) {
     typeflag(sc->inport) = T_ATOM;
   }
-  decrem(sc, sc->inport);
-  sc->inport=sc->NIL;
-  decrem(sc, sc->outport);
-  sc->outport=sc->NIL;
+  CLEANUP(sc->inport);
+  CLEANUP(sc->outport);
   if(is_port(sc->save_inport)) {
     typeflag(sc->save_inport) = T_ATOM;
   }
-  decrem(sc, sc->save_inport);
-  sc->save_inport=sc->NIL;
+  CLEANUP(sc->save_inport);
   if(is_port(sc->loadport)) {
     typeflag(sc->loadport) = T_ATOM;
   }
-  decrem(sc, sc->loadport);
-  sc->loadport=sc->NIL;
+  CLEANUP(sc->loadport);
+  CLEANUP(sc->LAMBDA);
+  CLEANUP(sc->QUOTE);
+  CLEANUP(sc->QQUOTE);
+  CLEANUP(sc->UNQUOTE);
+  CLEANUP(sc->UNQUOTESP);
+  CLEANUP(sc->FEED_TO);
+  CLEANUP(sc->COLON_HOOK);
+  CLEANUP(sc->ERROR_HOOK);
+  CLEANUP(sc->SHARP_HOOK);
+  CLEANUP(sc->COMPILE_HOOK);
   // decrem: maybe this won't work when stuff is actually be reclaimed?
   // The one place we (hopefully) allow circular references is top-level functions pointing to the global_env.
   // During cleanup we manually break this circular dependency.
   sc->global_env->references = 1;
+  // CLEANUP (but modified)
   decrem(sc, sc->global_env);
-  sc->global_env=sc->NIL;
+  sc->global_env->references = 0;
+  sc->global_env = sc->NIL;
+
   sc->gc_verbose=0;
   gc(sc,sc->NIL,sc->NIL);
 
@@ -5408,6 +5415,7 @@ void scheme_deinit(scheme *sc) {
     }
   }
 #endif
+#undef CLEANUP
 }
 
 void scheme_load_file(scheme *sc, FILE *fin)

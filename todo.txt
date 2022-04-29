@@ -1,13 +1,8 @@
 TODO:
 / Server exiting cancels input thread but doesn't exit app
 - Complete switch to Scheme ref-counting
-	- Firstly, got to resolve these issues with stuff having dangling references.
-		/ I *think* I resolved an issue caused by circular refs between the global environment and the lambdas therein
-		- w/ the magic of lldb, I can say it looks like the next complaints includes *at least*
-			a closure (oof)
-			and what looks like an environment containing symbols 'b' and 'g', so probably something from the custom r/g/b draw function?
-				This doesn't make sense though, since the regular GC isn't picking up until the end...
-				Ah, because it's 'clr-blue' or similar, which is a closure over the values sent to the custom draw func.
+	/ References seem to be resolved, maybe
+	- Next step is actually doing our own allocation and reclaiming
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 
 
