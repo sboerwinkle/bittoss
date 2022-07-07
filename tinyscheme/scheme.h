@@ -149,7 +149,7 @@ SCHEME_EXPORT void scheme_define(scheme *sc, pointer env, pointer symbol, pointe
 
 typedef pointer (*foreign_func)(scheme *, pointer);
 
-pointer _cons(scheme *sc, pointer a, pointer b, int immutable);
+pointer cons(scheme *sc, pointer a, pointer b);
 pointer mk_integer(scheme *sc, long num);
 pointer mk_real(scheme *sc, double num);
 pointer mk_symbol(scheme *sc, const char *name);
@@ -168,7 +168,6 @@ int eqv(pointer a, pointer b);
 struct scheme_interface {
   void (*scheme_define)(scheme *sc, pointer env, pointer symbol, pointer value);
   pointer (*cons)(scheme *sc, pointer a, pointer b);
-  pointer (*immutable_cons)(scheme *sc, pointer a, pointer b);
   pointer (*reserve_cells)(scheme *sc, int n);
   pointer (*mk_integer)(scheme *sc, long num);
   pointer (*mk_real)(scheme *sc, double num);
@@ -221,8 +220,7 @@ struct scheme_interface {
 
   int (*is_promise)(pointer p);
   int (*is_environment)(pointer p);
-  int (*is_immutable)(pointer p);
-  void (*setimmutable)(pointer p);
+  
   void (*load_file)(scheme *sc, FILE *fin);
   void (*load_string)(scheme *sc, const char *input);
 };

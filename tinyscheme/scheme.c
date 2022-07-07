@@ -2,7 +2,7 @@
  *   Simon Boerwinkle (sboerwinkle@gmail.com)
  *   Based on TINYSCHEME (original credits follow)
  *
- * T I N Y S C H E M E    1 . 4 1
+ * T I N Y S C H E M E    2 . 4 1
  *   Dimitrios Souflis (dsouflis@acm.org)
  *   Based on MiniScheme (original credits follow)
  * (MINISCM)               coded by Atsushi Moriwaki (11/5/1989)
@@ -131,17 +131,19 @@ enum scheme_types {
   T_LAST_SYSTEM_TYPE=15
 };
 
-/* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
-#define ADJ 32
+// WTF
+// /* ADJ is enough slack to align cells in a TYPE_BITS-bit boundary */
+// #define ADJ 32
 #define TYPE_BITS 5
 #define T_MASKTYPE      31    /* 0000000000011111 */
+#define MARK_RUN_START  64    /* 0000000001000000 */ // Used on unallocated cells
+#define MARK_RUN_END   128    /* 0000000010000000 */ // Used on unallocated cells
 #define T_SYNTAX      4096    /* 0001000000000000 */
-#define T_IMMUTABLE   8192    /* 0010000000000000 */
+// old: T_IMMUTABLE   8192    /* 0010000000000000 */
 #define T_ATOM       16384    /* 0100000000000000 */   /* only for gc */
 #define CLRATOM      49151    /* 1011111111111111 */   /* only for gc */
 #define MARK         32768    /* 1000000000000000 */
 #define UNMARK       32767    /* 0111111111111111 */
-
 
 static num num_add(num a, num b);
 static num num_mul(num a, num b);
@@ -203,6 +205,9 @@ INTERFACE double rvalue(pointer p)    { return (!num_is_integer(p)?(p)->_object.
 #define set_num_real(p)      (p)->_object._number.is_fixnum=0;
 INTERFACE  long charvalue(pointer p)  { return ivalue_unchecked(p); }
 
+#define unalloced_next(p)   ((p)->_object._unalloced_range.next)
+#define unalloced_length(p) ((p)->_object._unalloced_range.length)
+
 INTERFACE INLINE int is_port(pointer p)     { return (type(p)==T_PORT); }
 INTERFACE INLINE int is_inport(pointer p)  { return is_port(p) && p->_object._port->kind & port_input; }
 INTERFACE INLINE int is_outport(pointer p) { return is_port(p) && p->_object._port->kind & port_output; }
@@ -247,10 +252,6 @@ INTERFACE INLINE int is_environment(pointer p) { return (type(p)==T_ENVIRONMENT)
 #define is_mark(p)       (typeflag(p)&MARK)
 #define setmark(p)       typeflag(p) |= MARK
 #define clrmark(p)       typeflag(p) &= UNMARK
-
-INTERFACE INLINE int is_immutable(pointer p) { return (typeflag(p)&T_IMMUTABLE); }
-/*#define setimmutable(p)  typeflag(p) |= T_IMMUTABLE*/
-INTERFACE INLINE void setimmutable(pointer p) { typeflag(p) |= T_IMMUTABLE; }
 
 INTERFACE INLINE int is_c_ptr(pointer p, int type) { return type(p)==T_C_PTR && strlength(p)==type; }
 INTERFACE INLINE void* c_ptr_value(pointer p) { return (void*)strvalue(p); }
@@ -333,12 +334,10 @@ static int file_interactive(scheme *sc);
 static INLINE int is_one_of(const char *s, int c);
 static int alloc_cellseg(scheme *sc, int n);
 static long binary_decode(const char *s);
-static INLINE pointer get_cell(scheme *sc, pointer a, pointer b);
-static pointer _get_cell(scheme *sc, pointer a, pointer b);
+static pointer get_cell(scheme *sc);
 static pointer get_consecutive_cells(scheme *sc, int n);
 static pointer find_consecutive_cells(scheme *sc, int n);
 static void finalize_cell(scheme *sc, pointer a);
-static int count_consecutive_cells(pointer x, int needed);
 static pointer find_slot_in_env(scheme *sc, pointer env, pointer sym, int all);
 static pointer mk_number(scheme *sc, num n);
 static char *store_string(scheme *sc, int len, const char *str, char fill);
@@ -354,8 +353,6 @@ static port *port_rep_from_filename(scheme *sc, const char *fn, int prop);
 static port *port_rep_from_file(scheme *sc, FILE *, int prop);
 static port *port_rep_from_string(scheme *sc, char *start, char *past_the_end, int prop);
 static void port_close(scheme *sc, pointer p, int flag);
-static void mark(pointer a);
-static void gc(scheme *sc, pointer a, pointer b);
 static int basic_inchar(port *pt);
 static int inchar(scheme *sc);
 static void backchar(scheme *sc, int c);
@@ -371,7 +368,6 @@ static pointer mk_closure(scheme *sc, pointer c, pointer e);
 static pointer reverse(scheme *sc, pointer a);
 static pointer reverse_in_place(scheme *sc, pointer term, pointer list);
 static pointer revappend(scheme *sc, pointer a, pointer b);
-static void dump_stack_mark(scheme *);
 static pointer opexe_0(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_1(scheme *sc, enum scheme_opcodes op);
 static pointer opexe_2(scheme *sc, enum scheme_opcodes op);
@@ -559,125 +555,82 @@ static long binary_decode(const char *s) {
 
 /* allocate new cell segment */
 static int alloc_cellseg(scheme *sc, int n) {
-     pointer newp;
-     pointer last;
-     pointer p;
-     char *cp;
-     long i;
-     int k;
-     int adj=ADJ;
+    pointer newp;
+    pointer last;
+    pointer p;
+    int k;
 
-     if(adj<(int)sizeof(struct cell)) {
-       adj=sizeof(struct cell);
-     }
+    for (k = 0; k < n; k++) {
+        if (sc->num_cell_segs >= CELL_NSEGMENT) return k;
+        newp = (pointer) sc->malloc(CELL_SEGSIZE * sizeof(struct cell));
+        if (newp == 0) return k;
+        sc->cell_seg[sc->num_cell_segs++] = newp;
 
-     for (k = 0; k < n; k++) {
-         if (sc->last_cell_seg >= CELL_NSEGMENT - 1)
-              return k;
-         cp = (char*) sc->malloc(CELL_SEGSIZE * sizeof(struct cell)+adj);
-         if (cp == 0)
-              return k;
-         i = ++sc->last_cell_seg ;
-         sc->alloc_seg[i] = cp;
-         /* adjust in TYPE_BITS-bit boundary */
-         if(((unsigned long)cp)%adj!=0) {
-           cp=(char*)(adj*((unsigned long)cp/adj+1));
-         }
-         /* insert new segment in address order */
-         newp=(pointer)cp;
-         sc->cell_seg[i] = newp;
-         while (i > 0 && sc->cell_seg[i - 1] > sc->cell_seg[i]) {
-             p = sc->cell_seg[i];
-             sc->cell_seg[i] = sc->cell_seg[i - 1];
-             sc->cell_seg[--i] = p;
-         }
-         sc->fcells += CELL_SEGSIZE;
-         last = newp + CELL_SEGSIZE - 1;
-         for (p = newp; p <= last; p++) {
-              typeflag(p) = 0;
-              cdr(p) = p + 1;
-              car(p) = sc->NIL;
-         }
-         /* insert new cells in address order on free list */
-         if (sc->free_cell == sc->NIL || p < sc->free_cell) {
-              cdr(last) = sc->free_cell;
-              sc->free_cell = newp;
-         } else {
-               p = sc->free_cell;
-               while (cdr(p) != sc->NIL && newp > cdr(p))
-                    p = cdr(p);
-               cdr(last) = cdr(p);
-               cdr(p) = newp;
-         }
-     }
-     return n;
-}
+        last = newp + CELL_SEGSIZE - 1;
+        typeflag(newp) = 0;
+        typeflag(last) = 0;
+        pointer run_start = newp + 1;
+        pointer run_end = last - 1;
+        for (p = run_start; p <= run_end; p++) {
+             typeflag(p) = MARK;
+             // TODO Is this even needed, can we leave them uninitialized?
+             cdr(p) = p;
+             car(p) = p;
+        }
 
-static INLINE pointer get_cell_x(scheme *sc, pointer a, pointer b) {
-  if (sc->free_cell != sc->NIL) {
-    pointer x = sc->free_cell;
-    sc->free_cell = cdr(x);
-    --sc->fcells;
-    return (x);
-  }
-  return _get_cell (sc, a, b);
-}
+        // Insert the new run as the last option (list of free runs is circular)
+        pointer prev_run = car(sc->FREE_CELL);
+        car(run_start) = prev_run;
+        cdr(run_start) = sc->FREE_CELL;
+        car(sc->FREE_CELL) = run_start;
+        cdr(prev_run) = run_start;
 
-
-/* get new cell.  parameter a, b is marked by gc. */
-static pointer _get_cell(scheme *sc, pointer a, pointer b) {
-  pointer x;
-
-  if(sc->no_memory) {
-    return sc->sink;
-  }
-
-  if (sc->free_cell == sc->NIL) {
-    const int min_to_be_recovered = sc->last_cell_seg*8;
-    gc(sc,a, b);
-    if (sc->fcells < min_to_be_recovered
-        || sc->free_cell == sc->NIL) {
-      /* if only a few recovered, get more to avoid fruitless gc's */
-      puts("Getting more, I think");
-      if (!alloc_cellseg(sc,1) && sc->free_cell == sc->NIL) {
-        sc->no_memory=1;
-        return sc->sink;
-      }
+        typeflag(run_start) |= MARK_RUN_START;
+        typeflag(run_end) |= MARK_RUN_END;
+        ivalue_unchecked(run_start + 1) = CELL_SEGSIZE - 2;
+        ivalue_unchecked(run_end) = CELL_SEGSIZE - 2;
     }
-  }
-  x = sc->free_cell;
-  sc->free_cell = cdr(x);
-  --sc->fcells;
-  return (x);
+    return n;
 }
 
-/* make sure that there is a given number of cells free */
-/*
-static pointer reserve_cells(scheme *sc, int n) {
+/* get new cell. */
+static pointer get_cell(scheme *sc) {
+  // Migh consider keeping a simple `cdr(foo)` list for quicker access to a
+  // short list of cells being re-alloced for different stuff internally
+
+  if (cdr(sc->FREE_CELL) == sc->FREE_CELL) {
     if(sc->no_memory) {
-        return sc->NIL;
+      sc->sink->references++;
+      return sc->sink;
     }
+    if (!alloc_cellseg(sc, 1)) {
+      sc->no_memory = 1;
+      sc->sink->references++;
+      return sc->sink;
+    }
+  }
 
-    // Are there enough cells available?
-    if (sc->fcells < n) {
-        // If not, try gc'ing some
-        gc(sc, sc->NIL, sc->NIL);
-        if (sc->fcells < n) {
-            // If there still aren't, try getting more heap
-            if (!alloc_cellseg(sc,1)) {
-                sc->no_memory=1;
-                return sc->NIL;
-            }
-        }
-        if (sc->fcells < n) {
-            // If all fail, report failure
-            sc->no_memory=1;
-            return sc->NIL;
-        }
+  pointer donor = cdr(sc->FREE_CELL);
+  pointer ret;
+  if (typeflag(donor) & MARK_RUN_END) {
+    ret = donor;
+    pointer next = cdr(donor);
+    cdr(sc->FREE_CELL) = next;
+    car(next) = sc->FREE_CELL;
+  } else {
+    int len = ivalue_unchecked(donor+1) - 1;
+    ret = donor + len;
+    pointer tail = ret - 1;
+    if (len > 1) {
+      ivalue_unchecked(donor + 1) = len;
+      ivalue_unchecked(tail) = len;
     }
-    return (sc->T);
+    typeflag(tail) |= MARK_RUN_END;
+  }
+
+  ret->references = 1;
+  return ret;
 }
-*/
 
 static pointer get_consecutive_cells(scheme *sc, int n) {
   pointer x;
@@ -688,17 +641,11 @@ static pointer get_consecutive_cells(scheme *sc, int n) {
   x=find_consecutive_cells(sc,n);
   if (x != sc->NIL) { return x; }
 
-  /* If not, try gc'ing some */
-  gc(sc, sc->NIL, sc->NIL);
-  x=find_consecutive_cells(sc,n);
-  if (x != sc->NIL) { return x; }
-
   /* If there still aren't, try getting more heap */
-  if (!alloc_cellseg(sc,1))
-    {
-      sc->no_memory=1;
-      return sc->sink;
-    }
+  if (!alloc_cellseg(sc,1)) {
+    sc->no_memory=1;
+    return sc->sink;
+  }
 
   x=find_consecutive_cells(sc,n);
   if (x != sc->NIL) { return x; }
@@ -708,62 +655,30 @@ static pointer get_consecutive_cells(scheme *sc, int n) {
   return sc->sink;
 }
 
-static int count_consecutive_cells(pointer x, int needed) {
- int n=1;
- while(cdr(x)==x+1) {
-     x=cdr(x);
-     n++;
-     if(n>needed) return n;
- }
- return n;
-}
-
 static pointer find_consecutive_cells(scheme *sc, int n) {
-  pointer *pp;
-  int cnt;
-
-  pp=&sc->free_cell;
-  while(*pp!=sc->NIL) {
-    cnt=count_consecutive_cells(*pp,n);
-    if(cnt>=n) {
-      pointer x=*pp;
-      *pp=cdr(*pp+n-1);
-      sc->fcells -= n;
-      return x;
+  pointer run;
+  for (run = cdr(sc->FREE_CELL); run != sc->FREE_CELL; run = cdr(run)) {
+    if (typeflag(run) & MARK_RUN_END) continue;
+    int len = ivalue_unchecked(run+1);
+    if (len < n) continue;
+    int remainder = len - n;
+    pointer ret = run + remainder;
+    if (remainder) {
+      typeflag(ret - 1) |= MARK_RUN_END;
+      if (remainder > 1) {
+        ivalue_unchecked(run + 1) = remainder;
+        ivalue_unchecked(ret - 1) = remainder;
+      }
+    } else {
+      pointer prev = car(run);
+      pointer next = cdr(run);
+      cdr(prev) = next;
+      car(next) = prev;
     }
-    pp=&cdr(*pp+cnt-1);
+    return ret;
   }
+
   return sc->NIL;
-}
-
-/* To retain recent allocs before interpreter knows about them -
-   Tehom */
-
-// TODO This gets to go away once we have proper reference counting
-static void push_recent_alloc(scheme *sc, pointer recent, pointer extra)
-{
-  pointer holder = get_cell_x(sc, recent, extra);
-  holder->references = 1;
-  recent->references++;
-  typeflag(holder) = T_PAIR | T_IMMUTABLE;
-  car(holder) = recent;
-  cdr(holder) = car(sc->sink);
-  car(sc->sink) = holder;
-}
-
-
-static pointer get_cell(scheme *sc, pointer a, pointer b)
-{
-  pointer cell   = get_cell_x(sc, a, b);
-  cell->references = 1;
-  /* For right now, include "a" and "b" in "cell" so that gc doesn't
-     think they are garbage. */
-  /* Tentatively record it as a pair so gc understands it. */
-  typeflag(cell) = T_PAIR;
-  car(cell) = a; // We don't consider this a true assignment for ref counting,
-  cdr(cell) = b; // since it's overwritten almost immediately in every case.
-  push_recent_alloc(sc, cell, sc->NIL);
-  return cell;
 }
 
 static pointer get_vector_object(scheme *sc, int len)
@@ -772,14 +687,16 @@ static pointer get_vector_object(scheme *sc, int len)
   // others store cells in their car/cdr
   int vec_cell_count = (len+1)/2 + 1;
   pointer cells = get_consecutive_cells(sc,vec_cell_count);
-  if(sc->no_memory) { return sc->sink; }
+  if(sc->no_memory) {
+    sc->sink->references++;
+    return sc->sink;
+  }
   // Record it as a vector so that gc understands it.
   typeflag(cells) = (T_VECTOR | T_ATOM);
   ivalue_unchecked(cells)=len;
   set_num_integer(cells);
   // decrem: Probably only the first cell needs references counted
   while(vec_cell_count--) cells[vec_cell_count].references = 1;
-  push_recent_alloc(sc, cells, sc->NIL);
   return cells;
 }
 
@@ -811,13 +728,10 @@ static void check_range_alloced(pointer p, int n, int expect_alloced)
 /* Medium level cell allocation */
 
 /* get new cons cell */
-pointer _cons(scheme *sc, pointer a, pointer b, int immutable) {
-  pointer x = get_cell(sc,a, b);
+pointer cons(scheme *sc, pointer a, pointer b) {
+  pointer x = get_cell(sc);
 
   typeflag(x) = T_PAIR;
-  if(immutable) {
-    setimmutable(x);
-  }
   car(x) = a;
   cdr(x) = b;
   return (x);
@@ -831,7 +745,7 @@ static int hash_fn(const char *key, int table_size);
 
 static pointer oblist_initial_value(scheme *sc)
 {
-     pointer vec = mk_vector(sc,461); /* probably should be bigger */
+     pointer vec = mk_vector(sc,462); /* probably should be bigger */
      fill_vector(vec, sc->NIL);
      return vec;
 }
@@ -843,9 +757,8 @@ static pointer oblist_add_by_name(scheme *sc, const char *name)
   int location;
 
   sc->NIL->references++;
-  x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
+  x = cons(sc, mk_string(sc, name), sc->NIL);
   typeflag(x) = T_SYMBOL;
-  setimmutable(car(x));
 
   location = hash_fn(name, ivalue_unchecked(sc->oblist));
   append_vector_elem(sc, sc->oblist, location, x);
@@ -919,10 +832,9 @@ static pointer oblist_add_by_name(scheme *sc, const char *name)
   pointer x;
 
   sc->NIL->references++;
-  x = immutable_cons(sc, mk_string(sc, name), sc->NIL);
+  x = cons(sc, mk_string(sc, name), sc->NIL);
   typeflag(x) = T_SYMBOL;
-  setimmutable(car(x));
-  sc->oblist = immutable_cons(sc, x, sc->oblist);
+  sc->oblist = cons(sc, x, sc->oblist);
   x->references++;
   return x;
 }
@@ -935,7 +847,7 @@ static pointer oblist_all_symbols(scheme *sc)
 #endif
 
 static pointer mk_port(scheme *sc, port *p) {
-  pointer x = get_cell(sc, sc->NIL, sc->NIL);
+  pointer x = get_cell(sc);
 
   typeflag(x) = T_PORT|T_ATOM;
   x->_object._port=p;
@@ -943,7 +855,7 @@ static pointer mk_port(scheme *sc, port *p) {
 }
 
 pointer mk_foreign_func(scheme *sc, foreign_func f) {
-  pointer x = get_cell(sc, sc->NIL, sc->NIL);
+  pointer x = get_cell(sc);
 
   typeflag(x) = (T_FOREIGN | T_ATOM);
   x->_object._ff=f;
@@ -951,7 +863,7 @@ pointer mk_foreign_func(scheme *sc, foreign_func f) {
 }
 
 INTERFACE pointer mk_character(scheme *sc, int c) {
-  pointer x = get_cell(sc,sc->NIL, sc->NIL);
+  pointer x = get_cell(sc);
 
   typeflag(x) = (T_CHARACTER | T_ATOM);
   ivalue_unchecked(x)= c;
@@ -961,7 +873,7 @@ INTERFACE pointer mk_character(scheme *sc, int c) {
 
 /* get number atom (integer) */
 INTERFACE pointer mk_integer(scheme *sc, long num) {
-  pointer x = get_cell(sc,sc->NIL, sc->NIL);
+  pointer x = get_cell(sc);
 
   typeflag(x) = (T_NUMBER | T_ATOM);
   ivalue_unchecked(x)= num;
@@ -970,7 +882,7 @@ INTERFACE pointer mk_integer(scheme *sc, long num) {
 }
 
 INTERFACE pointer mk_real(scheme *sc, double n) {
-  pointer x = get_cell(sc,sc->NIL, sc->NIL);
+  pointer x = get_cell(sc);
 
   typeflag(x) = (T_NUMBER | T_ATOM);
   rvalue_unchecked(x)= n;
@@ -1010,7 +922,7 @@ INTERFACE pointer mk_string(scheme *sc, const char *str) {
 }
 
 INTERFACE pointer mk_counted_string(scheme *sc, const char *str, int len) {
-     pointer x = get_cell(sc, sc->NIL, sc->NIL);
+     pointer x = get_cell(sc);
      typeflag(x) = (T_STRING | T_ATOM);
      strvalue(x) = store_string(sc,len,str,0);
      strlength(x) = len;
@@ -1018,7 +930,7 @@ INTERFACE pointer mk_counted_string(scheme *sc, const char *str, int len) {
 }
 
 INTERFACE pointer mk_empty_string(scheme *sc, int len, char fill) {
-     pointer x = get_cell(sc, sc->NIL, sc->NIL);
+     pointer x = get_cell(sc);
      typeflag(x) = (T_STRING | T_ATOM);
      strvalue(x) = store_string(sc,len,0,fill);
      strlength(x) = len;
@@ -1035,7 +947,6 @@ INTERFACE static void fill_vector(pointer vec, pointer obj) {
      int i;
      for(i=0; i<num; i++) {
           typeflag(vec+1+i) = T_PAIR;
-          setimmutable(vec+1+i);
           car(vec+1+i)=obj;
           cdr(vec+1+i)=obj;
      }
@@ -1070,7 +981,7 @@ static pointer append_vector_elem(scheme *sc, pointer vec, int ielem, pointer a)
      } else {
           dest = &cdr(cell);
      }
-     pointer new_cell = immutable_cons(sc, a, *dest);
+     pointer new_cell = cons(sc, a, *dest);
      return *dest = new_cell;
 }
 
@@ -1112,7 +1023,7 @@ INTERFACE pointer gensym(scheme *sc) {
 }
 
 INTERFACE pointer mk_c_ptr(scheme *sc, void* value, int type) {
-     pointer x = get_cell(sc, sc->NIL, sc->NIL);
+     pointer x = get_cell(sc);
      typeflag(x) = (T_C_PTR | T_ATOM);
      strvalue(x) = (char*) value;
      strlength(x) = type;
@@ -1247,22 +1158,116 @@ static pointer mk_sharp_const(scheme *sc, char *name) {
 
 /* ========== garbage collector ========== */
 
-static int gc_okay = -1;
+#ifndef MEM_DEBUG
+#warning defining MEM_DEBUG as 1
+#define MEM_DEBUG 1
+#endif
 
-static void reclaim(scheme *sc, pointer x) {
-  // TODO This will have to take the given cell and put it back in the list of things to be allocated.
-  // Trying to maintain contiguous memory ranges is an interesting challenge, but possibly:
-  // - 1st and last cell of each range are marked specially, and never allocated
-  // - Junk cells have a negative number indicating where the head is, or a positive number indicating their length
-  // - - Negative numbers can probably be chained, but it might be simpler code-wise to keep them updated
-  // - - But it might also smooth the workload to only fix them when we notice it's broken?
-  // - Head Junk Cells use car/cdr as pointers to next/prev head
-  // - finalize_cell or whatever needs to be called to close up strings and ports etc
-}
+static void reclaim_run(scheme *sc, pointer x, int len) {
+  // Caller is responsible for calling `finalize_cell` if necessary,
+  // we're just throwing it back on "the pile".
 
-static void reclaim_vector(scheme *sc, pointer x) {
-  int count = (ivalue(x) + 1) / 2 + 1;
-  // TODO (See `reclaim()`)
+  // All unallocated cells have typeflag MARK set, and `type(p) == 0`.
+  // (note `type` differs from `typeflag`).
+
+  // First cell of a contiguous unallocated run has typeflag MARK_RUN_START set,
+  // and its car/cdr participate in a circular doubly-linked list of unallocated runs
+  // (`sc->FREE_CELL` being the start/end of said list)
+
+  // The last cell of said unallocated run has typeflag MARK_RUN_END set;
+  // if this is the same cell as MARK_RUN_START it is understood to contain only one cell,
+  // and otherwise the length of the entire run (end-start+1) is stored in both (end) and (start+1).
+
+  //  Set all type flags to "free"; MARK_RUN_START / _END are set later
+  int i;
+  for (i = 0; i < len; i++) {
+    typeflag(x + i) = MARK;
+  }
+
+  //  if its successor is a free cell head:
+  //    Determine run length
+  int next_len = 0;
+  if (typeflag(x + len) & MARK) {
+#if MEM_DEBUG
+    if (!(typeflag(x + len) & MARK_RUN_START)) {
+      fprintf(stderr, "scheme MEM_DEBUG: %p had flags %d, should have included flag %d\n", x+len, typeflag(x + len), MARK_RUN_START);
+    }
+#endif
+    if (typeflag(x + len) & MARK_RUN_END) next_len = 1;
+    else next_len = ivalue_unchecked(x + len + 1);
+  }
+
+  //  if predecessor is free cell tail:
+  //    Determine prev / run length
+  int prev_len = 0;
+  if (typeflag(x - 1) & MARK) {
+#if MEM_DEBUG
+    if (!(typeflag(x - 1) & MARK_RUN_END)) {
+      fprintf(stderr, "scheme MEM_DEBUG: %p had flags %d, should have included flag %d\n", x-1, typeflag(x - 1), MARK_RUN_END);
+    }
+#endif
+    if (typeflag(x - 1) & MARK_RUN_START) prev_len = 1;
+    else prev_len = ivalue_unchecked(x - 1);
+  }
+
+  if (next_len) {
+    if (prev_len) {
+      pointer next = x + len;
+      pointer prev = x - prev_len;
+
+      pointer next_run = cdr(next);
+      pointer prev_run = car(next);
+      car(next_run) = prev_run;
+      cdr(prev_run) = next_run;
+
+      typeflag(next) &= ~MARK_RUN_START;
+      typeflag(x - 1) &= ~MARK_RUN_END;
+      len += prev_len + next_len;
+      ivalue_unchecked(prev + 1) = len;
+      ivalue_unchecked(prev + len - 1) = len;
+    } else {
+      pointer next = x + len;
+      
+      pointer next_run = cdr(next);
+      pointer prev_run = car(next);
+      cdr(x) = next_run;
+      car(x) = prev_run;
+      cdr(prev_run) = x;
+      car(next_run) = x;
+
+      typeflag(x) |= MARK_RUN_START;
+      typeflag(next) &= ~MARK_RUN_START;
+      len += next_len;
+      ivalue_unchecked(x + 1) = len;
+      ivalue_unchecked(x + len - 1) = len;
+    }
+  } else if (prev_len) {
+    pointer prev = x - prev_len;
+
+    typeflag(x + len - 1) |= MARK_RUN_END;
+    typeflag(x - 1) &= ~MARK_RUN_END;
+    len += prev_len;
+    ivalue_unchecked(prev + 1) = len;
+    ivalue_unchecked(prev + len - 1) = len;
+  } else {
+    pointer next_run = cdr(sc->FREE_CELL);
+    cdr(x) = next_run;
+    car(x) = sc->FREE_CELL;
+    cdr(sc->FREE_CELL) = x;
+    car(next_run) = x;
+
+    typeflag(x) |= MARK_RUN_START;
+    typeflag(x + len - 1) |= MARK_RUN_END;
+    if (len > 1) {
+      ivalue_unchecked(x + 1) = len;
+      ivalue_unchecked(x + len - 1) = len;
+    }
+  }
+
+  // . TODO remove `sc->free_cell` and `fcells`?
+  // . TODO `ok_to_freely_gc` referenced `car(sc->sink)`, what's up with that?
+  // . TODO replace `last_cell_seg` with `num_cell_segs`, like a functioning primate would do
+  // . TODO alloc_seg and cell_seg are now probably the same thing (barring any updates later on)
 }
 
 void decrem(scheme *sc, pointer x) {
@@ -1275,7 +1280,7 @@ void decrem(scheme *sc, pointer x) {
         car(x) = parent;
         parent = x;
         x = child;
-        continue; // Most likely will have to re-organize all this loop structure
+        continue;
       }
       if (is_vector(x) && ivalue(x)) {
         pointer child = car(x+1);
@@ -1284,7 +1289,8 @@ void decrem(scheme *sc, pointer x) {
         x = child;
         continue;
       }
-      reclaim(sc, x);
+      finalize_cell(sc, x);
+      reclaim_run(sc, x, 1);
     }
     // Going up
     while (1) {
@@ -1294,6 +1300,7 @@ void decrem(scheme *sc, pointer x) {
           int ix = parent->references;
           // TODO Optimize to just get the `pointer*` and R/W that memory directly
           pointer grandparent = vector_elem(parent, ix);
+          // TODO Don't think there's any point in setting this back?
           set_vector_elem(parent, ix, x);
           ix++;
           if (ix < ivalue(parent)) {
@@ -1303,13 +1310,14 @@ void decrem(scheme *sc, pointer x) {
             break;
           }
           // Done iterating the vector
-          ix = (ivalue(parent)+3)/2;
+          int vector_size = (ivalue(parent)+3)/2;
+          ix = vector_size;
           // decrem: Don't know if we need to explicitly clear it at this point,
           //         and even if we do we don't have to bother with the "tail" cells.
           while(ix--) parent[ix].references = 0;
           x = parent;
           parent = grandparent;
-          reclaim_vector(sc, x);
+          reclaim_run(sc, x, vector_size);
         } else {
           clratom(parent);
           pointer child = x; // decrem: This goes away, don't need to point anybody back to the child
@@ -1318,7 +1326,8 @@ void decrem(scheme *sc, pointer x) {
           cdr(x) = child; // decrem: This goes away, don't need to point anybody back to the child
           // decrem: x has already visited both children, carefully place it on the scrap heap.
           //   (though ints etc are still an outstanding question)
-          reclaim(sc, x);
+          // Don't need to finalize this, we know it wasn't atomic (which everything finalizable is)
+          reclaim_run(sc, x, 1);
         }
       } else {
         // If car was valid, is cdr always also valid?
@@ -1335,195 +1344,6 @@ void decrem(scheme *sc, pointer x) {
   }
 }
 
-/*--
- *  We use algorithm E (Knuth, The Art of Computer Programming Vol.1,
- *  sec. 2.3.5), the Schorr-Deutsch-Waite link-inversion algorithm,
- *  for marking.
- */
-static void markle(pointer a, char toplvl) {
-     pointer t, q, p;
-
-     t = (pointer) 0;
-     p = a;
-E2:  setmark(p);
-     if (p->references <= 0 && gc_okay == -1) {
-          gc_okay = 0;
-          fprintf(stderr, "Marking something with type %d\n", type(p));
-          fprintf(stderr, "Marking something with %d references!\n", p->references);
-	  if (type(p) == 14) {
-		  // envir
-		  pointer entries = car(p);
-		  if (is_vector(entries)) fputs("Entries is a vector, not reading that\n", stderr);
-		  else {
-			  while (type(entries) == 5) {
-				  pointer record = car(entries);
-				  fprintf(stderr, "> '%s'\n", strvalue(car(car(record))));
-				  entries = cdr(entries);
-			  }
-		  }
-	  }
-     }
-     if(is_vector(p)) {
-          int i;
-          int num=(ivalue_unchecked(p)+1)/2;
-          for(i=0; i<num; i++) {
-               markle(p+1+i, 0);
-	       if (gc_okay == 0) fputs("... was in a vector\n", stderr);
-          }
-     }
-     if (is_atom(p))
-          goto E6;
-     /* E4: down car */
-     q = car(p);
-     if (q && !is_mark(q)) {
-          if (gc_okay >= 0) gc_okay++;
-          setatom(p);  /* a note that we have moved car */
-          car(p) = t;
-          t = p;
-          p = q;
-          goto E2;
-     }
-E5:  q = cdr(p); /* down cdr */
-     if (q && (long) q < 30) {
-          fputs("Fuckin called it\n", stderr);
-     }
-     if (q && !is_mark(q)) {
-          if (gc_okay >= 0) gc_okay++;
-          cdr(p) = t;
-          t = p;
-          p = q;
-          goto E2;
-     }
-E6:   /* up.  Undo the link switching from steps E4 and E5. */
-     if (!t) {
-	     if (gc_okay == 0 && toplvl) gc_okay = -2;
-          return;
-     }
-     q = t;
-     if (is_atom(q)) {
-          clratom(q);
-	     if (gc_okay == 0) fprintf(stderr, "... was car of object w/ type %d\n", type(q));
-          else if (gc_okay > 0) gc_okay--;
-          t = car(q);
-          car(q) = p;
-          p = q;
-          goto E5;
-     } else {
-	     if (gc_okay == 0) {
-		     fprintf(stderr, "... was cdr of object w/ type %d\n", type(q));
-		     if (type(car(q)) == T_SYMBOL) {
-			     fprintf(stderr, "  (related to symbol '%s')\n", strvalue(car(car(q))));
-		     }
-	     }
-          else if (gc_okay > 0) gc_okay--;
-          t = cdr(q);
-          cdr(q) = p;
-          p = q;
-          goto E6;
-     }
-}
-static void mark(pointer a) {
-	markle(a, 1);
-}
-
-
-/* garbage collection. parameter a, b is marked. */
-static void gc(scheme *sc, pointer a, pointer b) {
-  int bad_reclaims = 0; // For debugging
-  pointer p;
-  int i;
-
-  if(sc->gc_verbose) {
-    putstr(sc, "gc...");
-  }
-
-  if (gc_okay == -2) { fputs("*dumb\n", stderr); gc_okay = -3; }
-
-  /* mark system globals */
-  mark(sc->oblist);
-  if (gc_okay == -2) { fputs("*oblist\n", stderr); gc_okay = -3; }
-  mark(sc->global_env);
-  if (gc_okay == -2) { fputs("*global_env\n", stderr); gc_okay = -3; }
-
-  /* mark current registers */
-  mark(sc->args);
-  if (gc_okay == -2) { fputs("*args\n", stderr); gc_okay = -3; }
-  mark(sc->envir);
-  if (gc_okay == -2) { fputs("*envir\n", stderr); gc_okay = -3; }
-  mark(sc->code);
-  if (gc_okay == -2) { fputs("*code\n", stderr); gc_okay = -3; }
-  dump_stack_mark(sc);
-  if (gc_okay == -2) { fputs("*dump stack?\n", stderr); gc_okay = -3; }
-  mark(sc->value);
-  if (gc_okay == -2) { fputs("*value\n", stderr); gc_okay = -3; }
-  mark(sc->inport);
-  if (gc_okay == -2) { fputs("*inport\n", stderr); gc_okay = -3; }
-  mark(sc->save_inport);
-  if (gc_okay == -2) { fputs("*save_inport\n", stderr); gc_okay = -3; }
-  mark(sc->outport);
-  if (gc_okay == -2) { fputs("*outport\n", stderr); gc_okay = -3; }
-  mark(sc->loadport);
-  if (gc_okay == -2) { fputs("*loadport\n", stderr); gc_okay = -3; }
-
-  /* Mark recent objects the interpreter doesn't know about yet. */
-  mark(car(sc->sink));
-  if (gc_okay == -2) { fputs("*car of sink\n", stderr); gc_okay = -3; }
-  /* Mark any older stuff above nested C calls */
-  mark(sc->c_nest);
-  if (gc_okay == -2) { fputs("*C nest\n", stderr); gc_okay = -3; }
-
-  /* mark variables a, b */
-  mark(a);
-  if (gc_okay == -2) { fputs("*dumb a\n", stderr); gc_okay = -3; }
-  mark(b);
-  if (gc_okay == -2) { fputs("*dumb b\n", stderr); gc_okay = -3; }
-
-  /* garbage collect */
-  clrmark(sc->NIL);
-  sc->fcells = 0;
-  sc->free_cell = sc->NIL;
-  /* free-list is kept sorted by address so as to maintain consecutive
-     ranges, if possible, for use with vectors. Here we scan the cells
-     (which are also kept sorted by address) downwards to build the
-     free-list in sorted order.
-  */
-  for (i = sc->last_cell_seg; i >= 0; i--) {
-    p = sc->cell_seg[i] + CELL_SEGSIZE;
-    while (--p >= sc->cell_seg[i]) {
-      if (is_mark(p)) {
-        clrmark(p);
-      } else {
-        // reclaim cell
-        if (p->references != 0) {
-          bad_reclaims++;
-          if (gc_okay == -1) {
-            gc_okay = -3;
-            fprintf(stderr, "Reclaiming a cell with %d references\n", p->references);
-          }
-        }
-        if (typeflag(p) != 0) {
-          finalize_cell(sc, p);
-          typeflag(p) = 0;
-          car(p) = sc->NIL;
-        }
-        ++sc->fcells;
-        cdr(p) = sc->free_cell;
-        sc->free_cell = p;
-      }
-    }
-  }
-
-  if (sc->gc_verbose) {
-    char msg[80];
-    snprintf(msg,80,"done: %ld cells were recovered.\n", sc->fcells);
-    putstr(sc,msg);
-  }
-
-  if (bad_reclaims) {
-    fprintf(stderr, "Reclaimed a total of %d cells that still had references\n", bad_reclaims);
-  }
-}
-
 static void finalize_cell(scheme *sc, pointer a) {
   if(is_string(a)) {
     sc->free(strvalue(a));
@@ -1534,13 +1354,6 @@ static void finalize_cell(scheme *sc, pointer a) {
     }
     sc->free(a->_object._port);
   }
-}
-
-static INLINE void ok_to_freely_gc(scheme *sc)
-{
-  sc->NIL->references++;
-  decrem(sc, car(sc->sink));
-  car(sc->sink) = sc->NIL;
 }
 
 /* ========== Routines for Reading ========== */
@@ -2255,7 +2068,7 @@ static void atom2str(scheme *sc, pointer l, int f, const char **pp, int *plen) {
 
 /* make closure. c is code. e is environment */
 static pointer mk_closure(scheme *sc, pointer c, pointer e) {
-     pointer x = get_cell(sc, c, e);
+     pointer x = get_cell(sc);
 
      typeflag(x) = T_CLOSURE;
      car(x) = c;
@@ -2416,8 +2229,7 @@ static void new_frame_in_env(scheme *sc, pointer old_env)
   }
 
   decrem(sc, sc->envir);
-  sc->envir = sc->NIL; // TODO Delete me, just to prevent false warnings about a 0-reference item being reachable
-  sc->envir = immutable_cons(sc, new_frame, old_env);
+  sc->envir = cons(sc, new_frame, old_env);
   setenvironment(sc->envir);
 }
 
@@ -2425,13 +2237,13 @@ static void new_frame_in_env(scheme *sc, pointer old_env)
 static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
                                         pointer variable, pointer value)
 {
-  pointer slot = immutable_cons(sc, variable, value);
+  pointer slot = cons(sc, variable, value);
 
   if (is_vector(car(env))) {
     int location = hash_fn(symname(variable), ivalue_unchecked(car(env)));
     append_vector_elem(sc, car(env), location, slot);
   } else {
-    car(env) = immutable_cons(sc, slot, car(env));
+    car(env) = cons(sc, slot, car(env));
   }
 }
 
@@ -2471,8 +2283,7 @@ static INLINE void new_frame_in_env(scheme *sc, pointer old_env)
 {
   sc->NIL->references++;
   decrem(sc, sc->envir);
-  sc->envir = sc->NIL; // TODO Delete me, just to prevent false warnings about a 0-reference item being reachable
-  sc->envir = immutable_cons(sc, sc->NIL, old_env);
+  sc->envir = cons(sc, sc->NIL, old_env);
   setenvironment(sc->envir);
 }
 
@@ -2480,7 +2291,7 @@ static INLINE void new_frame_in_env(scheme *sc, pointer old_env)
 static INLINE void new_slot_spec_in_env(scheme *sc, pointer env,
                                         pointer variable, pointer value)
 {
-  car(env) = immutable_cons(sc, immutable_cons(sc, variable, value), car(env));
+  car(env) = cons(sc, cons(sc, variable, value), car(env));
 }
 
 // Nothing increm'd
@@ -2568,7 +2379,6 @@ static pointer _Error_1(scheme *sc, const char *s, pointer a) {
                sc->code = sc->NIL;
          }
          sc->code = cons(sc, mk_string(sc, str), sc->code);
-         setimmutable(car(sc->code));
          sc->code = cons(sc, slot_value_in_env(x), sc->code);
          sc->op = (int)OP_EVAL;
          return sc->T;
@@ -2583,7 +2393,6 @@ static pointer _Error_1(scheme *sc, const char *s, pointer a) {
           sc->args = sc->NIL;
     }
     sc->args = cons(sc, mk_string(sc, str), sc->args);
-    setimmutable(car(sc->args));
     sc->op = (int)OP_ERR0;
     return sc->T;
 }
@@ -2673,19 +2482,6 @@ static void dump_stack_free(scheme *sc)
 {
   free(sc->dump_base);
   sc->dump_base = NULL;
-}
-
-static INLINE void dump_stack_mark(scheme *sc)
-{
-  int nframes = sc->dump;
-  int i;
-  for(i=0; i<nframes; i++) {
-    struct dump_stack_frame *frame;
-    frame = (struct dump_stack_frame *)sc->dump_base + i;
-    mark(frame->args);
-    mark(frame->envir);
-    mark(frame->code);
-  }
 }
 
 #define s_retbool(tf)  BEGIN \
@@ -2900,11 +2696,9 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           if (is_proc(sc->code)) {
                s_goto(sc,procnum(sc->code));   /* PROCEDURE */
           } else if (is_foreign(sc->code)) {
-              /* Keep nested calls from GC'ing the arglist */
-              push_recent_alloc(sc,sc->args,sc->NIL);
-              // Assume sc->args doesn't need to be increm'd since usually it's just being read;
-              // Conversely, have to assume the result is appropriately increm'd, since otherwise
-              // it'll be immediately GC'd if it's actually new.
+               // Assume sc->args doesn't need to be increm'd since usually it's just being read;
+               // Conversely, have to assume the result is appropriately increm'd, since otherwise
+               // it'll be immediately GC'd if it's actually new.
                x=sc->code->_object._ff(sc,sc->args);
                s_return(sc,x);
           } else if (is_closure(sc->code) || is_macro(sc->code)
@@ -2937,7 +2731,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
                     x->references++;
                     Error_1(sc,"syntax error in closure: not a symbol:", x);
                }
-               // TODO: new_slot_in_env(sc, sc->self_symbol, sc->code); // Also incr references
                x = cdr(closure_code(sc->code));
                x->references++;
                decrem(sc, sc->code);
@@ -3012,14 +2805,6 @@ static pointer opexe_0(scheme *sc, enum scheme_opcodes op) {
           s_return(sc,x);
 
      case OP_DEF0:  /* define */
-          // TODO Remove all the immutable checks, they're dumb.
-          // In this case it's extra dumb, because if is_pair(car(sc->code)) I think you
-          // can redefine an "immutable" thing to a new function with ease.
-          if(is_immutable(car(sc->code))) {
-               car(sc->code)->references++;
-               Error_1(sc,"define: unable to alter immutable", car(sc->code));
-          }
-
           y = sc->code;
           if (is_pair(car(sc->code))) {
                // handles (define (f x ...) ...) syntax
@@ -3476,14 +3261,14 @@ static pointer opexe_1(scheme *sc, enum scheme_opcodes op) {
           }
 
      case OP_PAPPLY:     // apply
-	  x = sc->args;
-	  decrem(sc, sc->code);
+          x = sc->args;
+          decrem(sc, sc->code);
           sc->code = car(x);
-	  sc->code->references++;
+          sc->code->references++;
           //sc->args = list_star(sc,cdr(sc->args));
           sc->args = cadr(x);
-	  sc->args->references++;
-	  decrem(sc, x);
+          sc->args->references++;
+          decrem(sc, x);
           s_goto(sc,OP_APPLY);
 
      case OP_PEVAL: /* eval */
@@ -3816,7 +3601,6 @@ static pointer opexe_2(scheme *sc, enum scheme_opcodes op) {
 
      case OP_SYM2STR: /* symbol->string */
           x=mk_string(sc,symname(car(sc->args)));
-          setimmutable(x);
           s_return(sc,x);
 
      case OP_ATOM2STR: /* atom->string */ {
@@ -4218,7 +4002,6 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           sc->retcode=-1;
           if (!is_string(car(sc->args))) {
                sc->args=cons(sc,mk_string(sc," -- "),sc->args);
-               setimmutable(car(sc->args));
           }
           putstr(sc, "Error: ");
           putstr(sc, strvalue(car(sc->args)));
@@ -4317,8 +4100,8 @@ static pointer opexe_4(scheme *sc, enum scheme_opcodes op) {
           }
           return (sc->NIL);
 
-     case OP_GC:         /* gc */
-          gc(sc, sc->NIL, sc->NIL);
+     case OP_GC:         /* gc */ // TODO: Remove?
+          // No-op now
           sc->T->references++;
           s_return(sc,sc->T);
 
@@ -4590,7 +4373,6 @@ static pointer opexe_5(scheme *sc, enum scheme_opcodes op) {
                  decrem(sc, x);
                  Error_0(sc,"Error reading string");
                }
-               setimmutable(x);
                s_return(sc,x);
           case TOK_SHARP: {
                pointer f=find_slot_in_env(sc,sc->envir,sc->SHARP_HOOK,1);
@@ -5009,7 +4791,6 @@ static void Eval_Cycle(scheme *sc, enum scheme_opcodes op) {
         pcd=dispatch_table+sc->op;
       }
     }
-    ok_to_freely_gc(sc);
     if (pcd->func(sc, (enum scheme_opcodes)sc->op) == sc->NIL) {
       return;
     }
@@ -5041,7 +4822,7 @@ static void assign_proc(scheme *sc, enum scheme_opcodes op, const char *name) {
 static pointer mk_proc(scheme *sc, enum scheme_opcodes op) {
      pointer y;
 
-     y = get_cell(sc, sc->NIL, sc->NIL);
+     y = get_cell(sc);
      typeflag(y) = (T_PROC | T_ATOM);
      ivalue_unchecked(y) = (long) op;
      set_num_integer(y);
@@ -5090,14 +4871,10 @@ static int syntaxnum(pointer p) {
 INTERFACE static pointer s_cons(scheme *sc, pointer a, pointer b) {
  return cons(sc,a,b);
 }
-INTERFACE static pointer s_immutable_cons(scheme *sc, pointer a, pointer b) {
- return immutable_cons(sc,a,b);
-}
 
 static struct scheme_interface vtbl ={
   scheme_define,
   s_cons,
-  s_immutable_cons,
   reserve_cells,
   mk_integer,
   mk_real,
@@ -5147,11 +4924,8 @@ static struct scheme_interface vtbl ={
   closure_code,
   closure_env,
 
-  is_continuation,
   is_promise,
   is_environment,
-  is_immutable,
-  setimmutable,
 
   scheme_load_file,
   scheme_load_string
@@ -5200,14 +4974,13 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->gensym_cnt=0;
   sc->malloc=malloc;
   sc->free=free;
-  sc->last_cell_seg = -1;
+  sc->num_cell_segs = 0;
   sc->sink = &sc->_sink;
   sc->NIL = &sc->_NIL;
   sc->T = &sc->_HASHT;
   sc->F = &sc->_HASHF;
   sc->EOF_OBJ=&sc->_EOF_OBJ;
-  sc->free_cell = &sc->_NIL;
-  sc->fcells = 0;
+  sc->FREE_CELL = &sc->_FREE_CELL;
   sc->no_memory=0;
   sc->inport=sc->NIL;
   sc->outport=sc->NIL;
@@ -5216,6 +4989,7 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->nesting=0;
   sc->interactive_repl=0;
 
+  car(sc->FREE_CELL) = cdr(sc->FREE_CELL) = sc->FREE_CELL;
   if (alloc_cellseg(sc,FIRST_CELLSEGS) != FIRST_CELLSEGS) {
     sc->no_memory=1;
     return 0;
@@ -5226,25 +5000,31 @@ int scheme_init_custom_alloc(scheme *sc, func_alloc malloc, func_dealloc free) {
   sc->tracing=0;
 
   /* init sc->NIL */
-  typeflag(sc->NIL) = (T_ATOM | MARK);
+  typeflag(sc->NIL) = T_ATOM;
   car(sc->NIL) = cdr(sc->NIL) = sc->NIL;
-  sc->NIL->references = 13;
-  // NIL, free_cell, inport, outport, save_inport, loadport, car(sink), c_nest, dummy envir, cdr of first real envir
+  sc->NIL->references = 11;
+  // NIL, inport, outport, save_inport, loadport, c_nest, dummy envir, cdr of first real envir
   // code, args, value
+  // We don't count the car/cdr of NIL itself (or `sink`) because
+  // those cells are never going to be reclaimed anyway, so why bother counting.
+
   /* init T */
-  typeflag(sc->T) = (T_ATOM | MARK);
+  typeflag(sc->T) = T_ATOM;
   car(sc->T) = cdr(sc->T) = sc->T;
   sc->T->references = 1;
   /* init F */
-  typeflag(sc->F) = (T_ATOM | MARK);
+  typeflag(sc->F) = T_ATOM;
   car(sc->F) = cdr(sc->F) = sc->F;
   sc->F->references = 1;
   /* init F */
-  typeflag(sc->EOF_OBJ) = (T_ATOM | MARK);
+  typeflag(sc->EOF_OBJ) = T_ATOM;
   sc->EOF_OBJ->references = 1;
   /* init sink */
-  typeflag(sc->sink) = (T_PAIR | MARK);
+  // Originally we just set `car(sc->sink)` and left the `cdr` alone - not sure why, or if this is ever needed,
+  // but I feel like this is a safe place to leave it.
+  typeflag(sc->sink) = T_PAIR;
   car(sc->sink) = sc->NIL;
+  cdr(sc->sink) = sc->NIL;
   sc->sink->references = 1;
   /* init c_nest */
   sc->c_nest = sc->NIL;
@@ -5373,12 +5153,11 @@ void scheme_deinit(scheme *sc) {
   sc->global_env->references = 0;
   sc->global_env = sc->NIL;
 
-  sc->gc_verbose=0;
-  gc(sc,sc->NIL,sc->NIL);
+  // TODO: Do we need to make sure all memory is released here? Can we expect it to all be released?
 
   // TODO: Make sure all memory is appropriately freed (e.g. external references from FFI-land)
-  for(i=0; i<=sc->last_cell_seg; i++) {
-    sc->free(sc->alloc_seg[i]);
+  for(i=0; i<sc->num_cell_segs; i++) {
+    sc->free(sc->cell_seg[i]);
   }
 
 #if SHOW_ERROR_LINE
@@ -5495,16 +5274,12 @@ pointer scheme_apply0(scheme *sc, const char *procname) {
 
 void save_from_C_call(scheme *sc)
 {
-     //fprintf(stderr, "\t\t%ld\n", sc->dump);
-  pointer car_sink = car(sc->sink);
-  car_sink->references++;
   sc->envir->references++;
-  pointer saved_data =
-    cons(sc,
-         car_sink,
-         cons(sc,
-              sc->envir,
-              mk_integer(sc, sc->dump_zero)));
+  pointer saved_data = cons(
+    sc,
+    sc->envir,
+    mk_integer(sc, sc->dump_zero)
+  );
   /* Push */
   sc->c_nest = cons(sc, saved_data, sc->c_nest);
   /* Truncate the dump stack so TS will return here when done, not
@@ -5513,17 +5288,16 @@ void save_from_C_call(scheme *sc)
 }
 void restore_from_C_call(scheme *sc)
 {
-  pointer saved_data = car(sc->c_nest);
-  decrem(sc, car(sc->sink));
-  decrem(sc, sc->envir);
-  car(sc->sink) = car(saved_data);
-  car(sc->sink)->references++;
-  sc->envir = cadr(saved_data);
-  sc->envir->references++;
-  sc->dump_zero = ivalue(cddr(saved_data));
-  /* Pop */
   pointer old_nest = sc->c_nest;
-  sc->c_nest = cdr(sc->c_nest);
+
+  pointer saved_data = car(old_nest);
+  decrem(sc, sc->envir);
+  sc->envir = car(saved_data);
+  sc->envir->references++;
+  sc->dump_zero = ivalue(cdr(saved_data));
+
+  /* Pop */
+  sc->c_nest = cdr(old_nest);
   sc->c_nest->references++;
   decrem(sc, old_nest);
 }

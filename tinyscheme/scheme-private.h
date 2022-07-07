@@ -56,6 +56,10 @@ struct cell {
       struct cell *_car;
       struct cell *_cdr;
     } _cons;
+    struct {
+      struct cell *next;
+      int length;
+    } _unalloced_range;
   } _object;
 };
 
@@ -71,9 +75,8 @@ int tracing;
 
 #define CELL_SEGSIZE    5000  /* # of cells in one segment */
 #define CELL_NSEGMENT   10    /* # of segments for cells */
-char *alloc_seg[CELL_NSEGMENT];
 pointer cell_seg[CELL_NSEGMENT];
-int     last_cell_seg;
+int     num_cell_segs;
 
 /* We use 4 registers. */
 pointer args;            /* register for arguments of function */
@@ -93,6 +96,8 @@ struct cell _HASHF;
 pointer F;               /* special cell representing #f */
 struct cell _EOF_OBJ;
 pointer EOF_OBJ;         /* special cell representing end-of-file object */
+struct cell _FREE_CELL;
+pointer FREE_CELL;       /* pointer to top of free cells */
 pointer oblist;          /* pointer to symbol table */
 pointer global_env;      /* pointer to global environment */
 pointer c_nest;          /* stack for nested calls from C */
@@ -109,9 +114,6 @@ pointer COLON_HOOK;      /* *colon-hook* */
 pointer ERROR_HOOK;      /* *error-hook* */
 pointer SHARP_HOOK;  /* *sharp-hook* */
 pointer COMPILE_HOOK;  /* *compile-hook* */
-
-pointer free_cell;       /* pointer to top of free cells */
-long    fcells;          /* # of free cells */
 
 pointer inport;
 pointer outport;
@@ -154,9 +156,6 @@ enum scheme_opcodes {
   OP_MAXDEFINED
 };
 
-
-#define cons(sc,a,b) _cons(sc,a,b,0)
-#define immutable_cons(sc,a,b) _cons(sc,a,b,1)
 
 int is_string(pointer p);
 char *string_value(pointer p);
