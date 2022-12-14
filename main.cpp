@@ -37,6 +37,7 @@ static int numPlayers;
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE};
 char p1Keys[numKeys];
 static char mouseBtnDown = 0;
+static char mouseSecondaryDown = 0;
 
 scheme *sc;
 
@@ -138,6 +139,7 @@ static void doInputs(ent *e, char *data) {
 		*/
 	if (data[0] & 1) pushBtn1(e);
 	if (data[0] & 2) pushBtn2(e);
+	if (data[0] & 4) pushBtn3(e); // TODO: 3 is too many copies of this method
 	if (data[1] || data[2]) {
 		int axis[2] = {data[1], data[2]};
 		pushAxis1(e, axis);
@@ -158,7 +160,8 @@ static void sendControls(int frame) {
 	char data[8];
 	data[0] = (char) frame;
 	data[1] = 6;
-	data[2] = p1Keys[4] + 2 * mouseBtnDown; // Other buttons also go here, once they exist; bitfield
+	// Other buttons also go here, once they exist; bitfield
+	data[2] = p1Keys[4] + 2*mouseBtnDown + 4*mouseSecondaryDown;
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
@@ -343,15 +346,24 @@ static void* inputThreadFunc(void *arg) {
 					}
 					break;
 				}
-				mouseBtnDown = 1;
+				{
+					int btn = evnt.mouse.button;
+					if (btn == 1) mouseBtnDown = 1;
+					else if (btn == 2) mouseSecondaryDown = 1;
+				}
 				break;
 			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
 				mouse_grabbed = 0;
 				mouseBtnDown = 0;
+				mouseSecondaryDown = 0;
 				al_show_mouse_cursor(display);
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-				mouseBtnDown = 0;
+				{
+					int btn = evnt.mouse.button;
+					if (btn == 1) mouseBtnDown = 0;
+					else if (btn == 2) mouseSecondaryDown = 0;
+				}
 				break;
 			case ALLEGRO_EVENT_MOUSE_AXES:
 				{

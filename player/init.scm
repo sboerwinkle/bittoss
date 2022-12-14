@@ -46,7 +46,7 @@
 		;(if (get-button me) (kill me) '())
 	)
 	(let ((charge (get-slider state 3)) (cooldown (get-slider state 4)))
-		(if (and (get-trigger me) (>= charge 60) (>= cooldown 10))
+		(if (and (get-trigger me 0) (>= charge 60) (>= cooldown 10))
 			(begin
 				(set-slider state 3 (- charge 60))
 				(set-slider state 4 0)

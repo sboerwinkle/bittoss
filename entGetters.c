@@ -53,15 +53,21 @@ static pointer ts_getLook(scheme *sc, pointer args) {
 static pointer ts_getButton(scheme *sc, pointer args) {
 	_size("get-button", 1);
 	_ent(e);
-	pointer ret = e->ctrl.btn1.v ? sc->T : sc->F;
+	pointer ret = e->ctrl.btns[0].v ? sc->T : sc->F;
 	ret->references++;
 	return ret;
 }
 
 static pointer ts_getTrigger(scheme *sc, pointer args) {
-	_size("get-trigger", 1);
+	_size("get-trigger", 2);
 	_ent(e);
-	pointer ret = e->ctrl.btn2.v ? sc->T : sc->F;
+	_int(i);
+	pointer ret;
+	if (i >= 0 && i <= 1) {
+		ret = e->ctrl.btns[i+1].v ? sc->T : sc->F;
+	} else {
+		ret = sc->F;
+	}
 	ret->references++;
 	return ret;
 }

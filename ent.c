@@ -69,12 +69,12 @@ void setupEntState(entState *s, int numSliders, int numRefs) {
 }
 
 void flushCtrls(ent *who) {
-	who->ctrl.btn1.v = who->ctrl.btn1.v2;
-	who->ctrl.btn2.v = who->ctrl.btn2.v2;
-	who->ctrl.btn1.v2 = 0;
-	who->ctrl.btn2.v2 = 0;
-
 	int i;
+	for (i = 0; i < 3; i++) {
+		who->ctrl.btns[i].v = who->ctrl.btns[i].v2;
+		who->ctrl.btns[i].v2 = 0;
+	}
+
 	for (i = 0; i < 2; i++) {
 		who->ctrl.axis1.v[i] = (who->ctrl.axis1.max[i] + who->ctrl.axis1.min[i]) / 2;
 		who->ctrl.axis1.min[i] = axisMaxis;

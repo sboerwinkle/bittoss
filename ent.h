@@ -96,7 +96,7 @@ typedef struct ent {
 	struct {
 		struct {
 			char v, v2;
-		} btn1, btn2;
+		} btns[3];
 		struct {
 			signed char min[2], max[2];
 			signed char v[2];
@@ -179,6 +179,7 @@ extern void flushMisc(ent *e);
 
 extern void pushBtn1(ent *who);
 extern void pushBtn2(ent *who);
+extern void pushBtn3(ent *who);
 extern void pushAxis1(ent *who, int *x);
 
 //extern void moveRecursive(ent *who, int32_t *vel);
