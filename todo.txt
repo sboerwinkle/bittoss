@@ -1,9 +1,14 @@
 TODO:
 / Server exiting cancels input thread but doesn't exit app
-- Complete switch to Scheme ref-counting
+/ Complete switch to Scheme ref-counting
 	/ References seem to be resolved, maybe
-	- Next step is actually doing our own allocation and reclaiming
+	/ Next step is actually doing our own allocation and reclaiming
+		Is this really, truly done?? Wow
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
+- Slicker collision detection - this will either have to be reviewed from ~/old_c/physics2d/physics.c,
+	or possibly redone from scratch?
+- multi-threaded scheming - this is probably going to be c-razy, but I've got some notes on it in tinyscheme/todo.txt
+
 
 
 Okay, we're well on our way!

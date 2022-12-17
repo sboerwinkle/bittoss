@@ -193,6 +193,7 @@ extern void addEnt(ent *e);
 extern void killEntNoHandlers(ent *e);
 extern void crushEnt(ent *e);
 
+extern void doTicks();
 extern void doPhysics();
 extern void doDrawing();
 extern pointer ts_draw(scheme *sc, pointer args);

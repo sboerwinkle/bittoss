@@ -13,6 +13,7 @@
 #include "player/init.c"
 #include "move-to/init.c"
 #include "stackem/init.c"
+#include "platform/init.c"
 
 void initMods() {
 	void *ptr = (void*)PREV_FUNC;

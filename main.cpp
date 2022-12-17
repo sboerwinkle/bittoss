@@ -65,8 +65,10 @@ static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
 #define micro_hist_num 5
-static int historical_micros[micro_hist_num];
+static int historical_phys_micros[micro_hist_num];
+static int historical_draw_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
+static struct timeval t1, t2, t3;
 
 static void outerSetupFrame() {
 	ent *p = players[myPlayer].entity;
@@ -89,14 +91,22 @@ static void outerSetupFrame() {
 	}
 }
 
-static float hudColor[3] = {0, 0.5, 0.5};
+#define micros_per_frame (1000000 / FRAMERATE)
+
+static float hudColor[3] = {0.0, 0.5, 0.5};
+static float grnColor[3] = {0.0, 1.0, 0.0};
+static float bluColor[3] = {0.0, 0.0, 1.0};
 static void drawHud() {
 	setupText();
 	drawHudText(chatBuffer, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
+	float f1 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
+	float f2 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
+	f2 += f1;
+	// Draw frame timing bars
+	// For now we aren't bothering with checking the max
 }
 
-#define micros_per_frame (1000000 / FRAMERATE)
 /*
 static void drawMicroHist() {
 	int sum = 0;
@@ -110,6 +120,9 @@ static void drawMicroHist() {
 	ALLEGRO_COLOR c = al_map_rgb_f(1, 1, 1);
 	// TODO This used to be so nice! Even if I was drawing half the bars offscreen.
 	//      Maybe some other visual tick time indicator could be good?
+
+	// The reason I did away with it I think was the transition from 2D to 3D;
+	// I'd have to rewrite this to work with whatever nonsense the text display is doing.
 	//rect_inner(0, displayHeight-15, 0, displayWidth*sum/(micros_per_frame * micro_hist_num), 5, c);
 	//rect_inner(0, displayHeight-5, 0, displayWidth*max/micros_per_frame, 5, c);
 }
@@ -547,8 +560,7 @@ int main(int argc, char **argv) {
 		al_emit_user_event(&customSrc, &customEvent, NULL);
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
-		//gettimeofday(&t1, NULL);
-		doGravity();
+		gettimeofday(&t1, NULL);
 		doLava();
 		// Heroes must be after Lava, or they can be killed and then cleaned up immediately
 		doHeroes();
@@ -579,17 +591,25 @@ int main(int argc, char **argv) {
 				doInputs(players[i].entity, data);
 			}
 		}
+
+		doTicks();
+		doGravity();
 		doPhysics();
+
+		gettimeofday(&t2, NULL);
+
 		outerSetupFrame();
 		doDrawing();
 		drawHud();
-		//drawMicroHist();
 		al_flip_display();
-		//gettimeofday(&t2, NULL);
-		/*{
-			int micros = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
-			historical_micros[micro_hist_ix = (micro_hist_ix+1)%micro_hist_num] = micros;
-		}*/
+		gettimeofday(&t3, NULL);
+		{
+			int physMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
+			int drawMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + t3.tv_usec - t2.tv_usec;
+			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
+			historical_phys_micros[micro_hist_ix] = physMicros;
+			historical_draw_micros[micro_hist_ix] = drawMicros;
+		}
 	}
 	done:;
 	puts("Beginning cleanup.");

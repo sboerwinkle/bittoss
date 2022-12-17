@@ -9,7 +9,7 @@
 // is 16/sqrt(2) = approx 11.3
 #define nearPlane (11*PTS_PER_PX)
 // Pretty arbitrary; remember that increasing the ratio of far/near decreases z-buffer accuracy
-#define farPlane (1500*PTS_PER_PX)
+#define farPlane (15000*PTS_PER_PX)
 
 extern int frameOffset[3];
 
@@ -20,3 +20,4 @@ extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
 extern void drawHudText(const char* str, double x, double y, double scale, float* color);
+extern void drawHudRect(double x, double y, double w, double h, float *color);

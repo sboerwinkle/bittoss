@@ -1,4 +1,14 @@
-(define (crate-who-moves a b axis dir) (if (and (= axis 2) (= 1 dir)) MOVE_HIM MOVE_ME))
+(define (crate-who-moves a b axis dir)
+	(if
+		(and
+			(= axis 2)
+			(= 1 dir)
+			(not (typ? b T_TERRAIN)
+		)
+		MOVE_HIM
+		MOVE_ME
+	)
+)
 (define (crate-pushed me him axis dir dx dv)
 	(let ((state (get-state me)) (slider (+ 1 dir axis)))
 		(if (and (< axis 2) (= 0 (get-slider state slider)))

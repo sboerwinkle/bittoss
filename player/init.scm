@@ -13,11 +13,6 @@
 (define (player-pushed me him axis dir dx dv)
 	(let ((state (get-state me)))
 	(if (= axis 2)
-		; This used to be a case where bouncing off something laterally in the air would re-center your inertia;
-		; However, it became tricky to make sure it was correct in all situations.
-		;(if (< 0 (* dir (get-slider state axis)))
-			;(set-slider state axis 0)
-		;)
 		(if (< dir 0)
 			(let ((vel (get-vel him me)))
 				(set-slider state 0 (bound (car vel) 128))
@@ -25,6 +20,11 @@
 				(set-slider state 2 1)
 			)
 		)
+		; Tried to be more clever about this in the past, but it got weird.
+		; I think being able to suction towards surfaces in midair is not the
+		; weirdest ability, and it has no issues with multiple collisions in a frame.
+		;(if (< 0 (* dir (get-slider state axis)))
+		(set-slider state axis 0)
 	)
 	)
 	R_PASS
@@ -46,17 +46,32 @@
 		;(if (get-button me) (kill me) '())
 	)
 	(let ((charge (get-slider state 3)) (cooldown (get-slider state 4)))
-		(if (and (get-trigger me 0) (>= charge 60) (>= cooldown 10))
+		(if (and (get-trigger me 1) (>= charge 180) (>= cooldown 10))
 			(begin
-				(set-slider state 3 (- charge 60))
+				(set-slider state 3 0)
 				(set-slider state 4 0)
-				(let ((look (get-look me)))
-					(accel (mk-stackem me look) (map (lambda (x) (* x 7)) look))
+				(mk-platform
+					me
+					; 0.0406 = 1.3 / axisMaxis   (axisMaxis == 32)
+					(map (lambda (a b) (truncate (* a (+ 512 b) 0.0406))) (get-look me) platform-size)
+					(let ((tag (get-slider state 5)))
+						(set-slider state 5 (- 1 tag))
+						(if (> tag 0) clr-white clr-blue)
+					)
 				)
 			)
-			(begin
-				(if (< charge 180) (set-slider state 3 (+ 1 charge)))
-				(if (< cooldown 10) (set-slider state 4 (+ 1 cooldown)))
+			(if (and (get-trigger me 0) (>= charge 60) (>= cooldown 10))
+				(begin
+					(set-slider state 3 (- charge 60))
+					(set-slider state 4 0)
+					(let ((look (get-look me)))
+						(accel (mk-stackem me look) (map (lambda (x) (* x 7)) look))
+					)
+				)
+				(begin
+					(if (< charge 180) (set-slider state 3 (+ 1 charge)))
+					(if (< cooldown 10) (set-slider state 4 (+ 1 cooldown)))
+				)
 			)
 		)
 	)
@@ -71,7 +86,7 @@
 			(+ T_OBSTACLE (* team TEAM_BIT))
 			(+ T_OBSTACLE T_TERRAIN)
 			pos
-			5
+			6
 		)
 	player-pushed) player-who-moves) player-draw) player-tick)
 )

@@ -201,6 +201,15 @@ void drawHudText(const char* str, double x, double y, double scale, float* color
 	}
 }
 
+void drawHudRect(double x, double y, double w, double h, float *color) {
+	// I've added one more font character (at postition 94, corresponding to ASCII 127 / DEL)
+	// which is just 2 tris as a square. This is because I am lazy, and want to draw rectangles easily.
+
+	// TODO set up uniforms
+
+	glDrawElements(GL_TRIANGLES, myfont.letterLen[94], GL_UNSIGNED_SHORT, (void*)(sizeof(short)*myfont.letterStart[94]));
+}
+
 void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	// TODO This could be improved in a number of ways, see other TODO higher in this file
 	GLfloat L = (float)(p[0] + frameOffset[0] - r[0]);

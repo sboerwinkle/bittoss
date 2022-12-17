@@ -47,18 +47,19 @@ def loop(clients, latency, framerate = 30):
     incr = 1 / framerate
     target = 0
 
+    running = True
+
     # Tracking which clients are still connected
     active_clients = clients.copy()
     def rm(ix):
+        nonlocal running
         active_clients.remove(clients[ix])
         clients[ix] = None
-        ret = len(active_clients) == 0
-        if ret:
+        if len(active_clients) == 0:
             print("All clients disconnected")
-        return ret
+            running = False
 
     # Main loop
-    running = True
     while running:
 
         # Framerate
@@ -77,7 +78,7 @@ def loop(clients, latency, framerate = 30):
         target += incr
 
         # get the list sockets which are ready to be read through select
-        ready_to_read, _, _ = select.select(active_clients,[],[],0)
+        ready_to_read, ready_to_write, _ = select.select(active_clients,active_clients,[],0)
       
         for sock in ready_to_read:
             ix = clients.index(sock)
@@ -114,8 +115,7 @@ def loop(clients, latency, framerate = 30):
                 else:
                     sock.close()
                     print(f"Client {ix} disconnected")
-                    if rm(ix):
-                        running = False
+                    rm(ix)
             except:
                 # TODO Print exception
                 print(f"Exception, closing socket {ix}")
@@ -123,8 +123,7 @@ def loop(clients, latency, framerate = 30):
                     sock.close()
                 except:
                     pass # TODO be more descriptive
-                if rm(ix):
-                    running = False
+                rm(ix)
         msg = bytes([frame])
         pieces = buf[frame]
         frame = (frame+1)%16
@@ -134,12 +133,16 @@ def loop(clients, latency, framerate = 30):
             #if b == b'\0' and clients[ix] is not None:
             #    print(f"No packet for client {ix}") # Kinda excessive when combined with the "packet came late" messages
             msg += b
-        for c in active_clients:
-            try:
-                c.send(msg)
-            except:
-                print("Exception while sending, I'm going to pretend I didn't see that")
-                pass # TODO maybe actually do something
+        msg_len = len(msg)
+        for c in active_clients.copy():
+            if c not in ready_to_write or c.send(msg) != msg_len:
+                ix = clients.index(c)
+                print(f"Network backup, closing socket {ix}");
+                rm(ix)
+                try:
+                    c.close()
+                except:
+                    pass
 
     print("Cleaning up connections...")
     for sock in active_clients:

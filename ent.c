@@ -724,15 +724,19 @@ static void flush() {
 	}
 }
 
-void doPhysics() {
+void doTicks() {
 	flush();
 	clearDeads();
 	ent *i;
 	for (i = rootEnts; i; i = i->LL.n) {
 		doTick(i, 2);
 	}
+}
+
+void doPhysics() {
 	flush();
 
+	ent *i;
 	for (i = ents; i; i = i->ll.n) {
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
