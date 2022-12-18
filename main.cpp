@@ -100,11 +100,24 @@ static void drawHud() {
 	setupText();
 	drawHudText(chatBuffer, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
+
 	float f1 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
 	float f2 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
-	f2 += f1;
 	// Draw frame timing bars
-	// For now we aren't bothering with checking the max
+	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, grnColor);
+	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, bluColor);
+
+	// Draw ammo bars if applicable
+	ent *p = players[myPlayer].entity;
+	if (!p) return;
+	int charge = p->state.sliders[3].v;
+	float x = 0.5 - 3.0/128;
+	while (charge >= 60) {
+		drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
+		x += 1.0/64;
+		charge -= 60;
+	}
+	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
 }
 
 /*
@@ -613,6 +626,9 @@ int main(int argc, char **argv) {
 	}
 	done:;
 	puts("Beginning cleanup.");
+	puts("Cleaning up font...");
+	destroyFont();
+	puts("Done.");
 	puts("Cancelling input thread...");
 	{
 		customEvent.user.data1 = -1;

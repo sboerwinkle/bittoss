@@ -23,6 +23,7 @@ void initFont() {
 	jsonValue letterstartjson = jsonGetObj(*fontjson, "letter");
 	int pointsLen = jsonGetLen(pointsjson);
 	int formLen = jsonGetLen(formjson);
+	int numLetters = jsonGetLen(letterstartjson);
 	float* points = (float*)calloc(pointsLen, sizeof(float));
 	short* form = (short*)calloc(formLen, sizeof(short));
 
@@ -32,13 +33,15 @@ void initFont() {
 	for(int idx = 0; idx < formLen; idx++){
 		form[idx] = jsonGetInt(jsonGetArr(formjson, idx));
 	}
-	for(int idx = 0; idx < 94; idx++){
+	myfont.letterStart = new short[numLetters];
+	myfont.letterLen = new short[numLetters];
+	for(int idx = 0; idx < numLetters; idx++){
 		myfont.letterStart[idx] = jsonGetInt(jsonGetArr(letterstartjson, idx));
 		if(idx != 0){
 			myfont.letterLen[idx-1] = (myfont.letterStart[idx]-myfont.letterStart[idx-1]);
 		}
 	}
-	myfont.letterLen[93] = (formLen-myfont.letterStart[93]);
+	myfont.letterLen[numLetters - 1] = (formLen-myfont.letterStart[numLetters - 1]);
 	
 	glGenBuffers(1, &(myfont.vertex_buffer));
 	glBindBuffer(GL_ARRAY_BUFFER, myfont.vertex_buffer);
@@ -53,4 +56,9 @@ void initFont() {
 	fclose(fontfp);
 	jsonFree(*fontjson);
 	free(fontjson);
+}
+
+void destroyFont() {
+	delete[] myfont.letterStart;
+	delete[] myfont.letterLen;
 }
