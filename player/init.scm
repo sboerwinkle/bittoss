@@ -1,4 +1,3 @@
-(define (player-who-moves a b axis dir) (if (typ? b T_TERRAIN) MOVE_ME MOVE_BOTH))
 ;(define player-draw (base-draw 0.3 1.0 0.3))
 (define (player-draw me)
 	(draw
@@ -8,27 +7,7 @@
 		(if (typ? me (* 4 TEAM_BIT)) 1.0 0.5)
 	)
 )
-;(define (player-tick me) (accel me (map (lambda (x) (* 10 x)) (get-axis me))))
 
-(define (player-pushed me him axis dir dx dv)
-	(let ((state (get-state me)))
-	(if (= axis 2)
-		(if (< dir 0)
-			(let ((vel (get-vel him me)))
-				(set-slider state 0 (bound (car vel) 128))
-				(set-slider state 1 (bound (cadr vel) 128))
-				(set-slider state 2 1)
-			)
-		)
-		; Tried to be more clever about this in the past, but it got weird.
-		; I think being able to suction towards surfaces in midair is not the
-		; weirdest ability, and it has no issues with multiple collisions in a frame.
-		;(if (< 0 (* dir (get-slider state axis)))
-		(set-slider state axis 0)
-	)
-	)
-	R_PASS
-)
 (define (player-tick me)
 	(let ((state (get-state me)))
 	(let ((axis (get-axis me)) (grounded (> (get-slider state 2) 0)) (slider (list (get-slider state 0) (get-slider state 1))))
@@ -88,6 +67,6 @@
 			pos
 			6
 		)
-	player-pushed) player-who-moves) player-draw) player-tick)
+	player-pushed) player-whomoves) player-draw) player-tick)
 )
 (display "wow neat")

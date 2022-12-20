@@ -3,15 +3,9 @@
 #include <string.h>
 #include "ent.h"
 #include "main.h"
+#include "handlerRegistrar.h"
 #include "ts_macros.h"
 #include "tinyscheme/scheme.h"
-
-int whoMovesDefault(ent *me, ent *him, byte axis, int dir) {
-	int diff = (me->typeMask & (T_HEAVY|T_TERRAIN)) - (him->typeMask & (T_HEAVY|T_TERRAIN));
-	if (diff > 0) return HIM;
-	if (diff < 0) return ME;
-	return BOTH;
-}
 
 void onTickDefault(ent *me) {}
 
@@ -94,8 +88,7 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t *r, int numSliders, int numRefs) {
 	setupEntState(&ret->state, numSliders, numRefs);
 
 	sc->F->references += 6;
-	//ret->whoMoves = whoMovesDefault;
-	ret->whoMoves = sc->F;
+	ret->whoMoves = NULL;
 	//ret->onTick = onTickDefault;
 	ret->tick = sc->F;
 	//ret->onTickHeld = onTickHeldDefault;
@@ -108,7 +101,7 @@ ent *initEnt(int32_t *c, int32_t *v, int32_t *r, int numSliders, int numRefs) {
 	ret->onFree = doNothing;
 	ret->onPush = onPushDefault;
 	//ret->onPushed = onPushedDefault;
-	ret->pushed = sc->F;
+	ret->pushed = NULL;
 	ret->onFumble = onFumbleDefault;
 	ret->onFumbled = onFumbledDefault;
 	ret->onPickUp = onPickUpDefault;
@@ -178,7 +171,13 @@ static pointer ts_setTickHeld(scheme *sc, pointer args) {
 }
 
 static pointer ts_setWhoMoves(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-who-moves", &ent::whoMoves);
+	_size("set-who-moves", 2);
+	pointer ret = pair_car(args);
+	_ent(e);
+	_int(i);
+	e->whoMoves = getWhoMovesHandler(i);
+	ret->references++;
+	return ret;
 }
 
 static pointer ts_setDraw(scheme *sc, pointer args) {
@@ -186,7 +185,13 @@ static pointer ts_setDraw(scheme *sc, pointer args) {
 }
 
 static pointer ts_setPushed(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-pushed", &ent::pushed);
+	_size("set-pushed", 2);
+	pointer ret = pair_car(args);
+	_ent(e);
+	_int(i);
+	e->pushed = getPushedHandler(i);
+	ret->references++;
+	return ret;
 }
 
 static pointer ts_setCrush(scheme *sc, pointer args) {

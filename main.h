@@ -5,6 +5,8 @@
 
 #define FRAMERATE 30
 
+#define range(var, lim) for(int var = 0; var < lim; var++)
+
 extern scheme *sc;
 
 extern int32_t gravity;

@@ -1,21 +1,3 @@
-(define (stackem-who-moves a b axis dir)
-	(if (typ? b T_TERRAIN)
-		MOVE_ME
-		(if (= axis 2)
-			(if (and (= -1 dir) (typ? b T_HEAVY)) MOVE_ME MOVE_HIM)
-			(if (= 0 (& TEAM_MASK (get-type a) (get-type b))) MOVE_HIM MOVE_ME)
-		)
-	)
-)
-(define (stackem-pushed me him axis dir dx dv)
-	(if (and (= dir -1) (= axis 2))
-		(let ((state (get-state me)) (vel (get-vel me him)))
-			(set-slider state 0 (bound (car vel) 4))
-			(set-slider state 1 (bound (cadr vel) 4))
-		)
-	)
-	R_PASS
-)
 (define (stackem-tick me)
 	(let ((state (get-state me)))
 		(accel me (list (get-slider state 0) (get-slider state 1) 0))
@@ -47,7 +29,7 @@
 						offset
 						2
 					)
-					stackem-who-moves
+					stackem-whomoves
 				)
 				stackem-draw
 			)

@@ -1,6 +1,4 @@
 
-extern int whoMovesDefault(ent *me, ent *him, byte axis, int dir);
-
 extern void onTickDefault(ent *me);
 
 extern void onTickHeldDefault(ent *me);

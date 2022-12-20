@@ -27,10 +27,20 @@ static pointer ts_typ_p(scheme *sc, pointer args) {
 	return ret;
 }
 
+int bound(int x, int b) {
+	if (x > b) return b;
+	if (x < -b) return -b;
+	return x;
+}
+
+int type(ent *e) {
+	return e->typeMask;
+}
+
 static pointer ts_getType(scheme *sc, pointer args) {
 	_size("get-typ", 1);
 	_ent(e);
-	return mk_integer(sc, e->typeMask);
+	return mk_integer(sc, type(e));
 }
 
 static pointer ts_getAxis(scheme *sc, pointer args) {
@@ -83,6 +93,12 @@ static pointer ts_getPos(scheme *sc, pointer args) {
 		sc->NIL)));
 }
 
+void getVel(int *dest, ent *a, ent *b) {
+	range(i, 3) {
+		dest[i] = b->vel[i] - a->vel[i];
+	}
+}
+
 static pointer ts_getVel(scheme *sc, pointer args) {
 	/*
 	if (list_length(sc, args) != 2) {
@@ -101,10 +117,12 @@ static pointer ts_getVel(scheme *sc, pointer args) {
 	_size("get-vel", 2);
 	_ent(e1);
 	_ent(e2);
+	int dest[3];
 	sc->NIL->references++;
-	return cons(sc, mk_integer(sc, e2->vel[0] - e1->vel[0]),
-		cons(sc, mk_integer(sc, e2->vel[1] - e1->vel[1]),
-		cons(sc, mk_integer(sc, e2->vel[2] - e1->vel[2]),
+	getVel(dest, e1, e2);
+	return cons(sc, mk_integer(sc, dest[0]),
+		cons(sc, mk_integer(sc, dest[1]),
+		cons(sc, mk_integer(sc, dest[2]),
 		sc->NIL)));
 }
 

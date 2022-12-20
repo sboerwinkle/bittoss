@@ -1,6 +1,3 @@
-;(define (ground-who-moves a b axis dir) MOVE_HIM) Moot - he has no collideMask
-(define (platform-who-moves a b axis dir) (if (typ? b T_TERRAIN) MOVE_ME MOVE_HIM))
-
 (define platform-size '(3200 3200 512))
 
 (define (mk-platform src pos draw-func)
@@ -14,5 +11,5 @@
 			pos
 			0
 		)
-	draw-func) platform-who-moves)
+	draw-func) platform-whomoves)
 )

@@ -38,6 +38,10 @@ Physics loop
 struct ent;
 struct entRef;
 
+typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
+typedef int (*pushed_t)(struct ent*, struct ent*, int, int, int, int);
+
+
 typedef struct {
 	int32_t v, min, max;
 } slider;
@@ -138,9 +142,7 @@ typedef struct ent {
 	char dead, dead_max[2];
 
 	// Many, many event handlers.
-	//TODO: Make all this run in TinyScheme
-	pointer whoMoves;
-	//int (*whoMoves)(struct ent *me, struct ent *him, byte axis, int dir);
+	whoMoves_t whoMoves;
 	pointer tick;
 	//void (*onTick)(struct ent *me);
 	// Like above, but when someone is holding me. Doesn't technically have to be a separate method, but a lot of things are going to do nothing when held, so this encourages that "default" behavior.
@@ -155,7 +157,7 @@ typedef struct ent {
 	void (*onFree)(struct ent *me);
 	void (*onPush)(struct ent *me, struct ent *him, byte axis, int dir, int displacement, int dv);
 	//int (*onPushed)(struct ent *me, struct ent *him, byte axis, int dir, int displacement, int dv);
-	pointer pushed;
+	pushed_t pushed;
 
 	// Called first
 	void (*onFumble)(struct ent *me, struct ent *him);
@@ -214,10 +216,10 @@ none			| me	| him	| both	| none
 //"both" is still kind of a cop-out: It suggests that the entity responding "both" can't see a good way to resolve the conflict, but knows that they do have to collide somehow.
 
 //Also know that, as per my usual habits, these values actually matter and can't be changed at will
-#define ME 1
-#define HIM 2
-#define BOTH 7
-#define NONE 15
+#define MOVE_ME 1
+#define MOVE_HIM 2
+#define MOVE_BOTH 7
+#define MOVE_NONE 15
 
 //Constants for onPushed return code
 enum retCodes {
@@ -238,3 +240,5 @@ enum retCodes {
 #define T_TERRAIN 2
 #define T_OBSTACLE 4
 #define T_WEIGHTLESS 8
+#define TEAM_BIT 32
+#define TEAM_MASK (7*TEAM_BIT)

@@ -206,30 +206,21 @@ void crushEnt(ent *e) {
 
 static int whoMoves(ent *a, ent *b, byte axis, int dir) {
 #ifndef NODEBUG
-	if (a->whoMoves == sc->F) {
+	if (a->whoMoves == NULL) {
 		fputs("whoMoves unset\n", stderr);
-		return ME;
+		return MOVE_ME;
 	}
 #endif
-	save_from_C_call(sc);
-	// TODO ents have an orientation and they can perceive all 3 axes differently
-	a->whoMoves->references++;
-	sc->NIL->references++;
-	scheme_eval(sc, cons(sc, a->whoMoves, cons(sc, mk_c_ptr(sc, a, 0), cons(sc, mk_c_ptr(sc, b, 0), cons(sc, mk_integer(sc, axis), cons(sc, mk_integer(sc, dir), sc->NIL))))));
-	if (!is_integer(sc->value)) {
-		fputs("That's not an int!\n", stderr);
-		return ME;
-	}
-	return ivalue(sc->value);
+	return (*a->whoMoves)(a, b, axis, dir);
 }
 
 static int arbitrateMovement(ent *a, ent *b, byte axis, int dir) {
 	int A = whoMoves(a, b, axis, dir);
 	int B = whoMoves(b, a, axis, -dir);
-	if (B == ME) B = HIM;
-	else if (B == HIM) B = ME;
+	if (B == MOVE_ME) B = MOVE_HIM;
+	else if (B == MOVE_HIM) B = MOVE_ME;
 	A = A&B;
-	return A?A:BOTH;
+	return A?A:MOVE_BOTH;
 }
 
 int getAxisAndDir(ent *a, ent *b) {
@@ -389,13 +380,13 @@ static byte checkCollision(ent *a, ent *b) {
 				arbitrateMovement(a, b, axis, dir) :
 				whoMoves(a, b, axis, dir)) :
 			3^whoMoves(b, a, axis, -dir));
-	//We throw in the 3^ to flip ME and HIM, but the only problem is that this injures the NONE and BOTH symbols, so we can't just check for equality here.
-	if (movee & 8) return 0; // NONE
-	if (movee & 4) { // BOTH
+	//We throw in the 3^ to flip MOVE_ME and MOVE_HIM, but the only problem is that this injures the MOVE_NONE and MOVE_BOTH symbols, so we can't just check for equality here.
+	if (movee & 8) return 0; // MOVE_NONE
+	if (movee & 4) { // MOVE_BOTH
 		/*
 		//In this case we need to test the forced values and possibly change movee...
 		if ((a->forced[axis] == -dir) ^ (b->forced[axis] == dir)) {
-			movee = ME + (a->forced[axis] == -dir);
+			movee = MOVE_ME + (a->forced[axis] == -dir);
 		} else {
 		*/
 			byte ret = tryCollide(a, b, axis, dir, 1);
@@ -403,10 +394,10 @@ static byte checkCollision(ent *a, ent *b) {
 			return ret;
 		//}
 	}
-	if (movee == ME) {
+	if (movee == MOVE_ME) {
 		return tryCollide(a, b, axis, dir, 0);
 	}
-	//else it's HIM
+	//else it's MOVE_HIM
 	return tryCollide(b, a, axis, -dir, 0);
 }
 
@@ -461,9 +452,7 @@ static void clearDeads() {
 		decrem(sc, d->tick);
 		decrem(sc, d->tickHeld);
 		decrem(sc, d->crush);
-		decrem(sc, d->pushed);
 		decrem(sc, d->draw);
-		decrem(sc, d->whoMoves);
 		free(d);
 	}
 }
@@ -554,26 +543,10 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 
 		//TODO: Invoke e->onPushed, which should be a tinyscheme pointer
 		int ret;
-		if (e->pushed == sc->F) {
+		if (e->pushed == NULL) {
 			ret = r_pass;
 		} else {
-			save_from_C_call(sc);
-			e->pushed->references++;
-			sc->NIL->references++;
-			pointer Ret = scheme_eval(sc,
-				cons(sc, e->pushed,
-				cons(sc, mk_c_ptr(sc, e, 0),
-				cons(sc, mk_c_ptr(sc, o, 0),
-				cons(sc, mk_integer(sc, axis),
-				cons(sc, mk_integer(sc, dir),
-				cons(sc, mk_integer(sc, displacement),
-				cons(sc, mk_integer(sc, accel),
-			sc->NIL))))))));
-			if (is_integer(Ret)) ret = ivalue(Ret);
-			else {
-				ret = r_die;
-				fputs("'pushed' didn't return an integer!\n", stderr);
-			}
+			ret = (*e->pushed)(e, o, axis, dir, displacement, accel);
 		}
 
 		prev = e;

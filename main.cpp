@@ -12,6 +12,7 @@
 #include "main.h"
 #include "modules.h"
 #include "net.h"
+#include "handlerRegistrar.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -473,6 +474,8 @@ int main(int argc, char **argv) {
 	registerTsGetters();
 	registerTsFuncSetters();
 
+	init_registrar();
+
 	// Set up allegro stuff
 	if (!al_init()) {
 		fputs("Couldn't init Allegro\n", stderr);
@@ -579,8 +582,8 @@ int main(int argc, char **argv) {
 		doHeroes();
 
 		for (int i = 0; i < numPlayers; i++) {
-			char size;
-			if (readData(&size, 1)) goto done;
+			unsigned char size;
+			if (readData((char*)&size, 1)) goto done;
 			char *data;
 			if (size == 0) {
 				data = defaultData;
@@ -626,8 +629,9 @@ int main(int argc, char **argv) {
 	}
 	done:;
 	puts("Beginning cleanup.");
-	puts("Cleaning up font...");
+	puts("Cleaning up simple interal components...");
 	destroyFont();
+	destroy_registrar();
 	puts("Done.");
 	puts("Cancelling input thread...");
 	{
