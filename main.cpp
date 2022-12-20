@@ -6,6 +6,8 @@
 #include <allegro5/allegro_opengl.h>
 #include <pthread.h>
 
+#include <random>
+
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
@@ -41,6 +43,12 @@ static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
 
 scheme *sc;
+
+static std::minstd_rand *random_gen;
+// rand_t is defined in main.h (to avoid including <random> everywhere).
+// It is manually verified to be what std::minstd_rand returns.
+static rand_t random_base;
+rand_t random_max;
 
 static ALLEGRO_DISPLAY *display;
 static ALLEGRO_EVENT_QUEUE *queue;
@@ -121,26 +129,9 @@ static void drawHud() {
 	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
 }
 
-/*
-static void drawMicroHist() {
-	int sum = 0;
-	int max = 0;
-	int i;
-	for (i = 0; i < micro_hist_num; i++) {
-		int x = historical_micros[i];
-		sum += x;
-		if (x > max) max = x;
-	}
-	ALLEGRO_COLOR c = al_map_rgb_f(1, 1, 1);
-	// TODO This used to be so nice! Even if I was drawing half the bars offscreen.
-	//      Maybe some other visual tick time indicator could be good?
-
-	// The reason I did away with it I think was the transition from 2D to 3D;
-	// I'd have to rewrite this to work with whatever nonsense the text display is doing.
-	//rect_inner(0, displayHeight-15, 0, displayWidth*sum/(micros_per_frame * micro_hist_num), 5, c);
-	//rect_inner(0, displayHeight-5, 0, displayWidth*max/micros_per_frame, 5, c);
+rand_t get_random() {
+	return (*random_gen)() - random_base;
 }
-*/
 
 void loadFile(const char* file) {
 	FILE *f = fopen(file, "r");
@@ -462,6 +453,10 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
+	random_gen = new std::minstd_rand(0);
+	random_base = random_gen->min();
+	random_max = random_gen->max() - random_base;
+
 	// set up scheme stuff
 	if (!(sc = scheme_init_new())) {
 		fputs("Couldn't init TinyScheme!\n", stderr);
@@ -632,6 +627,7 @@ int main(int argc, char **argv) {
 	puts("Cleaning up simple interal components...");
 	destroyFont();
 	destroy_registrar();
+	delete random_gen;
 	puts("Done.");
 	puts("Cancelling input thread...");
 	{
