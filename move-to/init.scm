@@ -38,7 +38,7 @@
 ;(define (kill-me me) (kill me))
 
 (define (mk-move-to-tester owner pos w h x y)
-	(let ((new (create owner w h (+ T_GROW T_OBSTACLE) (+ T_OBSTACLE T_TERRAIN) pos 3)))
+	(let ((new (create owner w h (+ T_GROW T_OBSTACLE) (+ T_OBSTACLE T_TERRAIN) pos 3 0)))
 		(let ((s (get-state new)))
 			(set-slider s 0 x)
 			(set-slider s 1 y)
@@ -55,7 +55,7 @@
 	(set-tick
 		(set-who-moves
 			(set-draw
-				(create '() 256 256 T_OBSTACLE (+ T_OBSTACLE T_TERRAIN) pos 1)
+				(create '() 256 256 T_OBSTACLE (+ T_OBSTACLE T_TERRAIN) pos 1 0)
 				move-to-tester-draw
 			)
 			move-me
@@ -67,7 +67,7 @@
 (define (mk-brick owner w h pos)
 	(set-who-moves
 		(set-draw
-			(create owner w h (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 0)
+			(create owner w h (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 0 0)
 			brick-draw
 		)
 		dont-move-terrain

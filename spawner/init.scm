@@ -8,7 +8,7 @@
 )
 
 (define (mk-crate-seed owner pos r)
-	(let ((x (create owner (list r r r) T_OBSTACLE (+ T_OBSTACLE T_TERRAIN) pos 1)))
+	(let ((x (create owner (list r r r) T_OBSTACLE (+ T_OBSTACLE T_TERRAIN) pos 1 0)))
 		(set-tick x become-crate); Note this isn't tick-on-held, hence the magic!
 		(set-pushed x seed-pushed) ; Ugh this will have to be converted if we intend to use it
 		(set-draw x crate-draw)
@@ -46,7 +46,7 @@
 	(set-tick
 		(set-draw
 			(set-who-moves
-				(create owner (list r r r) (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 1)
+				(create owner (list r r r) (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 1 0)
 				dont-move-terrain ; Ugh this will have to be converted if we intend to use it
 			)
 			spawner-draw

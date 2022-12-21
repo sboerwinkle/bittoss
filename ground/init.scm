@@ -11,7 +11,7 @@
 		; Owner is '()
 		; Collide mask 0
 		; num sliders 0
-		(create '() r (+ T_TERRAIN T_HEAVY T_WEIGHTLESS) 0 pos 0)
+		(create '() r (+ T_TERRAIN T_HEAVY T_WEIGHTLESS) 0 pos 0 0)
 		draw-func
 	)
 )

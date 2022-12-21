@@ -41,7 +41,7 @@
 		(set-pushed
 			(set-draw
 				(set-who-moves
-					(create owner r r (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 2)
+					(create owner r r (+ T_OBSTACLE T_HEAVY) (+ T_OBSTACLE T_TERRAIN) pos 2 0)
 					crate-who-moves
 				)
 				crate-draw

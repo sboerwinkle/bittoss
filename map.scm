@@ -61,6 +61,6 @@
 	(f 0 1 clr-blue)
 	(f 1 0 clr-blue)
 	(f -1 0 clr-blue)
-	(mk-flag (list  width 0 -1024) 2)
-	(mk-flag (list (* -1 width) 0 -1024) 1)
+	(mk-flag-spawner (list  width 0 -1024) 2)
+	(mk-flag-spawner (list (* -1 width) 0 -1024) 1)
 )

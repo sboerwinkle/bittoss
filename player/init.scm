@@ -66,7 +66,8 @@
 			(+ T_OBSTACLE T_TERRAIN)
 			pos
 			6
+			0
 		)
 	player-pushed) player-whomoves) player-draw) player-tick)
 )
-(display "wow neat")
+(display "wow neat\n")

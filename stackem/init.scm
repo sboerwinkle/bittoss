@@ -28,6 +28,7 @@
 						(+ T_OBSTACLE T_TERRAIN)
 						offset
 						2
+						0
 					)
 					stackem-whomoves
 				)

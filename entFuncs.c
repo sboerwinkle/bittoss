@@ -113,9 +113,10 @@ ent *initEnt(const int32_t *c, const int32_t *v, const int32_t *r, int numSlider
 }
 
 pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t typeMask, int32_t collideMask) {
-	_size("create-tmp", 2);
+	_size("create-tmp", 3);
 	_vec(pos);
 	_int(sliders);
+	_int(refs);
 	int32_t vel[3] = {0, 0, 0};
 	if (parent) {
 		memcpy(vel, parent->vel, sizeof(vel));
@@ -123,14 +124,14 @@ pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t 
 		int32_t* p_pos = parent->center;
 		for (int i = 0; i < 3; i++) pos[i] += p_pos[i];
 	}
-	ent *e = initEnt(pos, vel, r, sliders, 0);
+	ent *e = initEnt(pos, vel, r, sliders, refs);
 	e->typeMask = typeMask;
 	e->collideMask = collideMask;
 	return mk_c_ptr(sc, e, 0);
 }
 
 pointer ts_create(scheme *sc, pointer args) {
-	_size("create", 6);
+	_size("create", 7);
 	_opt_ent(parent);
 	_vec(r);
 	_int(typ);

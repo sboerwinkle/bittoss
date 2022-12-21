@@ -10,6 +10,7 @@
 			T_TERRAIN
 			pos
 			0
+			0
 		)
 	draw-func) platform-whomoves)
 )
