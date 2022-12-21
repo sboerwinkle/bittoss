@@ -504,7 +504,6 @@ static ent* pinch(ent *e, byte axis, ent *o) {
 		fumble(leaf2);
 		return leaf2;
 	}
-	puts("Pinched to death!");
 	crushEnt(e);
 	return NULL;
 }

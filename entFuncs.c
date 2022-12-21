@@ -77,7 +77,7 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 //this will probably just take a type identifier, and will index into a large list of handler sets.
 //Alternatively, it could just take a list of handlers directly, which could be called from guile and would technically allow for more flexibility.
 //TODO: Orientation is an arg here.
-ent *initEnt(int32_t *c, int32_t *v, int32_t *r, int numSliders, int numRefs) {
+ent *initEnt(const int32_t *c, const int32_t *v, const int32_t *r, int numSliders, int numRefs) {
 	ent *ret = (ent*) calloc(1, sizeof(ent));
 	flushCtrls(ret);
 	flushMisc(ret);

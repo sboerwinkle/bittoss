@@ -1,6 +1,7 @@
 #include "ent.h"
 #include "ts_macros.h"
 #include "main.h"
+#include "util.h"
 
 static pointer ts_typ_p(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 2) {

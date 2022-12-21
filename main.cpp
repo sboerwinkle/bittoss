@@ -15,6 +15,7 @@
 #include "modules.h"
 #include "net.h"
 #include "handlerRegistrar.h"
+#include "effects.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -294,21 +295,6 @@ static void handleMouseMove(int dx, int dy) {
 	else if (viewPitch < -M_PI_2) viewPitch = -M_PI_2;
 }
 
-static void doGravity() {
-	int32_t grav[3] = {0, 0, 8};
-	ent *i;
-	for (i = rootEnts; i; i = i->LL.n) {
-		if (!(i->typeMask & T_WEIGHTLESS)) uVel(i, grav);
-	}
-}
-
-static void doLava() {
-	ent *i;
-	for (i = ents; i; i = i->ll.n) {
-		if (i->center[2] > 2000 * PTS_PER_PX) crushEnt(i);
-	}
-}
-
 static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
 	char running = 1;
@@ -572,8 +558,9 @@ int main(int argc, char **argv) {
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
 		gettimeofday(&t1, NULL);
-		doLava();
-		// Heroes must be after Lava, or they can be killed and then cleaned up immediately
+		doCrushtainer();
+		createDebris();
+		// Heroes must be after environmental death effects, or they can be killed and then cleaned up immediately
 		doHeroes();
 
 		for (int i = 0; i < numPlayers; i++) {

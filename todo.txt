@@ -4,10 +4,36 @@ TODO:
 	/ References seem to be resolved, maybe
 	/ Next step is actually doing our own allocation and reclaiming
 		Is this really, truly done?? Wow
+- Velbox? Big swarm got kinda dicey huh
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
+	This would still maintain the "squares come out of spinning and shooting" thing
 - Slicker collision detection - this will either have to be reviewed from ~/old_c/physics2d/physics.c,
 	or possibly redone from scratch?
 - multi-threaded scheming - this is probably going to be c-razy, but I've got some notes on it in tinyscheme/todo.txt
+
+
+CTF TODO:
+. Change debris
+	. Colors
+	. Density
+	. Speed
+	. Area
+	. Note about Poisson
+. Flag
+	. Soft squish guy, team based
+- Invincible cube spawner (oh boy, time for ent refs)
+	- Definitely immune to platforms
+	- Immune to stackems?
+- Pickup physics
+	- Pickup key
+	- Hover
+	- Look direction doesn't reset on blank frames
+	- fire/drop (LMB/RMB)
+	- fumble (in flag tick held?)
+- New platforms and spawn locations
+- Scoring?
+	- Sensitive platform?
+	- Log
 
 
 

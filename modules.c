@@ -17,6 +17,7 @@
 // #include "move-to/init.c"
 #include "stackem/init.c"
 #include "platform/init.c"
+#include "flag/init.c"
 
 void initMods() {
 	void *ptr = (void*)PREV_FUNC;

@@ -7,7 +7,8 @@
 (define T_TERRAIN 2)
 (define T_OBSTACLE 4)
 (define T_WEIGHTLESS 8)
-(define T_GROW 16)
+; (define T_GROW 16)
+(define T_FLAG 16)
 (define TEAM_BIT 32)
 (define TEAM_MASK (* TEAM_BIT 7))
 

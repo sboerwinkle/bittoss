@@ -42,6 +42,10 @@
 (define clr-white (base-draw 1.0 1.0 1.0))
 (define clr-blue (base-draw 0.8 0.8 1.0))
 
+(define clr-mag-1 (base-draw 1.0 0.0 1.0))
+(define clr-mag-2 (base-draw 0.7 0.0 0.7))
+(define clr-mag-3 (base-draw 0.4 0.0 0.4))
+
 (let*
 	(
 		(width 3200)
@@ -57,4 +61,6 @@
 	(f 0 1 clr-blue)
 	(f 1 0 clr-blue)
 	(f -1 0 clr-blue)
+	(mk-flag (list  width 0 -1024) 2)
+	(mk-flag (list (* -1 width) 0 -1024) 1)
 )

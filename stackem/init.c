@@ -21,7 +21,9 @@ static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) 
 		uStateSlider(&me->state, 0, bound(vel[0], 4));
 		uStateSlider(&me->state, 1, bound(vel[1], 4));
 	}
-	return r_pass;
+	// I'm using this more in the flag, which can actually be picked up.
+	// Maybe I should change this?
+	return r_move;
 }
 
 static void *stackem_init() {
