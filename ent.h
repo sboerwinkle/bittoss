@@ -100,7 +100,7 @@ typedef struct ent {
 	struct {
 		struct {
 			char v, v2;
-		} btns[3];
+		} btns[4];
 		struct {
 			signed char min[2], max[2];
 			signed char v[2];
@@ -178,11 +178,6 @@ extern byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
 
 extern void flushCtrls(ent *e);
 extern void flushMisc(ent *e);
-
-extern void pushBtn1(ent *who);
-extern void pushBtn2(ent *who);
-extern void pushBtn3(ent *who);
-extern void pushAxis1(ent *who, int *x);
 
 //extern void moveRecursive(ent *who, int32_t *vel);
 

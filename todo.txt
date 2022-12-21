@@ -21,9 +21,9 @@ CTF TODO:
 	. Note about Poisson
 . Flag
 	. Soft squish guy, team based
-- Invincible cube spawner (oh boy, time for ent refs)
-	- Definitely immune to platforms
-	- Immune to stackems?
+. Invincible cube spawner (oh boy, time for ent refs)
+	. Definitely immune to platforms
+	. Immune to stackems?
 - Pickup physics
 	- Pickup key
 	- Hover

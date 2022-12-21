@@ -70,7 +70,7 @@ void setupEntState(entState *s, int numSliders, int numRefs) {
 
 void flushCtrls(ent *who) {
 	int i;
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 4; i++) {
 		who->ctrl.btns[i].v = who->ctrl.btns[i].v2;
 		who->ctrl.btns[i].v2 = 0;
 	}

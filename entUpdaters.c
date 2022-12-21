@@ -4,9 +4,8 @@
 #include "main.h"
 #include "ts_macros.h"
 
-void pushBtn1(ent *who) {who->ctrl.btns[0].v2 = 1;}
-void pushBtn2(ent *who) {who->ctrl.btns[1].v2 = 1;}
-void pushBtn3(ent *who) {who->ctrl.btns[2].v2 = 1;}
+void pushBtn(ent *who, int ix) {who->ctrl.btns[ix].v2 = 1;}
+
 void pushAxis1(ent *who, int *x) {
 	int i;
 	for (i = 0; i < 2; i++) {

@@ -26,7 +26,7 @@
 #define CUSTOM_EVT_TYPE 1025
 static ALLEGRO_EVENT_SOURCE customSrc;
 
-#define numKeys 5
+#define numKeys 6
 typedef struct player {
 	ent *entity;
 	int reviveCounter;
@@ -38,7 +38,7 @@ static player *players;
 static int myPlayer;
 static int numPlayers;
 
-int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE};
+int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_E};
 char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
@@ -156,9 +156,10 @@ static void doInputs(ent *e, char *data) {
 			else if (dv[i] < -axisMaxis) dv[i] = -axisMaxis;
 		}
 		*/
-	if (data[0] & 1) pushBtn1(e);
-	if (data[0] & 2) pushBtn2(e);
-	if (data[0] & 4) pushBtn3(e); // TODO: 3 is too many copies of this method
+	if (data[0] & 1) pushBtn(e, 0);
+	if (data[0] & 2) pushBtn(e, 1);
+	if (data[0] & 4) pushBtn(e, 2);
+	if (data[0] & 8) pushBtn(e, 3);
 	if (data[1] || data[2]) {
 		int axis[2] = {data[1], data[2]};
 		pushAxis1(e, axis);
@@ -180,7 +181,7 @@ static void sendControls(int frame) {
 	data[0] = (char) frame;
 	data[1] = 6;
 	// Other buttons also go here, once they exist; bitfield
-	data[2] = p1Keys[4] + 2*mouseBtnDown + 4*mouseSecondaryDown;
+	data[2] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
