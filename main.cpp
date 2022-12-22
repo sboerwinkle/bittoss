@@ -140,7 +140,7 @@ void loadFile(const char* file) {
 		fprintf(stderr, "Couldn't open %s\n", file);
 		return;
 	}
-	scheme_load_file(sc, f);
+	scheme_load_named_file(sc, f, file);
 	fclose(f);
 }
 
