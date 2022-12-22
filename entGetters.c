@@ -166,6 +166,9 @@ static pointer ts_countHoldees(scheme *sc, pointer args) {
 	_size("count-holdees", 2);
 	_ent(e);
 	_func(f);
+	// If this is a lambda it might get lost after the first call if we don't
+	// add a reference off the bat
+	f->references++;
 	int ret = 0;
 	for (ent *child = e->holdee; child; child = child->LL.n) {
 		save_from_C_call(sc);
@@ -174,6 +177,7 @@ static pointer ts_countHoldees(scheme *sc, pointer args) {
 		scheme_call(sc, f, cons(sc, mk_c_ptr(sc, child, 0), sc->NIL));
 		if (sc->value != sc->F && sc->value != sc->NIL) ret++;
 	}
+	decrem(sc, f);
 	return mk_integer(sc, ret);
 }
 
