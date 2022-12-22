@@ -17,14 +17,14 @@
 ;(define (pick-team n) 0)
 
 (define (mk-hero n t)
-	(let ((denom (if (> t 1) (- t 1) 1)))
+	(let ((denom (if (> t 1) (- t 1) 1)) (team (pick-team n)))
 		(mk-player
 			(list
-				(+ (* -2 3200) (quotient (* n 3200 4) denom))
-				0
-				-16000
+				(* 70000 (if (= team 1) 1 -1))
+				(* (quotient n 2) 1000)
+				-8000
 			)
-			(pick-team n)
+			team
 		)
 	)
 )
@@ -50,17 +50,21 @@
 	(
 		(width 3200)
 		(dims (list width width 512))
-		(f (lambda (x y clr) (mk-ground-inner (list (* width x 2) (* width y 2) 0) dims clr)))
+		(base (lambda (z team)
+			(let ((f (lambda (x y clr) (mk-ground-inner (list (+ z (* width x 2)) (* width y 2) 0) dims clr))))
+				(f 0 0 clr-white)
+				(f 1 1 clr-white)
+				(f -1 1 clr-white)
+				(f 1 -1 clr-white)
+				(f -1 -1 clr-white)
+				(f 0 -1 clr-blue)
+				(f 0 1 clr-blue)
+				(f 1 0 clr-blue)
+				(f -1 0 clr-blue)
+			)
+			(mk-flag-spawner (list z 0 -1024) team)
+		))
 	)
-	(f 0 0 clr-white)
-	(f 1 1 clr-white)
-	(f -1 1 clr-white)
-	(f 1 -1 clr-white)
-	(f -1 -1 clr-white)
-	(f 0 -1 clr-blue)
-	(f 0 1 clr-blue)
-	(f 1 0 clr-blue)
-	(f -1 0 clr-blue)
-	(mk-flag-spawner (list  width 0 -1024) 2)
-	(mk-flag-spawner (list (* -1 width) 0 -1024) 1)
+	(base 64000 1)
+	(base -64000 2)
 )
