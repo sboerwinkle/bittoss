@@ -51,5 +51,7 @@
                (cdrs (cdr unz)))
           (cons (apply proc cars) (apply map (cons proc cdrs)))))))
 
+(define (abs x) (if (>= x 0) x (- 0 x)))
+
 ; Not as fundamental as some of these others, perhaps, but helpful for the kind of stuff we're doing
 (define (bound x b) (if (> x b) b (if (< x (- b)) (- b) x)))

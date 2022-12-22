@@ -24,12 +24,12 @@ CTF TODO:
 . Invincible cube spawner (oh boy, time for ent refs)
 	. Definitely immune to platforms
 	. Immune to stackems?
-- Pickup physics
-	- Pickup key
-	- Hover
-	- Look direction doesn't reset on blank frames
-	- fire/drop (LMB/RMB)
-	- fumble (in flag tick held?)
+. Pickup physics
+	. Pickup key
+	. Hover
+	. Look direction doesn't reset on blank frames
+	. fire/drop (LMB/RMB)
+	. fumble (in flag tick held?)
 - New platforms and spawn locations
 - Scoring?
 	- Sensitive platform?

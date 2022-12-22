@@ -24,9 +24,22 @@ static int player_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	return r_pass;
 }
 
+static void player_push(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+	if (
+		getButton(me, 1)
+		&& (type(him) & T_FLAG)
+		// In general we want this to be order-independent, hence the weirness with "count-holdees" in scheme-land.
+		// However, this is a quick way to check if there are any at all, and we're respecting that order doesn't matter.
+		&& !me->holdee
+	) {
+		uPickup(me, him);
+	}
+}
+
 static void *player_init() {
 	regWhoMovesHandler("player-whomoves", player_whoMoves);
 	regPushedHandler("player-pushed", player_pushed);
+	regPushHandler("player-push", player_push);
 	loadFile("player/init.scm");
 	return (void*)PREV_FUNC;
 }

@@ -40,6 +40,7 @@ struct entRef;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
 typedef int (*pushed_t)(struct ent*, struct ent*, int, int, int, int);
+typedef void (*push_t)(struct ent*, struct ent*, byte, int, int, int);
 
 
 typedef struct {

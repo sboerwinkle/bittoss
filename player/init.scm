@@ -23,32 +23,70 @@
 		)
 		(set-slider state 2 0)
 	)
-	(let ((charge (get-slider state 3)) (cooldown (get-slider state 4)))
-		(if (and (get-trigger me 1) (>= charge 180) (>= cooldown 10))
+	(let ((charge (get-slider state 3)) (cooldown (get-slider state 4)) (holdees (count-holdees me (lambda (x) #t))))
+		(if (> holdees 0)
 			(begin
-				(set-slider state 3 0)
-				(set-slider state 4 0)
-				(mk-platform
-					me
-					; 0.0406 = 1.3 / axisMaxis   (axisMaxis == 32)
-					(map (lambda (a b) (truncate (* a (+ 512 b) 0.0406))) (get-look me) platform-size)
-					(let ((tag (get-slider state 5)))
-						(set-slider state 5 (- 1 tag))
-						(if (> tag 0) clr-white clr-blue)
+				(if (or (and (>= cooldown 10) (get-trigger me 0)) (> holdees 1))
+					(begin
+						; Can't directly pass `drop` because it's not technically a function,
+						; it's a foreign function? maybe need to change the check being done here...
+						(count-holdees me (lambda (x) (drop x)))
+						(set-slider state 4 0)
 					)
+					(count-holdees me (lambda (x)
+						; 0.03125 = 1 / axisMaxis
+						(accel x
+							(map
+								(lambda (pos vel surface look)
+									(if (> (abs pos) (+ surface 1024))
+										(begin (drop x) 0)
+										(bound (-
+											(bound (quotient (-
+												(truncate (* 0.03125 look surface))
+												pos
+											) 5) 64)
+											vel
+										) 12)
+									)
+								)
+								(get-pos me x)
+								(get-vel me x)
+								(map (lambda (r) (+ 1024 r)) (get-radius x))
+								(get-look me)
+							)
+						)
+					))
 				)
+				(if (< charge 180) (set-slider state 3 (+ 1 charge)))
+				(if (< cooldown 10) (set-slider state 4 (+ 1 cooldown)))
 			)
-			(if (and (get-trigger me 0) (>= charge 60) (>= cooldown 10))
+			; Or if no holdees, maybe we fire
+			(if (and (get-trigger me 1) (>= charge 180) (>= cooldown 10))
 				(begin
-					(set-slider state 3 (- charge 60))
+					(set-slider state 3 0)
 					(set-slider state 4 0)
-					(let ((look (get-look me)))
-						(accel (mk-stackem me look) (map (lambda (x) (* x 7)) look))
+					(mk-platform
+						me
+						; 0.0406 = 1.3 / axisMaxis   (axisMaxis == 32)
+						(map (lambda (a b) (truncate (* a (+ 512 b) 0.0406))) (get-look me) platform-size)
+						(let ((tag (get-slider state 5)))
+							(set-slider state 5 (- 1 tag))
+							(if (> tag 0) clr-white clr-blue)
+						)
 					)
 				)
-				(begin
-					(if (< charge 180) (set-slider state 3 (+ 1 charge)))
-					(if (< cooldown 10) (set-slider state 4 (+ 1 cooldown)))
+				(if (and (get-trigger me 0) (>= charge 60) (>= cooldown 10))
+					(begin
+						(set-slider state 3 (- charge 60))
+						(set-slider state 4 0)
+						(let ((look (get-look me)))
+							(accel (mk-stackem me look) (map (lambda (x) (* x 7)) look))
+						)
+					)
+					(begin
+						(if (< charge 180) (set-slider state 3 (+ 1 charge)))
+						(if (< cooldown 10) (set-slider state 4 (+ 1 cooldown)))
+					)
 				)
 			)
 		)
@@ -57,7 +95,7 @@
 )
 
 (define (mk-player pos team)
-	(set-tick (set-draw (set-who-moves (set-pushed
+	(set-tick (set-draw (set-who-moves (set-pushed (set-push
 		(create
 			'()
 			(list 512 512 512)
@@ -67,6 +105,6 @@
 			6
 			0
 		)
-	player-pushed) player-whomoves) player-draw) player-tick)
+	player-push) player-pushed) player-whomoves) player-draw) player-tick)
 )
 (display "wow neat\n")

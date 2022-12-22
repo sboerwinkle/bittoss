@@ -61,11 +61,15 @@ static pointer ts_getLook(scheme *sc, pointer args) {
 		sc->NIL)));
 }
 
+char getButton(ent *e, int i) {
+	return e->ctrl.btns[i].v;
+}
+
 static pointer ts_getButton(scheme *sc, pointer args) {
 	_size("get-button", 2);
 	_ent(e);
 	_int(i);
-	pointer ret = e->ctrl.btns[i].v ? sc->T : sc->F;
+	pointer ret = getButton(e, i) ? sc->T : sc->F;
 	ret->references++;
 	return ret;
 }

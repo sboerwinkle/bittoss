@@ -80,10 +80,14 @@ void flushCtrls(ent *who) {
 		who->ctrl.axis1.min[i] = axisMaxis;
 		who->ctrl.axis1.max[i] = -axisMaxis;
 	}
-	for (i = 0; i < 3; i++) {
-		who->ctrl.look.v[i] = (who->ctrl.look.max[i] + who->ctrl.look.min[i]) / 2;
-		who->ctrl.look.min[i] = axisMaxis;
-		who->ctrl.look.max[i] = -axisMaxis;
+	// Don't both updating the look direction unless there's been some input;
+	// it will not reset to 0 on its own the same way the axis will
+	if (who->ctrl.look.min[0] != axisMaxis || who->ctrl.look.max[0] != -axisMaxis) {
+		for (i = 0; i < 3; i++) {
+			who->ctrl.look.v[i] = (who->ctrl.look.max[i] + who->ctrl.look.min[i]) / 2;
+			who->ctrl.look.min[i] = axisMaxis;
+			who->ctrl.look.max[i] = -axisMaxis;
+		}
 	}
 }
 
@@ -122,7 +126,6 @@ void addEnt(ent *e) {
 static ent *deadTail = NULL; //This linked list is only maintained one-directionally so that the "next" pointer can remain unchanged. Since ents may kill themselves while being looped over, this last part is important.
 
 static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
-	who->needsCollision = 1;
 	who->needsPhysUpdate = 1;
 	int i;
 	for (i = 0; i < 3; i++) {
@@ -132,6 +135,14 @@ static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
 	ent *e;
 	for (e = who->holdee; e; e = e->LL.n) {
 		moveRecursive(e, dc, dv);
+	}
+}
+
+static void requireCollisionRecursive(ent *who) {
+	who->needsCollision = 1;
+	ent *e;
+	for (e = who->holdee; e; e = e->LL.n) {
+		requireCollisionRecursive(e);
 	}
 }
 
@@ -166,7 +177,7 @@ static void rmRootEnt(ent *e) {
 }
 
 static void pickup(ent *x, ent *y) {
-	printf("pickup, ff is %d\n", flipFlop_pickup);
+	//printf("pickup, ff is %d\n", flipFlop_pickup);
 	x->onPickUp(x, y);
 	y->onPickedUp(y, x);
 	rmRootEnt(y);
@@ -402,7 +413,7 @@ static byte checkCollision(ent *a, ent *b) {
 }
 
 static char doIteration() {
-	//TODO: Quadtrees
+	//TODO: velbox (quadtree stuff)
 	char ret = 0;
 	ent *i, *j;
 	for (i = ents; i; i = i->ll.n) {
@@ -532,7 +543,7 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	//TODO: This guy should get to know the person who was moved, and how.
 	//Does it matter that this guy might get called twice, if the other guy gets crushed? Shouldn't matter if he's told the other guy got crushed.
 	//I think we need it to be called twice, so the other guy gets to know that he was pushed while not being held.
-	o->onPush(e, o, axis, dir, displacement, accel);
+	o->onPush(o, e, axis, dir, displacement, accel);
 
 	ent *prev = NULL;
 	while (1) {
@@ -690,13 +701,23 @@ static void flush() {
 	flushPickups(); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
 	for (i = ents; i; i = i->ll.n) {
-		flushCtrls(i);
 		flushMisc(i);
 		flushEntState(&i->state);
 	}
 }
 
+// This one has to be separate because we don't want it flushed out multiple times during a tick,
+// only at the start.
+// Specifically we don't want anything flushed between ticks and physics, since then physics can't
+// read player controls.
+static void flushCtrls() {
+	for (ent *i = ents; i; i = i->ll.n) {
+		flushCtrls(i);
+	}
+}
+
 void doTicks() {
+	flushCtrls();
 	flush();
 	clearDeads();
 	ent *i;
@@ -728,6 +749,7 @@ void doPhysics() {
 				//Do physics-y type things in here
 				push(i->collisionLeaf, i->collisionBuddy, i->collisionAxis, i->collisionDir);
 				i->collisionBuddy = NULL;
+				requireCollisionRecursive(i);
 			}
 		}
 		for (i = ents; i; i = i->ll.n) {

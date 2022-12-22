@@ -195,6 +195,16 @@ static pointer ts_setPushed(scheme *sc, pointer args) {
 	return ret;
 }
 
+static pointer ts_setPush(scheme *sc, pointer args) {
+	_size("set-push", 2);
+	pointer ret = pair_car(args);
+	_ent(e);
+	_int(i);
+	e->onPush = getPushHandler(i);
+	ret->references++;
+	return ret;
+}
+
 static pointer ts_setCrush(scheme *sc, pointer args) {
 	return setHandler(sc, args, "set-crush", &ent::crush);
 }
@@ -205,6 +215,7 @@ void registerTsFuncSetters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-who-moves"), mk_foreign_func(sc, ts_setWhoMoves));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-draw"), mk_foreign_func(sc, ts_setDraw));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-pushed"), mk_foreign_func(sc, ts_setPushed));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-push"), mk_foreign_func(sc, ts_setPush));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-crush"), mk_foreign_func(sc, ts_setCrush));
 
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "create"), mk_foreign_func(sc, ts_create));

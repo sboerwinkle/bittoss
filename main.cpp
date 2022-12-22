@@ -38,7 +38,7 @@ static player *players;
 static int myPlayer;
 static int numPlayers;
 
-int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_E};
+int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
 char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;

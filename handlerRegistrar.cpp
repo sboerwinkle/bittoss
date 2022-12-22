@@ -7,6 +7,7 @@
 
 static list<whoMoves_t> whoMovesHandlers;
 static list<pushed_t> pushedHandlers;
+static list<push_t> pushHandlers;
 
 struct card {
 	const char *name;
@@ -18,12 +19,14 @@ static list<card> catalog;
 void init_registrar() {
 	whoMovesHandlers.init();
 	pushedHandlers.init();
+	pushHandlers.init();
 	catalog.init();
 }
 
 void destroy_registrar() {
 	whoMovesHandlers.destroy();
 	pushedHandlers.destroy();
+	pushHandlers.destroy();
 	catalog.destroy();
 }
 
@@ -72,4 +75,15 @@ void regPushedHandler(const char* name, pushed_t handler) {
 
 pushed_t getPushedHandler(int ix) {
 	return pushedHandlers[ix];
+}
+
+void regPushHandler(const char* name, push_t handler) {
+	int ix = pushHandlers.num;
+	addCard(name, ix);
+	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
+	pushHandlers.add(handler);
+}
+
+push_t getPushHandler(int ix) {
+	return pushHandlers[ix];
 }

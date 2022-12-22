@@ -121,22 +121,22 @@ void uPickup(ent *p, ent *e) {
 }
 
 static pointer ts_pickup(scheme *sc, pointer args) {
-	if (list_length(sc, args) != 2) {
-		fputs("pickup requires 2 args\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	printf("Requested pickup, ff is %d\n", flipFlop_pickup);
-	pointer A = pair_car(args);
-	pointer B = pair_car(pair_cdr(args));
-	if (!is_c_ptr(A, 0) || !is_c_ptr(B, 0)) {
-		fputs("pickup args must be ent*, ent*\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	uPickup((ent*)c_ptr_value(A), (ent*)c_ptr_value(B));
-	A->references++;
-	return A;
+	_size("pickup", 2);
+	pointer ret = pair_car(args);
+	_ent(a);
+	_ent(b);
+	uPickup(a, b);
+	ret->references++;
+	return ret;
+}
+
+static pointer ts_drop(scheme *sc, pointer args) {
+	_size("drop", 1);
+	pointer ret = pair_car(args);
+	_ent(e);
+	uDrop(e);
+	ret->references++;
+	return ret;
 }
 
 entRef* uStateRef(entState *s, int ix, ent *e, int numSliders, int numRefs) {
@@ -214,6 +214,7 @@ void uCollideMask(ent *e, uint32_t mask, char turnOn) {
 void registerTsUpdaters() {
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "accel"), mk_foreign_func(sc, ts_accel));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "pickup"), mk_foreign_func(sc, ts_pickup));
+	scheme_define(sc, sc->global_env, mk_symbol(sc, "drop"), mk_foreign_func(sc, ts_drop));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-slider"), mk_foreign_func(sc, ts_setSlider));
 	scheme_define(sc, sc->global_env, mk_symbol(sc, "kill"), mk_foreign_func(sc, ts_kill));
 }
