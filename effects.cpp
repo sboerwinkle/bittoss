@@ -47,7 +47,7 @@ void createDebris() {
 	// For now we make do with flipping a "coin" once per face per frame, which is somewhat close
 	// so long as the probability stays low.
 
-	const rand_t limit = random_max / 55; // Odds of appearing each frame
+	const rand_t limit = random_max / 200; // Odds of appearing each frame
 	const int max_v = 96;
 	// 1.5x wider than manmade platforms, same height
 	const int32_t size[3] = {6400, 6400, 512};
