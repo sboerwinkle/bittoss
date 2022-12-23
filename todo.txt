@@ -7,34 +7,14 @@ TODO:
 - Velbox? Big swarm got kinda dicey huh
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 	This would still maintain the "squares come out of spinning and shooting" thing
-- Slicker collision detection - this will either have to be reviewed from ~/old_c/physics2d/physics.c,
-	or possibly redone from scratch?
-- multi-threaded scheming - this is probably going to be c-razy, but I've got some notes on it in tinyscheme/todo.txt
+! multi-threaded scheming - this is probably going to be c-razy, but I've got some notes on it in tinyscheme/todo.txt
+- Name display (maybe just show chat msg over head)
+- State serizalization
+	- Save to file
+	- Send over wire
+	- dynamic joining
 
-
-CTF TODO:
-. Change debris
-	. Colors
-	. Density
-	. Speed
-	. Area
-	. Note about Poisson
-. Flag
-	. Soft squish guy, team based
-. Invincible cube spawner (oh boy, time for ent refs)
-	. Definitely immune to platforms
-	. Immune to stackems?
-. Pickup physics
-	. Pickup key
-	. Hover
-	. Look direction doesn't reset on blank frames
-	. fire/drop (LMB/RMB)
-	. fumble (in flag tick held?)
-- New platforms and spawn locations
-- Scoring?
-	- Sensitive platform?
-	- Log
-
+- CTF scoring plz
 
 
 Okay, we're well on our way!

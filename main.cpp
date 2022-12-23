@@ -77,8 +77,9 @@ static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + 
 #define micro_hist_num 5
 static int historical_phys_micros[micro_hist_num];
 static int historical_draw_micros[micro_hist_num];
+static int historical_flip_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
-static struct timeval t1, t2, t3;
+static struct timeval t1, t2, t3, t4;
 
 static void outerSetupFrame() {
 	ent *p = players[myPlayer].entity;
@@ -106,6 +107,7 @@ static void outerSetupFrame() {
 static float hudColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
+static float redColor[3] = {1.0, 0.0, 0.0};
 static void drawHud() {
 	setupText();
 	drawHudText(chatBuffer, 1, 1, 1, hudColor);
@@ -113,9 +115,11 @@ static void drawHud() {
 
 	float f1 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
 	float f2 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
+	float f3 = (double) historical_flip_micros[micro_hist_ix] / micros_per_frame;
 	// Draw frame timing bars
 	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, grnColor);
 	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, bluColor);
+	drawHudRect(f1+f2, 1 - 1.0/64, f3, 1.0/64, redColor);
 
 	// Draw ammo bars if applicable
 	ent *p = players[myPlayer].entity;
@@ -600,14 +604,17 @@ int main(int argc, char **argv) {
 		outerSetupFrame();
 		doDrawing();
 		drawHud();
-		al_flip_display();
 		gettimeofday(&t3, NULL);
+		al_flip_display();
+		gettimeofday(&t4, NULL);
 		{
 			int physMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
 			int drawMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + t3.tv_usec - t2.tv_usec;
+			int flipMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + t4.tv_usec - t3.tv_usec;
 			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
 			historical_phys_micros[micro_hist_ix] = physMicros;
 			historical_draw_micros[micro_hist_ix] = drawMicros;
+			historical_flip_micros[micro_hist_ix] = flipMicros;
 		}
 	}
 	done:;
