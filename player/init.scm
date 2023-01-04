@@ -1,13 +1,3 @@
-;(define player-draw (base-draw 0.3 1.0 0.3))
-(define (player-draw me)
-	(draw
-		me
-		(if (typ? me TEAM_BIT) 1.0 0.5)
-		(if (typ? me (* 2 TEAM_BIT)) 1.0 0.5)
-		(if (typ? me (* 4 TEAM_BIT)) 1.0 0.5)
-	)
-)
-
 (define (player-tick me)
 	(let ((state (get-state me)))
 	(let ((axis (get-axis me)) (grounded (> (get-slider state 2) 0)) (slider (list (get-slider state 0) (get-slider state 1))))

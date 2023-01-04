@@ -39,6 +39,7 @@ struct ent;
 struct entRef;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
+typedef void (*draw_t)(struct ent*);
 typedef int (*pushed_t)(struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct ent*, struct ent*, byte, int, int, int);
 
@@ -150,14 +151,12 @@ typedef struct ent {
 	pointer tickHeld;
 	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
-	//void (*onDraw)(struct ent *me, int layer, int dx, int dy);
-	pointer draw;
+	draw_t draw;
 	//void (*onCrush)(struct ent *me);
 	pointer crush;
 	//This should only do pointer management etc., nothing in-game
 	void (*onFree)(struct ent *me);
-	void (*onPush)(struct ent *me, struct ent *him, byte axis, int dir, int displacement, int dv);
-	//int (*onPushed)(struct ent *me, struct ent *him, byte axis, int dir, int displacement, int dv);
+	push_t onPush;
 	pushed_t pushed;
 
 	// Called first
@@ -190,11 +189,11 @@ extern void addEnt(ent *e);
 
 extern void killEntNoHandlers(ent *e);
 extern void crushEnt(ent *e);
+extern void drawEnt(ent *e, float r, float g, float b);
 
 extern void doTicks();
 extern void doPhysics();
 extern void doDrawing();
-extern pointer ts_draw(scheme *sc, pointer args);
 extern void doCleanup();
 
 // A matrix describing the resolution for two different whoMoves calls:

@@ -95,7 +95,7 @@ ent *initEnt(const int32_t *c, const int32_t *v, const int32_t *r, int numSlider
 	ret->tickHeld = sc->F;
 	ret->tickType = tickTypeDefault;
 	//ret->onDraw = onDrawDefault;
-	ret->draw = sc->F;
+	ret->draw = NULL;
 	//ret->onCrush = onCrushDefault;
 	ret->crush = sc->F;
 	ret->onFree = doNothing;
@@ -182,7 +182,13 @@ static pointer ts_setWhoMoves(scheme *sc, pointer args) {
 }
 
 static pointer ts_setDraw(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-draw", &ent::draw);
+	_size("set-draw", 2);
+	pointer ret = pair_car(args);
+	_ent(e);
+	_int(i);
+	e->draw = getDrawHandler(i);
+	ret->references++;
+	return ret;
 }
 
 static pointer ts_setPushed(scheme *sc, pointer args) {

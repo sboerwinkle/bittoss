@@ -3,6 +3,16 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
 }
 
+static void player_draw(ent *e) {
+	int typ = type(e);
+	drawEnt(
+		e,
+		(typ & TEAM_BIT) ? 1.0 : 0.5,
+		(typ & (2*TEAM_BIT)) ? 1.0 : 0.5,
+		(typ & (4*TEAM_BIT)) ? 1.0 : 0.5
+	);
+}
+
 static int player_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	entState *state = &me->state;
 	if (axis == 2) {
@@ -38,6 +48,7 @@ static void player_push(ent *me, ent *him, byte axis, int dir, int displacement,
 
 static void *player_init() {
 	regWhoMovesHandler("player-whomoves", player_whoMoves);
+	regDrawHandler("player-draw", player_draw);
 	regPushedHandler("player-pushed", player_pushed);
 	regPushHandler("player-push", player_push);
 	loadFile("player/init.scm");

@@ -14,6 +14,16 @@ static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return MOVE_HIM;
 }
 
+static void stackem_draw(ent *e) {
+	int typ = type(e);
+	drawEnt(
+		e,
+		(typ & TEAM_BIT) ? 0.5 : 0.3,
+		(typ & (2*TEAM_BIT)) ? 0.5 : 0.3,
+		(typ & (4*TEAM_BIT)) ? 0.5 : 0.3
+	);
+}
+
 static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	if (axis == 2 && dir == -1) {
 		int vel[3];
@@ -28,6 +38,7 @@ static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) 
 
 static void *stackem_init() {
 	regWhoMovesHandler("stackem-whomoves", stackem_whoMoves);
+	regDrawHandler("stackem-draw", stackem_draw);
 	regPushedHandler("stackem-pushed", stackem_pushed);
 	loadFile("stackem/init.scm");
 	return (void*)PREV_FUNC;

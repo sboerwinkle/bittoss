@@ -17,8 +17,6 @@
 (define R_MOVE 2)
 (define R_PASS 3)
 
-(define (base-draw r g b) (lambda (me) (draw me r g b)))
-
 (define (cadr x) (car (cdr x)))
 
 (define (list . x) x)

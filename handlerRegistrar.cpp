@@ -6,6 +6,7 @@
 #include "util.h"
 
 static list<whoMoves_t> whoMovesHandlers;
+static list<draw_t> drawHandlers;
 static list<pushed_t> pushedHandlers;
 static list<push_t> pushHandlers;
 
@@ -18,6 +19,7 @@ static list<card> catalog;
 
 void init_registrar() {
 	whoMovesHandlers.init();
+	drawHandlers.init();
 	pushedHandlers.init();
 	pushHandlers.init();
 	catalog.init();
@@ -25,6 +27,7 @@ void init_registrar() {
 
 void destroy_registrar() {
 	whoMovesHandlers.destroy();
+	drawHandlers.destroy();
 	pushedHandlers.destroy();
 	pushHandlers.destroy();
 	catalog.destroy();
@@ -56,6 +59,7 @@ int handlerByName(const char* name) {
 }
 
 void regWhoMovesHandler(const char* name, whoMoves_t handler) {
+	// TODO This is all too common, needs to be refactored
 	int ix = whoMovesHandlers.num;
 	addCard(name, ix);
 	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
@@ -64,6 +68,17 @@ void regWhoMovesHandler(const char* name, whoMoves_t handler) {
 
 whoMoves_t getWhoMovesHandler(int ix) {
 	return whoMovesHandlers[ix];
+}
+
+void regDrawHandler(const char* name, draw_t handler) {
+	int ix = drawHandlers.num;
+	addCard(name, ix);
+	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
+	drawHandlers.add(handler);
+}
+
+draw_t getDrawHandler(int ix) {
+	return drawHandlers[ix];
 }
 
 void regPushedHandler(const char* name, pushed_t handler) {

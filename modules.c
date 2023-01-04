@@ -18,6 +18,7 @@
 #include "stackem/init.c"
 #include "platform/init.c"
 #include "flag/init.c"
+#include "colors/init.c"
 
 void initMods() {
 	void *ptr = (void*)PREV_FUNC;

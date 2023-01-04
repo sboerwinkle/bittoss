@@ -5,14 +5,6 @@
 		(set-slider state 1 0)
 	)
 )
-(define (stackem-draw me)
-	(draw
-		me
-		(if (typ? me TEAM_BIT) 0.5 0.3)
-		(if (typ? me (* 2 TEAM_BIT)) 0.5 0.3)
-		(if (typ? me (* 4 TEAM_BIT)) 0.5 0.3)
-	)
-)
 
 ; Offset is necessary so I don't spawn in the exact middle, which can lead to tears
 (define (mk-stackem owner offset)

@@ -455,7 +455,6 @@ int main(int argc, char **argv) {
 	}
 	scheme_set_output_port_file(sc, stdout);
 	loadFile("myInit.scm");
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "draw"), mk_foreign_func(sc, ts_draw));
 	registerTsUpdaters();
 	registerTsGetters();
 	registerTsFuncSetters();

@@ -7,6 +7,9 @@ extern int handlerByName(const char* name);
 extern void regWhoMovesHandler(const char* name, whoMoves_t handler);
 extern whoMoves_t getWhoMovesHandler(int ix);
 
+extern void regDrawHandler(const char* name, draw_t handler);
+extern draw_t getDrawHandler(int ix);
+
 extern void regPushedHandler(const char* name, pushed_t handler);
 extern pushed_t getPushedHandler(int ix);
 

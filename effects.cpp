@@ -96,14 +96,7 @@ void createDebris() {
 			e->typeMask = T_TERRAIN + T_HEAVY + T_WEIGHTLESS;
 			e->collideMask = T_TERRAIN;
 			e->whoMoves = getWhoMovesHandler(handlerByName("platform-whomoves"));
-			// Ask scheme to dig up the draw function by name,
-			// since drawing is something the debris needs that's
-			// still handled in scheme-land.
-			save_from_C_call(sc);
-			scheme_eval(sc, mk_symbol(sc, colors[color]));
-			sc->value->references++;
-			decrem(sc, e->draw);
-			e->draw = sc->value;
+			e->draw = getDrawHandler(handlerByName(colors[color]));
 		}
 	}
 }

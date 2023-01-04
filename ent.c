@@ -463,7 +463,6 @@ static void clearDeads() {
 		decrem(sc, d->tick);
 		decrem(sc, d->tickHeld);
 		decrem(sc, d->crush);
-		decrem(sc, d->draw);
 		free(d);
 	}
 }
@@ -770,14 +769,11 @@ void doPhysics() {
 }
 
 static void drawEnt(ent *e) {
-	if (e->draw == sc->F) {
+	if (e->draw == NULL) {
 		fputs("Entity draw function unset\n", stderr);
 		return;
 	}
-	save_from_C_call(sc);
-	e->draw->references++;
-	sc->NIL->references++;
-	scheme_eval(sc, cons(sc, e->draw, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
+	(*e->draw)(e);
 }
 
 void doDrawing() {
@@ -788,35 +784,8 @@ void doDrawing() {
 	}
 }
 
-pointer ts_draw(scheme *sc, pointer args) {
-	if (list_length(sc, args) != 4) {
-		fputs("draw requires 4 args\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	pointer E = pair_car(args);
-	args = pair_cdr(args);
-	pointer r = pair_car(args);
-	args = pair_cdr(args);
-	pointer g = pair_car(args);
-	args = pair_cdr(args);
-	pointer b = pair_car(args);
-
-	if (!is_c_ptr(E, 0)) {
-		fputs("draw arg 1 must be an ent*\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	if (!is_real(r) || !is_real(g) || !is_real(b)) {
-		fputs("draw args 2-4 must be reals\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-
-	ent* e = (ent*) c_ptr_value(E);
-	rect(e->center, e->radius, rvalue(r), rvalue(g), rvalue(b));
-	sc->NIL->references++;
-	return sc->NIL;
+void drawEnt(ent *e, float r, float g, float b) {
+	rect(e->center, e->radius, r, g, b);
 }
 
 void doCleanup() {
