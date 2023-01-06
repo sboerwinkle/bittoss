@@ -1,3 +1,9 @@
+#include "ent.h"
+#include "main.h"
+#include "entFuncs.h"
+#include "entGetters.h"
+#include "entUpdaters.h"
+#include "handlerRegistrar.h"
 
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
@@ -46,14 +52,40 @@ static void player_push(ent *me, ent *him, byte axis, int dir, int displacement,
 	}
 }
 
-static void *player_init() {
+static void player_tick(ent *me) {
+	entState *s = me->state;
+
+	// Jumping and movement
+
+	char grounded = getSlider(s, 2) > 0;
+	uStateSlider(s, 2, 0);
+
+	int axis[2];
+	getAxis(me, axis); // TODO impl (`s` or `me`?)
+
+	int sliders[2];
+	sliders[0] = getSlider(s, 0);
+	sliders[1] = getSlider(s, 1);
+
+	int divisor = grounded ? 1 : 2;
+	int vel[3];
+	vel[2] = (grounded && getButton(me, 0)) ? -192 : 0;
+	range(i, 2) {
+		int dx = bound(4*axis[i] - sliders[i], 10);
+		uStateSlider(s, i, dx + sliders[i]);
+		vel[i] = dx / divisor;
+	}
+	uVel(me, vel);
+
+	// "shooting" and grabbing
+
+	// (TODO)
+}
+
+void player_init() {
 	regWhoMovesHandler("player-whomoves", player_whoMoves);
 	regDrawHandler("player-draw", player_draw);
 	regPushedHandler("player-pushed", player_pushed);
 	regPushHandler("player-push", player_push);
-	loadFile("player/init.scm");
-	return (void*)PREV_FUNC;
+	loadFile("modules/player.scm");
 }
-
-#undef PREV_FUNC
-#define PREV_FUNC player_init

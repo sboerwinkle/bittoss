@@ -197,6 +197,14 @@ static pointer ts_getState(scheme *sc, pointer args) {
 	return mk_c_ptr(sc, &((ent*) c_ptr_value(E))->state, 1);
 }
 
+int getSlider(entState *s, int ix) {
+	if (ix < 0 || ix >= s->numSliders) {
+		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, s->numSliders);
+		return 0;
+	}
+	return s->sliders[ix].v;
+}
+
 static pointer ts_getSlider(scheme *sc, pointer args) {
 	if (list_length(sc, args) != 2) {
 		fputs("get-slider requires 2 args\n", stderr);
@@ -212,12 +220,7 @@ static pointer ts_getSlider(scheme *sc, pointer args) {
 	}
 	entState *s = (entState*) c_ptr_value(S);
 	int ix = ivalue(Ix);
-	if (ix < 0 || ix >= s->numSliders) {
-		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, s->numSliders);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	return mk_integer(sc, ((entState*) c_ptr_value(S))->sliders[ix].v);
+	return mk_integer(sc, getSlider(s, ix));
 }
 
 void registerTsGetters() {

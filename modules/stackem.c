@@ -1,3 +1,9 @@
+#include "ent.h"
+#include "main.h"
+#include "entFuncs.h"
+#include "entGetters.h"
+#include "entUpdaters.h"
+#include "handlerRegistrar.h"
 
 static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 	int typ = type(b);
@@ -36,13 +42,22 @@ static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) 
 	return r_move;
 }
 
-static void *stackem_init() {
+static void stackem_tick(ent *me) {
+	int vel[3];
+	entState *s = &me->state;
+	vel[2] = 0;
+	vel[0] = getSlider(s, 0);
+	vel[1] = getSlider(s, 1);
+	uVel(me, vel);
+	// Reset sliders always
+	uStateSlider(s, 0, 0);
+	uStateSlider(s, 1, 0);
+}
+
+void stackem_init() {
 	regWhoMovesHandler("stackem-whomoves", stackem_whoMoves);
 	regDrawHandler("stackem-draw", stackem_draw);
 	regPushedHandler("stackem-pushed", stackem_pushed);
-	loadFile("stackem/init.scm");
-	return (void*)PREV_FUNC;
+	regTickHandler("stackem-tick", stackem_tick);
+	loadFile("modules/stackem.scm");
 }
-
-#undef PREV_FUNC
-#define PREV_FUNC stackem_init

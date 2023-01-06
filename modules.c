@@ -4,25 +4,25 @@
 #include "entGetters.h"
 #include "entUpdaters.h"
 #include "handlerRegistrar.h"
-#include "modules.h"
 
-#define PREV_FUNC NULL
+// At some point maybe this will do dynamic loading?
+// That might be overkill though, really this is just
+// to make sure that all this non-engine stuff ("modules")
+// gets propertly initialized, and for that I think
+// it's okay to have a laundry-list file
 
-//Ideally these will re-define PREV_FUNC to chain them together.
-// These guys aren't in use, so I never bothered converting them to the new C function business
-// #include "spawner/init.c"
-// #include "crate/init.c"
-#include "ground/init.c"
-#include "player/init.c"
-// #include "move-to/init.c"
-#include "stackem/init.c"
-#include "platform/init.c"
-#include "flag/init.c"
-#include "colors/init.c"
+#include "modules/colors.h"
+#include "modules/flag.h"
+#include "modules/ground.h"
+#include "modules/platform.h"
+#include "modules/player.h"
+#include "modules/stackem.h"
 
 void initMods() {
-	void *ptr = (void*)PREV_FUNC;
-	while (ptr) {
-		ptr = ((void *(*)())ptr)();
-	}
+	color_init();
+	flag_init();
+	ground_init();
+	platform_init();
+	player_init();
+	stackem_init();
 }

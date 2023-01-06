@@ -72,7 +72,7 @@ void uVel(ent *e, int32_t *a) {
 
 static pointer ts_accel(scheme *sc, pointer args) {
 	_size("accel", 2);
-	pointer ret = pair_car(args); // What am I even trying to accomplish here? Isn't this just `e`?
+	pointer ret = pair_car(args);
 	_ent(e);
 	_vec(a);
 	uVel(e, a);

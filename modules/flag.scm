@@ -1,22 +1,3 @@
-(define (flag-spawner-tick me)
-	(let* ((state (get-state me)) (cooldown (get-slider state 0)))
-		(set-slider state 0
-			(if (= 0 cooldown)
-				; Right now this always makes a new flag when the cooldown expires.
-				; If ent references ever get fully fleshed out, it could also wait until
-				; the old flag is destroyed
-				(begin
-					(mk-flag me (get-slider state 1))
-					89 ; 3 sec
-				)
-				(- cooldown 1)
-			)
-		)
-	)
-)
-
-(define (no-draw x) #f)
-
 (define (mk-flag-spawner pos team)
 	(let
 		((s (create
