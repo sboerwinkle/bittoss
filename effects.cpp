@@ -90,11 +90,13 @@ void createDebris() {
 			int color = encounter % 3;
 			const char *colors[3] = {"clr-mag-1", "clr-mag-2", "clr-mag-3"};
 
-			// Barren rectangle floating through space
-			ent *e = initEnt(pos, vel, size, 0, 0);
-			// Behaves like a platform now
-			e->typeMask = T_TERRAIN + T_HEAVY + T_WEIGHTLESS;
-			e->collideMask = T_TERRAIN;
+			// Make the actual platform, starting with the basic entity physics stuff
+			ent *e = initEnt(
+				pos, vel, size,
+				0, 0
+				T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
+			);
+			// Make it more platform-y
 			e->whoMoves = getWhoMovesHandler(handlerByName("platform-whomoves"));
 			e->draw = getDrawHandler(handlerByName(colors[color]));
 		}

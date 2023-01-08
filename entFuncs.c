@@ -73,17 +73,24 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 	return 0;
 }
 
-//TODO: Once we've got scripting operating at a slightly higher level,
-//this will probably just take a type identifier, and will index into a large list of handler sets.
-//Alternatively, it could just take a list of handlers directly, which could be called from guile and would technically allow for more flexibility.
 //TODO: Orientation is an arg here.
-ent *initEnt(const int32_t *c, const int32_t *v, const int32_t *r, int numSliders, int numRefs) {
+ent *initEnt(
+	const int32_t *c,
+	const int32_t *v,
+	const int32_t *r,
+	int numSliders,
+	int numRefs,
+	int32_t typeMask,
+	int32_t collideMask
+) {
 	ent *ret = (ent*) calloc(1, sizeof(ent));
 	flushCtrls(ret);
 	flushMisc(ret);
 	memcpy(ret->center, c, sizeof(ret->center));
 	memcpy(ret->vel, v, sizeof(ret->vel));
 	memcpy(ret->radius, r, sizeof(ret->radius));
+	ret->typeMask = typeMask;
+	ret->collideMask = collideMask;
 
 	setupEntState(&ret->state, numSliders, numRefs);
 
@@ -124,9 +131,7 @@ pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t 
 		int32_t* p_pos = parent->center;
 		for (int i = 0; i < 3; i++) pos[i] += p_pos[i];
 	}
-	ent *e = initEnt(pos, vel, r, sliders, refs);
-	e->typeMask = typeMask;
-	e->collideMask = collideMask;
+	ent *e = initEnt(pos, vel, r, sliders, refs, typeMask, collideMask);
 	return mk_c_ptr(sc, e, 0);
 }
 

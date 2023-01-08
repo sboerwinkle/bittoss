@@ -52,6 +52,16 @@ static void player_push(ent *me, ent *him, byte axis, int dir, int displacement,
 	}
 }
 
+static char drop_holdee(ent *e) {
+	uDrop(e);
+	return 1;
+}
+
+// Todo: Maybe this is shared somewhere?
+static char any_holdee(ent *e) {
+	return 1;
+}
+
 static void player_tick(ent *me) {
 	entState *s = me->state;
 
@@ -79,7 +89,63 @@ static void player_tick(ent *me) {
 
 	// "shooting" and grabbing
 
-	// (TODO)
+	int charge = getSlider(s, 3);
+	int cooldown = getSlider(s, 4);
+	int numHoldees = countHoldees(me, any_holdee);
+	char fire = getTrigger(me, 0);
+	// We don't always need this but sometimes we do
+	int32_t look[3];
+	if (numHoldees) {
+		if (numHoldees > 1 || (cooldown >= 10 && fire)) {
+			countHoldees(me, drop_holdee);
+			cooldown = 0;
+		} else {
+			// TODO define
+			getLook(me, look);
+			int32_t pos[3], vel[3], r[3], a[3];
+			holdeesAnyOrder(h) {
+				getPos(me, h, pos); // TODO order?
+				getVel(me, h, vel);
+				getSize(h, r); // TODO Just access??
+				range(i, 3) {
+					int32_t surface = 1024 + r[i];
+					if (abs(pos[i]) > surface + 1024) {
+						uDrop(h);
+						a[i] = 0;
+					} else {
+						// 0.03125 == 1 / axisMaxis
+						int32_t offset = (int)(look[i] * surface[i] * 0.03125) - pos[i];
+						int32_t goalVel = bound(offset / 5, 64);
+						a[i] = bound(goalVel - vel[i], 12);
+					}
+				}
+				uVel(h, a);
+			}
+		}
+	} else if (cooldown >= 10 && charge >= 60) {
+		if (fire) {
+			charge -= 60;
+			cooldown = 0;
+			getLook(me, look);
+			ent* stackem = mk_stackem(me, look);
+			range(i, 3) { look[i] *= 7; }
+			uVel(stackem, look);
+		} else if (charge >= 180 && getTrigger(me, 1)) {
+			charge -= 180;
+			cooldown = 0;
+			getLook(me, look);
+			int colorToggle = getSlider(s, 5);
+			uStateSlider(s, 5, !colorToggle);
+			draw_t d = getDrawHandler(handlerByName(colorToggle ? "clr-white" : "clr-blue"));
+			range(i, 3) {
+				// 0.040635 == 1.3 / axisMaxis
+				look[i] *= 0.040625 * (512 + platformSize[i]);
+			}
+			mkPlatform(me, look, d);
+		}
+	}
+	if (charge < 180) uStateSlider(s, 3, charge + 1);
+	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
 }
 
 void player_init() {

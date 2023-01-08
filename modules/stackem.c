@@ -54,10 +54,35 @@ static void stackem_tick(ent *me) {
 	uStateSlider(s, 1, 0);
 }
 
+static const int32_t stackemSize[3] = {450, 450, 450};
+
+ent* mk_stackem(ent *owner, const int32_t *offset) {
+	// Todo: This bit might become quite common, consider moving elsewhere?
+	int32_t pos[3];
+	range(i, 3) {
+		pos[i] = offset[i] + owner->center[i];
+	}
+	ent *e = initEnt(
+		pos, owner->vel, stackemSize,
+		2, 0
+		T_HEAVY + T_OBSTACLE + (TEAM_MASK & type(owner)), T_TERRAIN + T_OBSTACLE
+	);
+	// TODO Unsatisfied with how "modules" share stuff at the moment,
+	//      need some better way to do this. We do want to be sure that
+	//      all our handlers are registered, however.
+	//      What about several giant enums of stuff pasted together at compile time,
+	//      so we know every handler's index before they're even assigned?
+	e->whoMoves = getWhoMovesHandler(handlerByName("stackem-whomoves"));
+	e->draw = getDrawHandler(handlerByName("stackem-draw"));
+	e->pushed = getPushedHandler(handlerByName("stackem-pushed"));
+	e->tick = getTickHandler(handlerByName("stackem-tick"));
+
+	return e;
+}
+
 void stackem_init() {
 	regWhoMovesHandler("stackem-whomoves", stackem_whoMoves);
 	regDrawHandler("stackem-draw", stackem_draw);
 	regPushedHandler("stackem-pushed", stackem_pushed);
 	regTickHandler("stackem-tick", stackem_tick);
-	loadFile("modules/stackem.scm");
 }
