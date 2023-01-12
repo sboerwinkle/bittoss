@@ -1,9 +1,9 @@
-#include "ent.h"
-#include "main.h"
-#include "entFuncs.h"
-#include "entGetters.h"
-#include "entUpdaters.h"
-#include "handlerRegistrar.h"
+#include "../ent.h"
+#include "../main.h"
+#include "../entFuncs.h"
+#include "../entGetters.h"
+#include "../entUpdaters.h"
+#include "../handlerRegistrar.h"
 
 static int flag_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return MOVE_ME;

@@ -1,9 +1,9 @@
-#include "ent.h"
-#include "main.h"
-#include "entFuncs.h"
-#include "entGetters.h"
-#include "entUpdaters.h"
-#include "handlerRegistrar.h"
+#include "../ent.h"
+#include "../main.h"
+#include "../entFuncs.h"
+#include "../entGetters.h"
+#include "../entUpdaters.h"
+#include "../handlerRegistrar.h"
 
 static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 	int typ = type(b);
@@ -56,7 +56,7 @@ static void stackem_tick(ent *me) {
 
 static const int32_t stackemSize[3] = {450, 450, 450};
 
-ent* mk_stackem(ent *owner, const int32_t *offset) {
+ent* mkStackem(ent *owner, const int32_t *offset) {
 	// Todo: This bit might become quite common, consider moving elsewhere?
 	int32_t pos[3];
 	range(i, 3) {

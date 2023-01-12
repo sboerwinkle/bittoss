@@ -7,8 +7,6 @@
 #include "ts_macros.h"
 #include "tinyscheme/scheme.h"
 
-void onTickDefault(ent *me) {}
-
 /*
 void onTickHeldDefault(ent *me) {}
 */
@@ -16,12 +14,6 @@ void onTickHeldDefault(ent *me) {}
 int tickTypeDefault(ent *a, ent *b) {return 1;}
 
 /*
-void onDrawDefault(ent *me, int layer, int dx, int dy) {
-	registerSprite(me->img, dx-me->radius[0], dy-me->radius[1], 1);
-	ent *i;
-	for (i = me->holdee; i; i = i->LL.n) i->onDraw(i, layer, dx + i->center[0] - me->center[0], dy + i->center[1] - me->center[1]);
-}
-
 void onCrushDefault(ent *me) {}
 */
 
@@ -33,27 +25,6 @@ void onPushDefault(ent *me, ent *him, byte axis, int dir, int displacement, int 
 /*
 int onPushedDefault(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	return r_pass;
-}
-*/
-
-/*
-void onPushedFriction(ent *cd, ent *me, ent *leaf, ent *him) {
-	if (onPushedEssentials(cd, me, leaf, him)) {
-		(me->holder->onPushed)(cd, me->holder, leaf, him);
-		return;
-	}
-	//Affect velocity
-	int32_t d[2];
-	int i;
-	for (i = 0; i < 2; i++) {
-		d[i] = him->staleVel[i] - leaf->staleVel[i];
-	}
-	if (cd->collisionMutual) {
-		for (i = 0; i < 2; i++) {
-			d[i] /= 2;
-		}
-	}
-	accelRecursive(me, d);
 }
 */
 
@@ -96,10 +67,8 @@ ent *initEnt(
 
 	sc->F->references += 6;
 	ret->whoMoves = NULL;
-	//ret->onTick = onTickDefault;
-	ret->tick = sc->F;
-	//ret->onTickHeld = onTickHeldDefault;
-	ret->tickHeld = sc->F;
+	ret->tick = NULL;
+	ret->tickHeld = NULL;
 	ret->tickType = tickTypeDefault;
 	//ret->onDraw = onDrawDefault;
 	ret->draw = NULL;

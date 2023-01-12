@@ -460,7 +460,6 @@ static void clearDeads() {
 		deadTail = d->ll.p;
 		freeEntState(&d->state);
 		(d->onFree)(d);
-		decrem(sc, d->tick);
 		decrem(sc, d->tickHeld);
 		decrem(sc, d->crush);
 		free(d);
@@ -576,22 +575,12 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	}
 }
 
-//TODO: This is a thing for later, but we should probably burn this down and just do recursive ticks
-//      (Eliminating the need for e.g. tickType as a fn)
 static void _doTick(ent *e) {
-	if (e->tick == sc->F) return;
-	save_from_C_call(sc);
-	e->tick->references++;
-	sc->NIL->references++;
-	scheme_eval(sc, cons(sc, e->tick, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
+	if (e->tick != NULL) (*e->tick)(e);
 }
 
 static void _doTickHeld(ent *e) {
-	if (e->tickHeld == sc->F) return;
-	save_from_C_call(sc);
-	e->tickHeld->references++;
-	sc->NIL->references++;
-	scheme_eval(sc, cons(sc, e->tickHeld, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
+	if (e->tickHeld != NULL) (*e->tickHeld)(e);
 }
 
 static void doTick(ent *e, int type) {

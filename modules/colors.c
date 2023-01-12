@@ -1,9 +1,9 @@
-#include "ent.h"
-#include "main.h"
-#include "entFuncs.h"
-#include "entGetters.h"
-#include "entUpdaters.h"
-#include "handlerRegistrar.h"
+#include "../ent.h"
+#include "../main.h"
+#include "../entFuncs.h"
+#include "../entGetters.h"
+#include "../entUpdaters.h"
+#include "../handlerRegistrar.h"
 
 static void no_draw(ent *e) {}
 static void colors_white(ent *e) { drawEnt(e, 1.0, 1.0, 1.0); }

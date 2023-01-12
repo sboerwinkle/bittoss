@@ -70,6 +70,17 @@ whoMoves_t getWhoMovesHandler(int ix) {
 	return whoMovesHandlers[ix];
 }
 
+void regTickHandler(const char* name, tick_t handler) {
+	int ix = tickHandlers.num;
+	addCard(name, ix);
+	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
+	tickHandlers.add(handler);
+}
+
+tick_t getTickHandler(int ix) {
+	return tickHandlers[ix];
+}
+
 void regDrawHandler(const char* name, draw_t handler) {
 	int ix = drawHandlers.num;
 	addCard(name, ix);

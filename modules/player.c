@@ -1,9 +1,12 @@
-#include "ent.h"
-#include "main.h"
-#include "entFuncs.h"
-#include "entGetters.h"
-#include "entUpdaters.h"
-#include "handlerRegistrar.h"
+#include "../ent.h"
+#include "../main.h"
+#include "../entFuncs.h"
+#include "../entGetters.h"
+#include "../entUpdaters.h"
+#include "../handlerRegistrar.h"
+
+#include "stackem.h"
+#include "platform.h"
 
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
@@ -100,9 +103,9 @@ static void player_tick(ent *me) {
 			countHoldees(me, drop_holdee);
 			cooldown = 0;
 		} else {
-			// TODO define
 			getLook(me, look);
 			int32_t pos[3], vel[3], r[3], a[3];
+			// TODO define
 			holdeesAnyOrder(h) {
 				getPos(me, h, pos); // TODO order?
 				getVel(me, h, vel);
@@ -150,6 +153,7 @@ static void player_tick(ent *me) {
 
 void player_init() {
 	regWhoMovesHandler("player-whomoves", player_whoMoves);
+	regTickHandler("player-tick", player_tick);
 	regDrawHandler("player-draw", player_draw);
 	regPushedHandler("player-pushed", player_pushed);
 	regPushHandler("player-push", player_push);

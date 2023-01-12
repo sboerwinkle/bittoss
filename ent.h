@@ -39,6 +39,7 @@ struct ent;
 struct entRef;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
+typedef void (*tick_t)(struct ent*);
 typedef void (*draw_t)(struct ent*);
 typedef int (*pushed_t)(struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct ent*, struct ent*, byte, int, int, int);
@@ -145,10 +146,9 @@ typedef struct ent {
 
 	// Many, many event handlers.
 	whoMoves_t whoMoves;
-	pointer tick;
-	//void (*onTick)(struct ent *me);
+	tick_t tick;
 	// Like above, but when someone is holding me. Doesn't technically have to be a separate method, but a lot of things are going to do nothing when held, so this encourages that "default" behavior.
-	pointer tickHeld;
+	tick_t tickHeld;
 	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
 	draw_t draw;
