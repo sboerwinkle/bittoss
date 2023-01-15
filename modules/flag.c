@@ -31,7 +31,7 @@ static ent* mk_flag(ent *owner, int32_t team) {
 }
 
 
-static void flag_spawner_tick(ent *me) {
+static void flagSpawner_tick(ent *me) {
 	entState *s = me->state;
 	int cooldown = getSlider(s, 0);
 	// Right now this always makes a flag when the
@@ -46,7 +46,22 @@ static void flag_spawner_tick(ent *me) {
 	uStateSlider(s, 0, cooldown - 1);
 }
 
+const int32_t spawnerSize[3] = {1, 1, 1};
+
+void mkFlagSpawner(int32_t *pos, int32_t team) {
+	int32_t vel[3] = {0, 0, 0};
+	ent *ret = initEnt(
+		pos, vel, spawnerSize,
+		2, 0,
+		T_WEIGHTLESS, 0
+	);
+	uStateSlider(ret->state, 1, team);
+	ret->tick = getTickHandler(handlerByName("flag-spawner-tick"));
+	ret->draw = getDrawHandler(handlerByName("no-draw"));
+}
+
 void flag_init() {
 	regWhoMovesHandler("flag-whomoves", flag_whoMoves);
+	regTickHandler("flag-spawner-tick", flagSpawner_tick);
 	loadFile("modules/flag.scm");
 }

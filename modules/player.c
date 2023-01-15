@@ -151,6 +151,23 @@ static void player_tick(ent *me) {
 	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
 }
 
+int32_t playerSize[3] = {512, 512, 512};
+
+ent* mkPlayer(int32_t *pos, int32_t team) {
+	int32_t vel[3] = {0, 0, 0};
+	ent *ret = initEnt(
+		pos, vel, playerSize,
+		6, 0,
+		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
+	);
+	ret->whoMoves = getWhoMovesHandler(handlerByName("player-whomoves"));
+	ret->draw = getDrawHandler(handlerByName("player-draw"));
+	ret->pushed = getPushedHandler(handlerByName("player-pushed"));
+	ret->push = getPushHandler(handlerByName("player-push"));
+	ret->tick = getTickHandler(handlerByName("player-tick"));
+	return ret;
+}
+
 void player_init() {
 	regWhoMovesHandler("player-whomoves", player_whoMoves);
 	regTickHandler("player-tick", player_tick);
