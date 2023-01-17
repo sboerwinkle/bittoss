@@ -4,8 +4,8 @@
 #include "ent.h"
 #include "main.h"
 #include "handlerRegistrar.h"
-#include "ts_macros.h"
-#include "tinyscheme/scheme.h"
+
+// TODO I think a lot of these defaults can go away
 
 /*
 void onTickHeldDefault(ent *me) {}
@@ -65,7 +65,6 @@ ent *initEnt(
 
 	setupEntState(&ret->state, numSliders, numRefs);
 
-	sc->F->references += 6;
 	ret->whoMoves = NULL;
 	ret->tick = NULL;
 	ret->tickHeld = NULL;
@@ -73,7 +72,6 @@ ent *initEnt(
 	//ret->onDraw = onDrawDefault;
 	ret->draw = NULL;
 	//ret->onCrush = onCrushDefault;
-	ret->crush = sc->F;
 	ret->onFree = doNothing;
 	ret->onPush = onPushDefault;
 	//ret->onPushed = onPushedDefault;
@@ -86,117 +84,4 @@ ent *initEnt(
 	ret->okayFumbleHim = okayFumbleHimDefault;
 	addEnt(ret);
 	return ret;
-}
-
-pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t typeMask, int32_t collideMask) {
-	_size("create-tmp", 3);
-	_vec(pos);
-	_int(sliders);
-	_int(refs);
-	int32_t vel[3] = {0, 0, 0};
-	if (parent) {
-		memcpy(vel, parent->vel, sizeof(vel));
-		// TODO Should this be "center" or "old" or what
-		int32_t* p_pos = parent->center;
-		for (int i = 0; i < 3; i++) pos[i] += p_pos[i];
-	}
-	ent *e = initEnt(pos, vel, r, sliders, refs, typeMask, collideMask);
-	return mk_c_ptr(sc, e, 0);
-}
-
-pointer ts_create(scheme *sc, pointer args) {
-	_size("create", 7);
-	_opt_ent(parent);
-	_vec(r);
-	_int(typ);
-	_int(col);
-	return createHelper(sc, args, parent, r, typ, col);
-}
-
-static pointer setHandler(scheme *sc, pointer args, const char* name, pointer ent::*field) {
-	if (list_length(sc, args) != 2) {
-		fputs(name, stderr);
-		fputs(" requires 2 args\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	pointer E = pair_car(args);
-	pointer S = pair_car(pair_cdr(args));
-	if (!is_c_ptr(E, 0) || !is_closure(S)) {
-		fputs(name, stderr);
-		fputs(" args must be ent* and lambda\n", stderr);
-		sc->NIL->references++;
-		return sc->NIL;
-	}
-	pointer* target = &(((ent*)c_ptr_value(E))->*field);
-	decrem(sc, *target);
-	*target = S;
-	S->references++;
-
-	E->references++;
-	return E;
-}
-
-static pointer ts_setTick(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-tick", &ent::tick);
-}
-
-static pointer ts_setTickHeld(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-tick-held", &ent::tickHeld);
-}
-
-static pointer ts_setWhoMoves(scheme *sc, pointer args) {
-	_size("set-who-moves", 2);
-	pointer ret = pair_car(args);
-	_ent(e);
-	_int(i);
-	e->whoMoves = getWhoMovesHandler(i);
-	ret->references++;
-	return ret;
-}
-
-static pointer ts_setDraw(scheme *sc, pointer args) {
-	_size("set-draw", 2);
-	pointer ret = pair_car(args);
-	_ent(e);
-	_int(i);
-	e->draw = getDrawHandler(i);
-	ret->references++;
-	return ret;
-}
-
-static pointer ts_setPushed(scheme *sc, pointer args) {
-	_size("set-pushed", 2);
-	pointer ret = pair_car(args);
-	_ent(e);
-	_int(i);
-	e->pushed = getPushedHandler(i);
-	ret->references++;
-	return ret;
-}
-
-static pointer ts_setPush(scheme *sc, pointer args) {
-	_size("set-push", 2);
-	pointer ret = pair_car(args);
-	_ent(e);
-	_int(i);
-	e->onPush = getPushHandler(i);
-	ret->references++;
-	return ret;
-}
-
-static pointer ts_setCrush(scheme *sc, pointer args) {
-	return setHandler(sc, args, "set-crush", &ent::crush);
-}
-
-void registerTsFuncSetters() {
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-tick"), mk_foreign_func(sc, ts_setTick));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-tick-held"), mk_foreign_func(sc, ts_setTickHeld));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-who-moves"), mk_foreign_func(sc, ts_setWhoMoves));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-draw"), mk_foreign_func(sc, ts_setDraw));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-pushed"), mk_foreign_func(sc, ts_setPushed));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-push"), mk_foreign_func(sc, ts_setPush));
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "set-crush"), mk_foreign_func(sc, ts_setCrush));
-
-	scheme_define(sc, sc->global_env, mk_symbol(sc, "create"), mk_foreign_func(sc, ts_create));
 }

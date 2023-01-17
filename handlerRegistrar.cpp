@@ -62,7 +62,6 @@ void regWhoMovesHandler(const char* name, whoMoves_t handler) {
 	// TODO This is all too common, needs to be refactored
 	int ix = whoMovesHandlers.num;
 	addCard(name, ix);
-	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
 	whoMovesHandlers.add(handler);
 }
 
@@ -73,7 +72,6 @@ whoMoves_t getWhoMovesHandler(int ix) {
 void regTickHandler(const char* name, tick_t handler) {
 	int ix = tickHandlers.num;
 	addCard(name, ix);
-	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
 	tickHandlers.add(handler);
 }
 
@@ -84,7 +82,6 @@ tick_t getTickHandler(int ix) {
 void regDrawHandler(const char* name, draw_t handler) {
 	int ix = drawHandlers.num;
 	addCard(name, ix);
-	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
 	drawHandlers.add(handler);
 }
 
@@ -95,7 +92,6 @@ draw_t getDrawHandler(int ix) {
 void regPushedHandler(const char* name, pushed_t handler) {
 	int ix = pushedHandlers.num;
 	addCard(name, ix);
-	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
 	pushedHandlers.add(handler);
 }
 
@@ -106,7 +102,6 @@ pushed_t getPushedHandler(int ix) {
 void regPushHandler(const char* name, push_t handler) {
 	int ix = pushHandlers.num;
 	addCard(name, ix);
-	scheme_define(sc, sc->global_env, mk_symbol(sc, name), mk_integer(sc, ix));
 	pushHandlers.add(handler);
 }
 

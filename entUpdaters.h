@@ -10,5 +10,3 @@ extern entRef* uStateRef(entState *s, int ix, ent *e, int numSliders, int numRef
 extern void uStateSlider(entState *s, int ix, int32_t value);
 extern void uTypeMask(ent *e, uint32_t mask, char turnOn);
 extern void uCollideMask(ent *e, uint32_t mask, char turnOn);
-
-extern void registerTsUpdaters();

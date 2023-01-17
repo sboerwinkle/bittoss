@@ -4,11 +4,16 @@ TODO:
 	/ References seem to be resolved, maybe
 	/ Next step is actually doing our own allocation and reclaiming
 		Is this really, truly done?? Wow
-- Velbox? Big swarm got kinda dicey huh
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 	This would still maintain the "squares come out of spinning and shooting" thing
-! multi-threaded scheming - this is probably going to be c-razy, but I've got some notes on it in tinyscheme/todo.txt
 - Name display (maybe just show chat msg over head)
+- Switch to C-land
+	/ Scheme is all torn out now, even if it no longer compiles quite...
+	- Get it to run again
+	- Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
+	- This should enable multi-threading and state-cloning even before we get serialization all worked out
+		- This should probably be cleanly disable-able, so we don't have to worry about it at first when dealing with velbox
+- Velbox (R-trees to handle collisions)
 - State serizalization
 	- Save to file
 	- Send over wire

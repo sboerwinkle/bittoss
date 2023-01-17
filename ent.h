@@ -1,7 +1,5 @@
 #include <stdint.h>
 
-#include "tinyscheme/scheme.h"
-#include "tinyscheme/scheme-private.h"
 /*
 Basically what we're after is a
 simple,
@@ -153,7 +151,6 @@ typedef struct ent {
 	int (*tickType)(struct ent *me, struct ent *him);
 	draw_t draw;
 	//void (*onCrush)(struct ent *me);
-	pointer crush;
 	//This should only do pointer management etc., nothing in-game
 	void (*onFree)(struct ent *me);
 	push_t onPush;

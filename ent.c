@@ -206,12 +206,7 @@ void killEntNoHandlers(ent *e) {
 }
 
 void crushEnt(ent *e) {
-	if (e->crush != sc->F) {
-		save_from_C_call(sc);
-		e->crush->references++;
-		sc->NIL->references++;
-		scheme_eval(sc, cons(sc, e->crush, cons(sc, mk_c_ptr(sc, e, 0), sc->NIL)));
-	}
+	// TODO invoke `crush` (should actually exist, with a default no-op handler)
 	killEntNoHandlers(e);
 }
 
@@ -460,8 +455,6 @@ static void clearDeads() {
 		deadTail = d->ll.p;
 		freeEntState(&d->state);
 		(d->onFree)(d);
-		decrem(sc, d->tickHeld);
-		decrem(sc, d->crush);
 		free(d);
 	}
 }
@@ -549,7 +542,6 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 		
 		//int ret = e->onPushed(e, o, axis, dir, displacement, accel);
 
-		//TODO: Invoke e->onPushed, which should be a tinyscheme pointer
 		int ret;
 		if (e->pushed == NULL) {
 			ret = r_pass;

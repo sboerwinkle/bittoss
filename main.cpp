@@ -16,6 +16,7 @@
 #include "net.h"
 #include "handlerRegistrar.h"
 #include "effects.h"
+#include "map.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -42,8 +43,6 @@ int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY
 char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
-
-scheme *sc;
 
 static std::minstd_rand *random_gen;
 // rand_t is defined in main.h (to avoid including <random> everywhere).
@@ -138,16 +137,6 @@ rand_t get_random() {
 	return (*random_gen)() - random_base;
 }
 
-void loadFile(const char* file) {
-	FILE *f = fopen(file, "r");
-	if (!f) {
-		fprintf(stderr, "Couldn't open %s\n", file);
-		return;
-	}
-	scheme_load_named_file(sc, f, file);
-	fclose(f);
-}
-
 static void doInputs(ent *e, char *data) {
 		/* Old joystick code
 		ALLEGRO_JOYSTICK_STATE status;
@@ -234,19 +223,7 @@ static void doHeroes() {
 		player *p = players + i;
 		if (p->entity == NULL) {
 			if (p->reviveCounter--) continue;
-			save_from_C_call(sc);
-			sc->NIL->references++;
-			pointer hero = scheme_eval(sc,
-				cons(sc, mk_symbol(sc, "mk-hero"),
-				cons(sc, mk_integer(sc, i),
-				cons(sc, mk_integer(sc, numPlayers),
-				sc->NIL))));
-			if (!is_c_ptr(hero, 0)) {
-				fputs("mk-hero didn't give an ent*\n", stderr);
-				p->reviveCounter = FRAMERATE * 3;
-				continue;
-			}
-			p->entity = (ent*)c_ptr_value(hero);
+			p->entity = mkHero(i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
@@ -448,17 +425,6 @@ int main(int argc, char **argv) {
 	random_base = random_gen->min();
 	random_max = random_gen->max() - random_base;
 
-	// set up scheme stuff
-	if (!(sc = scheme_init_new())) {
-		fputs("Couldn't init TinyScheme!\n", stderr);
-		return 1;
-	}
-	scheme_set_output_port_file(sc, stdout);
-	loadFile("myInit.scm");
-	registerTsUpdaters();
-	registerTsGetters();
-	registerTsFuncSetters();
-
 	init_registrar();
 
 	// Set up allegro stuff
@@ -492,7 +458,7 @@ int main(int argc, char **argv) {
 	}
 	// OpenGL Setup
 	initGraphics(); // calls initFont()
-	//Set up other modules
+	//Set up modules
 	initMods();
 
 	// Other general game setup, including networking
@@ -514,7 +480,7 @@ int main(int argc, char **argv) {
 	printf("Done, I am client #%d (%d total)\n", myPlayer, numPlayers);
 	setupPlayers();
 	//map loading
-	loadFile("map.scm");
+	mkMap();
 	//Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
@@ -638,10 +604,6 @@ int main(int argc, char **argv) {
 	puts("Done.");
 	puts("Cleaning up game objects...");
 	doCleanup();
-	puts("Done.");
-	puts("Cleaning up Scheme...");
-	scheme_deinit(sc);
-	free(sc);
 	puts("Done.");
 	delete[] players;
 	puts("Cleanup complete, goodbye!");

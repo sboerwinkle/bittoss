@@ -42,8 +42,4 @@ extern ent *initEnt(
 	int32_t collideMask
 );
 
-extern pointer createHelper(scheme *sc, pointer args, ent *parent, int32_t *r, int32_t typeMask, int32_t collideMask);
-
 extern void setWhoMoves(ent *e, const char* text);
-
-extern void registerTsFuncSetters();
