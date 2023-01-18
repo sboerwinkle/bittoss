@@ -1,5 +1,11 @@
 #include <stdint.h>
 
+#define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
+// Despite the name, the iteration order is very much deterministic and boring.
+// However, it is a reminder that it is against the spirit of the game to treat
+// things differently for no visible reason - thus you shouldn't depend on
+// iteration order to make any decisions.
+
 /*
 Basically what we're after is a
 simple,
@@ -153,7 +159,7 @@ typedef struct ent {
 	//void (*onCrush)(struct ent *me);
 	//This should only do pointer management etc., nothing in-game
 	void (*onFree)(struct ent *me);
-	push_t onPush;
+	push_t push;
 	pushed_t pushed;
 
 	// Called first
@@ -213,7 +219,7 @@ none			| me	| him	| both	| none
 #define MOVE_BOTH 7
 #define MOVE_NONE 15
 
-//Constants for onPushed return code
+//Constants for `pushed` return code
 enum retCodes {
 	r_die = 0,
 	r_drop = 1,

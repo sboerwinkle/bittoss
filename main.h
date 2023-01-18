@@ -7,5 +7,3 @@ extern rand_t random_max;
 extern rand_t get_random();
 
 extern int32_t gravity;
-
-extern void loadFile(const char* file);

@@ -5,6 +5,8 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "ground.h"
+
 const int32_t groundSize[3] = {3200, 3200, 512};
 
 ent* mkGround(int32_t *pos, draw_t d) {
@@ -19,5 +21,4 @@ ent* mkGround(int32_t *pos, draw_t d) {
 }
 
 void ground_init() {
-	loadFile("modules/ground.scm");
 }

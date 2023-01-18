@@ -1,9 +1,12 @@
+#include "../util.h"
 #include "../ent.h"
 #include "../main.h"
 #include "../entFuncs.h"
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+
+#include "platform.h"
 
 static int platform_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_HIM;
@@ -16,7 +19,7 @@ ent* mkPlatform(ent *owner, int32_t *offset, draw_t d) {
 	range(i, 3) pos[i] = offset[i] + owner->center[i];
 	ent *e = initEnt(
 		pos, owner->vel, platformSize,
-		0, 0
+		0, 0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 	);
 	e->whoMoves = getWhoMovesHandler(handlerByName("platform-whomoves"));
@@ -26,5 +29,4 @@ ent* mkPlatform(ent *owner, int32_t *offset, draw_t d) {
 
 void platform_init() {
 	regWhoMovesHandler("platform-whomoves", platform_whoMoves);
-	loadFile("modules/platform.scm");
 }

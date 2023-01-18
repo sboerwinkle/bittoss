@@ -534,14 +534,12 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	//TODO: This guy should get to know the person who was moved, and how.
 	//Does it matter that this guy might get called twice, if the other guy gets crushed? Shouldn't matter if he's told the other guy got crushed.
 	//I think we need it to be called twice, so the other guy gets to know that he was pushed while not being held.
-	o->onPush(o, e, axis, dir, displacement, accel);
+	o->push(o, e, axis, dir, displacement, accel);
 
 	ent *prev = NULL;
 	while (1) {
 		if (push_helper(e, prev, axis, dir)) break;
 		
-		//int ret = e->onPushed(e, o, axis, dir, displacement, accel);
-
 		int ret;
 		if (e->pushed == NULL) {
 			ret = r_pass;

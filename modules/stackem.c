@@ -1,3 +1,4 @@
+#include "../util.h"
 #include "../ent.h"
 #include "../main.h"
 #include "../entFuncs.h"
@@ -64,7 +65,7 @@ ent* mkStackem(ent *owner, const int32_t *offset) {
 	}
 	ent *e = initEnt(
 		pos, owner->vel, stackemSize,
-		2, 0
+		2, 0,
 		T_HEAVY + T_OBSTACLE + (TEAM_MASK & type(owner)), T_TERRAIN + T_OBSTACLE
 	);
 	// TODO Unsatisfied with how "modules" share stuff at the moment,

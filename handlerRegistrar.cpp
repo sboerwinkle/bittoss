@@ -6,6 +6,7 @@
 #include "util.h"
 
 static list<whoMoves_t> whoMovesHandlers;
+static list<tick_t> tickHandlers;
 static list<draw_t> drawHandlers;
 static list<pushed_t> pushedHandlers;
 static list<push_t> pushHandlers;
@@ -19,6 +20,7 @@ static list<card> catalog;
 
 void init_registrar() {
 	whoMovesHandlers.init();
+	tickHandlers.init();
 	drawHandlers.init();
 	pushedHandlers.init();
 	pushHandlers.init();
@@ -27,6 +29,7 @@ void init_registrar() {
 
 void destroy_registrar() {
 	whoMovesHandlers.destroy();
+	tickHandlers.destroy();
 	drawHandlers.destroy();
 	pushedHandlers.destroy();
 	pushHandlers.destroy();

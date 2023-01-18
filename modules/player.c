@@ -1,3 +1,6 @@
+#include <stdlib.h>
+
+#include "../util.h"
 #include "../ent.h"
 #include "../main.h"
 #include "../entFuncs.h"
@@ -44,29 +47,15 @@ static int player_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
 }
 
 static void player_push(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
-	if (
-		getButton(me, 1)
-		&& (type(him) & T_FLAG)
-		// In general we want this to be order-independent, hence the weirness with "count-holdees" in scheme-land.
-		// However, this is a quick way to check if there are any at all, and we're respecting that order doesn't matter.
-		&& !me->holdee
-	) {
+	if (getButton(me, 1) && (type(him) & T_FLAG)) {
+		// Skip if already any holdees
+		holdeesAnyOrder(h, me) { return; }
 		uPickup(me, him);
 	}
 }
 
-static char drop_holdee(ent *e) {
-	uDrop(e);
-	return 1;
-}
-
-// Todo: Maybe this is shared somewhere?
-static char any_holdee(ent *e) {
-	return 1;
-}
-
 static void player_tick(ent *me) {
-	entState *s = me->state;
+	entState *s = &me->state;
 
 	// Jumping and movement
 
@@ -74,7 +63,7 @@ static void player_tick(ent *me) {
 	uStateSlider(s, 2, 0);
 
 	int axis[2];
-	getAxis(me, axis); // TODO impl (`s` or `me`?)
+	getAxis(axis, me);
 
 	int sliders[2];
 	sliders[0] = getSlider(s, 0);
@@ -94,22 +83,27 @@ static void player_tick(ent *me) {
 
 	int charge = getSlider(s, 3);
 	int cooldown = getSlider(s, 4);
-	int numHoldees = countHoldees(me, any_holdee);
+	int numHoldees = 0;
+	holdeesAnyOrder(h, me) {
+		if (++numHoldees > 1) break; // Don't care about counting any higher than 2
+	}
 	char fire = getTrigger(me, 0);
 	// We don't always need this but sometimes we do
 	int32_t look[3];
 	if (numHoldees) {
 		if (numHoldees > 1 || (cooldown >= 10 && fire)) {
-			countHoldees(me, drop_holdee);
+			holdeesAnyOrder(h, me) {
+				uDrop(h);
+			}
 			cooldown = 0;
 		} else {
-			getLook(me, look);
+			getLook(look, me);
 			int32_t pos[3], vel[3], r[3], a[3];
 			// TODO define
-			holdeesAnyOrder(h) {
-				getPos(me, h, pos); // TODO order?
-				getVel(me, h, vel);
-				getSize(h, r); // TODO Just access??
+			holdeesAnyOrder(h, me) {
+				getPos(pos, me, h);
+				getVel(vel, me, h);
+				getSize(r, h);
 				range(i, 3) {
 					int32_t surface = 1024 + r[i];
 					if (abs(pos[i]) > surface + 1024) {
@@ -117,7 +111,7 @@ static void player_tick(ent *me) {
 						a[i] = 0;
 					} else {
 						// 0.03125 == 1 / axisMaxis
-						int32_t offset = (int)(look[i] * surface[i] * 0.03125) - pos[i];
+						int32_t offset = (int)(look[i] * surface * 0.03125) - pos[i];
 						int32_t goalVel = bound(offset / 5, 64);
 						a[i] = bound(goalVel - vel[i], 12);
 					}
@@ -129,14 +123,14 @@ static void player_tick(ent *me) {
 		if (fire) {
 			charge -= 60;
 			cooldown = 0;
-			getLook(me, look);
-			ent* stackem = mk_stackem(me, look);
+			getLook(look, me);
+			ent* stackem = mkStackem(me, look);
 			range(i, 3) { look[i] *= 7; }
 			uVel(stackem, look);
 		} else if (charge >= 180 && getTrigger(me, 1)) {
 			charge -= 180;
 			cooldown = 0;
-			getLook(me, look);
+			getLook(look, me);
 			int colorToggle = getSlider(s, 5);
 			uStateSlider(s, 5, !colorToggle);
 			draw_t d = getDrawHandler(handlerByName(colorToggle ? "clr-white" : "clr-blue"));
@@ -174,5 +168,4 @@ void player_init() {
 	regDrawHandler("player-draw", player_draw);
 	regPushedHandler("player-pushed", player_pushed);
 	regPushHandler("player-push", player_push);
-	loadFile("modules/player.scm");
 }

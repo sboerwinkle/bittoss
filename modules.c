@@ -19,7 +19,7 @@
 #include "modules/stackem.h"
 
 void initMods() {
-	color_init();
+	colors_init();
 	flag_init();
 	ground_init();
 	platform_init();

@@ -22,12 +22,6 @@ void doNothing(ent *me) {}
 
 void onPushDefault(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
 
-/*
-int onPushedDefault(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
-	return r_pass;
-}
-*/
-
 void onFumbleDefault(ent *me, ent *him) {}
 
 void onFumbledDefault(ent *me, ent *im) {}
@@ -73,8 +67,7 @@ ent *initEnt(
 	ret->draw = NULL;
 	//ret->onCrush = onCrushDefault;
 	ret->onFree = doNothing;
-	ret->onPush = onPushDefault;
-	//ret->onPushed = onPushedDefault;
+	ret->push = onPushDefault;
 	ret->pushed = NULL;
 	ret->onFumble = onFumbleDefault;
 	ret->onFumbled = onFumbledDefault;

@@ -11,10 +11,10 @@ static int flag_whoMoves(ent *a, ent *b, int axis, int dir) {
 
 static const int32_t flagSize[3] = {350, 350, 350};
 
-static ent* mk_flag(ent *owner, int32_t team) {
+static ent* mkFlag(ent *owner, int32_t team) {
 	ent *e = initEnt(
 		owner->center, owner->vel, flagSize,
-		2, 0
+		2, 0,
 		T_FLAG + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
 	);
 	// TODO Unsatisfied with how "modules" share stuff at the moment,
@@ -32,7 +32,7 @@ static ent* mk_flag(ent *owner, int32_t team) {
 
 
 static void flagSpawner_tick(ent *me) {
-	entState *s = me->state;
+	entState *s = &me->state;
 	int cooldown = getSlider(s, 0);
 	// Right now this always makes a flag when the
 	// countdown expires; if we get ent references
@@ -55,7 +55,7 @@ void mkFlagSpawner(int32_t *pos, int32_t team) {
 		2, 0,
 		T_WEIGHTLESS, 0
 	);
-	uStateSlider(ret->state, 1, team);
+	uStateSlider(&ret->state, 1, team);
 	ret->tick = getTickHandler(handlerByName("flag-spawner-tick"));
 	ret->draw = getDrawHandler(handlerByName("no-draw"));
 }
@@ -63,5 +63,4 @@ void mkFlagSpawner(int32_t *pos, int32_t team) {
 void flag_init() {
 	regWhoMovesHandler("flag-whomoves", flag_whoMoves);
 	regTickHandler("flag-spawner-tick", flagSpawner_tick);
-	loadFile("modules/flag.scm");
 }

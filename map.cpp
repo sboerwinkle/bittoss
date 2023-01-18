@@ -1,10 +1,15 @@
 // Not sure if this should be in `modules/` since it isn't core engine stuff,
 // but for now it'll just chill here I guess.
 
+#include <cstdint>
+
+#include "util.h"
+#include "ent.h"
 #include "handlerRegistrar.h"
 
 #include "modules/player.h"
 #include "modules/ground.h"
+#include "modules/flag.h"
 
 ent* mkHero(int n, int total) {
 	int32_t team = (n % 2) + 1; // 1 or 2 (teams are powers of 2)
@@ -18,7 +23,7 @@ ent* mkHero(int n, int total) {
 }
 
 static void mkBase(int32_t xOffset, int32_t team) {
-	int32_t width = groundWidth[0] * 2;
+	int32_t width = groundSize[0] * 2;
 	draw_t white = getDrawHandler(handlerByName("clr-white"));
 	draw_t blue = getDrawHandler(handlerByName("clr-blue"));
 	int32_t pos[3];
