@@ -40,7 +40,8 @@ void doCrushtainer() {
 void createDebris() {
 	// We're going to create incoming platforms at the edges of the crushtainer boundary.
 	// Assumptions are that all of infinite space is populated with some density of platforms,
-	// and each velocity has independent components uniformly distributed over some range (-max_v, max_v).
+	// and each velocity has independent components,
+	// each either 0 or uniformly distributed over some range (-max_v, max_v).
 
 	// Really the number of boxes appearing per face pre frame should be modelled by the Poisson distribution -
 	// https://en.wikipedia.org/wiki/Poisson_distribution#Random_variate_generation
@@ -59,9 +60,10 @@ void createDebris() {
 			// Play area is longer along X axis, so fewer platforms at X endcaps
 			if (encounter > (d == 0 ? limit/2 : limit)) continue;
 			int32_t vel[3];
-			// The orthogonal directions are uniformly distributed, no fuss here
-			vel[(d+1)%3] = (get_random() % (max_v*2+1)) - max_v;
-			vel[(d+2)%3] = (get_random() % (max_v*2+1)) - max_v;
+			// The orthogonal directions are either 0 or uniformly distributed
+			// We can re-use `encounter` here b/c why not
+			vel[(d+1)%3] = (encounter &  3) ? 0 : (get_random() % (max_v*2+1)) - max_v;
+			vel[(d+2)%3] = (encounter & 12) ? 0 : (get_random() % (max_v*2+1)) - max_v;
 			// The direction normal to the spawn plane is a bit odd at first glance.
 			// We assume an even soup of platforms, so the rate of incidence doesn't
 			// change over time. However, for a given incoming mystery platform,
@@ -86,7 +88,9 @@ void createDebris() {
 			dim = (d+2)%3;
 			pos[dim] = (get_random() % (2*bounds[dim] + 1)) - bounds[dim];
 
-			// Why re-use `encounter`? Because I want to and I can, that's why, now shaddup
+			// This actually doesn't correlate with any of the previous
+			// checks we've done against `encounter` assuming RAND_MAX
+			// is reasonably big. I am going to assume that.
 			int color = encounter % 3;
 			const char *colors[3] = {"clr-mag-1", "clr-mag-2", "clr-mag-3"};
 
