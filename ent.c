@@ -206,6 +206,7 @@ void killEntNoHandlers(ent *e) {
 }
 
 void crushEnt(ent *e) {
+	if (e->dead) return;
 	// TODO invoke `crush` (should actually exist, with a default no-op handler)
 	killEntNoHandlers(e);
 }
