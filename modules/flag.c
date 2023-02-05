@@ -23,7 +23,7 @@ static ent* mkFlag(ent *owner, int32_t team) {
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = getWhoMovesHandler(handlerByName("flag-whomoves"));
-	e->draw = getDrawHandler(handlerByName("player-draw"));
+	e->draw = getDrawHandler(handlerByName("team-draw"));
 	e->pushed = getPushedHandler(handlerByName("stackem-pushed"));
 	e->tick = getTickHandler(handlerByName("stackem-tick"));
 

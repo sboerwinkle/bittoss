@@ -30,14 +30,15 @@ static ALLEGRO_EVENT_SOURCE customSrc;
 #define numKeys 6
 typedef struct player {
 	ent *entity;
+	int32_t color;
 	int reviveCounter;
-	//ALLEGRO_JOYSTICK *js;
-	float center[2];
 } player;
 
 static player *players;
 static int myPlayer;
 static int numPlayers;
+
+static int32_t defaultColors[8] = {11, 8, 19, 15, 2, 44, 23, 29};
 
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
 char p1Keys[numKeys];
@@ -69,6 +70,7 @@ static char thirdPerson = 1;
 // At the moment we use a byte to give the network message length, so this has to be fairly small
 #define TEXT_BUF_LEN 200
 static char inputTextBuffer[TEXT_BUF_LEN];
+static char cmdBuffer[TEXT_BUF_LEN];
 static char chatBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
@@ -217,6 +219,12 @@ static void sendControls(int frame) {
 	}
 }
 
+static void updateColor(player *p) {
+	if (p->entity) {
+		uStateSlider(&p->entity->state, 6, p->color);
+	}
+}
+
 static void doHeroes() {
 	int i;
 	for (i = 0; i < numPlayers; i++) {
@@ -228,6 +236,7 @@ static void doHeroes() {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
 			}
+			updateColor(p);
 		}
 		if (p->entity->dead) {
 			p->entity = NULL;
@@ -241,20 +250,6 @@ static void doHeroes() {
 	}
 }
 
-/*
-static void centerJoysticks() {
-	ALLEGRO_JOYSTICK_STATE jsState;
-	int i;
-	for (i = 1; i < numPlayers; i++) {
-		al_get_joystick_state(players[i].js, &jsState);
-		int j;
-		for (j = 0; j < 2; j++) {
-			players[i].center[j] = jsState.stick[0].axis[j];
-		}
-	}
-}
-*/
-
 char handleKey(int code, char pressed) {
 	int i;
 	for (i = numKeys-1; i >= 0; i--) {
@@ -264,7 +259,6 @@ char handleKey(int code, char pressed) {
 		}
 	}
 	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
-	//if (pressed && code == ALLEGRO_KEY_BACKSLASH) centerJoysticks();
 	return false;
 }
 
@@ -400,8 +394,19 @@ static void setupPlayers() {
 	for (int i = 0; i < numPlayers; i++) {
 		players[i].reviveCounter = 0;
 		players[i].entity = NULL;
+		players[i].color = defaultColors[i % 8];
 	}
-	//centerJoysticks();
+}
+
+static void processCmd(player *p, int chars) {
+	if (chars >= 6 && !strncmp(cmdBuffer, "/c ", 3)) {
+		int32_t color = (cmdBuffer[3] - '0') + 4 * (cmdBuffer[4] - '0') + 16 * (cmdBuffer[5] - '0');
+		p->color = color;
+		updateColor(p);
+		return;
+	}
+	// Default case, just display it
+	memcpy(chatBuffer, cmdBuffer, chars + 1);
 }
 
 const char* usage = "Arguments: server_addr [port]\n\tport default is 15000";
@@ -551,8 +556,9 @@ int main(int argc, char **argv) {
 					goto done;
 				}
 				if (size) {
-					if (readData(chatBuffer, size)) goto done;
-					chatBuffer[size] = '\0';
+					if (readData(cmdBuffer, size)) goto done;
+					cmdBuffer[size] = '\0';
+					processCmd(&players[i], size);
 				}
 			}
 			if (players[i].entity != NULL) {

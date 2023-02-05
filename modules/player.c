@@ -16,12 +16,12 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 }
 
 static void player_draw(ent *e) {
-	int typ = type(e);
+	int32_t color = getSlider(&e->state, 6);
 	drawEnt(
 		e,
-		(typ & TEAM_BIT) ? 1.0 : 0.5,
-		(typ & (2*TEAM_BIT)) ? 1.0 : 0.5,
-		(typ & (4*TEAM_BIT)) ? 1.0 : 0.5
+		(color&3) / 3.0,
+		(color&12) / 12.0,
+		(color&48) / 48.0
 	);
 }
 
@@ -151,7 +151,7 @@ ent* mkPlayer(int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
 		pos, vel, playerSize,
-		6, 0,
+		7, 0,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
 	ret->whoMoves = getWhoMovesHandler(handlerByName("player-whomoves"));
