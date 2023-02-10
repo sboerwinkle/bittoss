@@ -11,8 +11,9 @@ static int flag_whoMoves(ent *a, ent *b, int axis, int dir) {
 
 static const int32_t flagSize[3] = {350, 350, 350};
 
-static ent* mkFlag(ent *owner, int32_t team) {
+static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	ent *e = initEnt(
+		gs,
 		owner->center, owner->vel, flagSize,
 		2, 0,
 		T_FLAG + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
@@ -31,7 +32,7 @@ static ent* mkFlag(ent *owner, int32_t team) {
 }
 
 
-static void flagSpawner_tick(ent *me) {
+static void flagSpawner_tick(gamestate *gs, ent *me) {
 	entState *s = &me->state;
 	int cooldown = getSlider(s, 0);
 	// Right now this always makes a flag when the
@@ -41,16 +42,17 @@ static void flagSpawner_tick(ent *me) {
 	if (cooldown == 0) {
 		cooldown = 90; // 3 seconds
 		int team = getSlider(s, 1);
-		mkFlag(me, team);
+		mkFlag(gs, me, team);
 	}
 	uStateSlider(s, 0, cooldown - 1);
 }
 
 const int32_t spawnerSize[3] = {1, 1, 1};
 
-void mkFlagSpawner(int32_t *pos, int32_t team) {
+void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
+		gs,
 		pos, vel, spawnerSize,
 		2, 0,
 		T_WEIGHTLESS, 0

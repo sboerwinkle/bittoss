@@ -20,7 +20,7 @@ void onCrushDefault(ent *me) {}
 //default for onFree
 void doNothing(ent *me) {}
 
-void onPushDefault(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
+void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
 
 void onFumbleDefault(ent *me, ent *him) {}
 
@@ -40,6 +40,7 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 
 //TODO: Orientation is an arg here.
 ent *initEnt(
+	gamestate *gs,
 	const int32_t *c,
 	const int32_t *v,
 	const int32_t *r,
@@ -75,6 +76,6 @@ ent *initEnt(
 	ret->onPickedUp = onPickedUpDefault;
 	ret->okayFumble = okayFumbleDefault;
 	ret->okayFumbleHim = okayFumbleHimDefault;
-	addEnt(ret);
+	addEnt(gs, ret);
 	return ret;
 }

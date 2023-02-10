@@ -31,7 +31,7 @@ static void stackem_draw(ent *e) {
 	);
 }
 
-static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
+static int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	if (axis == 2 && dir == -1) {
 		int vel[3];
 		getVel(vel, me, him);
@@ -43,7 +43,7 @@ static int stackem_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) 
 	return r_move;
 }
 
-static void stackem_tick(ent *me) {
+static void stackem_tick(gamestate *gs, ent *me) {
 	int vel[3];
 	entState *s = &me->state;
 	vel[2] = 0;
@@ -57,13 +57,14 @@ static void stackem_tick(ent *me) {
 
 static const int32_t stackemSize[3] = {450, 450, 450};
 
-ent* mkStackem(ent *owner, const int32_t *offset) {
+ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	// Todo: This bit might become quite common, consider moving elsewhere?
 	int32_t pos[3];
 	range(i, 3) {
 		pos[i] = offset[i] + owner->center[i];
 	}
 	ent *e = initEnt(
+		gs,
 		pos, owner->vel, stackemSize,
 		2, 0,
 		T_HEAVY + T_OBSTACLE + (TEAM_MASK & type(owner)), T_TERRAIN + T_OBSTACLE

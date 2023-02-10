@@ -11,7 +11,7 @@
 #include "modules/ground.h"
 #include "modules/flag.h"
 
-ent* mkHero(int n, int total) {
+ent* mkHero(gamestate *gs, int n, int total) {
 	int32_t team = (n % 2) + 1; // 1 or 2 (teams are powers of 2)
 	int32_t pos[3];
 	// X axis is major axis of arena, team determines spawn side.
@@ -19,10 +19,10 @@ ent* mkHero(int n, int total) {
 	pos[1] = n/2 * 1000; // Multiples of 1K, based on index within team
 	pos[2] = -8000;
 
-	return mkPlayer(pos, team);
+	return mkPlayer(gs, pos, team);
 }
 
-static void mkBase(int32_t xOffset, int32_t team) {
+static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 	int32_t width = groundSize[0] * 2;
 	draw_t white = getDrawHandler(handlerByName("clr-white"));
 	draw_t blue = getDrawHandler(handlerByName("clr-blue"));
@@ -32,17 +32,17 @@ static void mkBase(int32_t xOffset, int32_t team) {
 		pos[0] = xOffset + width * (x-1);
 		range(y, 3) {
 			pos[1] = width * (y-1);
-			mkGround(pos, ((x+y)%2) ? blue : white);
+			mkGround(gs, pos, ((x+y)%2) ? blue : white);
 		}
 	}
 
 	pos[0] = xOffset;
 	pos[1] = 0;
 	pos[2] = -1024;
-	mkFlagSpawner(pos, team);
+	mkFlagSpawner(gs, pos, team);
 }
 
-void mkMap() {
-	mkBase(64000, 1);
-	mkBase(-64000, 2);
+void mkMap(gamestate *gs) {
+	mkBase(gs, 64000, 1);
+	mkBase(gs, -64000, 2);
 }

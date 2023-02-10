@@ -19,6 +19,7 @@ We allow a special "holding" relation between objects that allows them to aglome
 */
 
 typedef unsigned char byte;
+typedef uint_fast32_t rand_t;
 
 /*
 Anatomy of a tick
@@ -41,12 +42,13 @@ Physics loop
 
 struct ent;
 struct entRef;
+struct gamestate;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
-typedef void (*tick_t)(struct ent*);
+typedef void (*tick_t)(struct gamestate *gs, struct ent*);
 typedef void (*draw_t)(struct ent*);
-typedef int (*pushed_t)(struct ent*, struct ent*, int, int, int, int);
-typedef void (*push_t)(struct ent*, struct ent*, byte, int, int, int);
+typedef int (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
+typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
 
 
 typedef struct {
@@ -173,11 +175,27 @@ typedef struct ent {
 	//void (*onDropped)(struct ent *me);
 	char (*okayFumble)(struct ent *me, struct ent *him);
 	char (*okayFumbleHim)(struct ent *me, struct ent *him);
+
+	ent *clone;
 } ent;
 
-extern ent *ents;
-extern ent *rootEnts;
-extern byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
+class rand_gen;
+
+// Forward-declare just this part to avoid everybody having to include <random>
+namespace std {
+	template<typename _UIntType, _UIntType __a, _UIntType __c, _UIntType __m> class linear_congruential_engine;
+	typedef linear_congruential_engine<uint_fast32_t, 48271UL, 0UL, 2147483647UL> minstd_rand;
+}
+
+struct gamestate {
+	ent *ents;
+	ent *rootEnts;
+	//This linked list is only maintained one-directionally so that the "next" pointer can remain unchanged. Since ents may kill themselves while being looped over, this last part is important.
+	ent *deadTail;
+	// TODO Maybe with luck we can do away with these???
+	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
+	std::minstd_rand *random;
+};
 
 extern void flushCtrls(ent *e);
 extern void flushMisc(ent *e);
@@ -188,16 +206,21 @@ extern void flushMisc(ent *e);
 
 extern byte getAxis(ent *a, ent *b);
 
-extern void addEnt(ent *e);
+extern void addEnt(gamestate *gs, ent *e);
 
-extern void killEntNoHandlers(ent *e);
-extern void crushEnt(ent *e);
+extern void killEntNoHandlers(gamestate *gs, ent *e);
+extern void crushEnt(gamestate *gs, ent *e);
 extern void drawEnt(ent *e, float r, float g, float b);
 
-extern void doTicks();
-extern void doPhysics();
-extern void doDrawing();
-extern void doCleanup();
+extern void doUpdates(gamestate *gs);
+extern void doPhysics(gamestate *gs);
+extern void doDrawing(gamestate *gs);
+extern void doCleanup(gamestate *gs);
+
+extern rand_t random(gamestate *gs);
+
+extern void ent_init();
+extern void ent_destroy();
 
 // A matrix describing the resolution for two different whoMoves calls:
 /* 
@@ -241,3 +264,5 @@ enum retCodes {
 #define T_FLAG 16
 #define TEAM_BIT 32
 #define TEAM_MASK (7*TEAM_BIT)
+
+extern rand_t randomMax;

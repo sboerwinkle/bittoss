@@ -27,6 +27,7 @@ extern char okayFumbleDefault(ent *me);
 extern char okayFumbleHimDefault(ent *me, ent *him);
 
 extern ent *initEnt(
+	gamestate *gs,
 	const int32_t *c,
 	const int32_t *v,
 	const int32_t *r,

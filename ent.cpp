@@ -2,17 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <random>
+
 #include "ent.h"
 #include "main.h"
 #include "graphics.h"
 
-ent *ents = NULL;
-//ent *entsToAdd = NULL;
-ent *rootEnts = NULL;
-
-byte flipFlop_death = 0;
-byte flipFlop_drop = 0;
-byte flipFlop_pickup = 0;
+static rand_t randomBase;
+rand_t randomMax;
 
 static void freeEntState(entState *s);
 
@@ -99,31 +96,29 @@ static void recursiveHoldRoot(ent *who, ent *r) {
 	}
 }
 
-static void addRootEnt(ent *e) {
-	if (rootEnts) rootEnts->LL.p = e;
-	e->LL.n = rootEnts;
+static void addRootEnt(gamestate *gs, ent *e) {
+	if (gs->rootEnts) gs->rootEnts->LL.p = e;
+	e->LL.n = gs->rootEnts;
 	e->LL.p = NULL;
-	rootEnts = e;
+	gs->rootEnts = e;
 	recursiveHoldRoot(e, e);
 }
 
-void addEnt(ent *e) {
-	if (ents) ents->ll.p = e;
-	e->ll.n = ents;
+void addEnt(gamestate *gs, ent *e) {
+	if (gs->ents) gs->ents->ll.p = e;
+	e->ll.n = gs->ents;
 	e->ll.p = NULL;
-	ents = e;
+	gs->ents = e;
 	/*
 	if (entsToAdd) entsToAdd->ll.p = e;
 	e->ll.n = entsToAdd;
 	e->ll.p = NULL;
 	entsToAdd = e;
 	*/
-	addRootEnt(e);
+	addRootEnt(gs, e);
 	//Some basic state that we may want to get in place now, e.g. in case anyone asks if it's okay to schedule a pickup.
 	//e->holdRoot = e;
 }
-
-static ent *deadTail = NULL; //This linked list is only maintained one-directionally so that the "next" pointer can remain unchanged. Since ents may kill themselves while being looped over, this last part is important.
 
 static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
 	who->needsPhysUpdate = 1;
@@ -146,7 +141,7 @@ static void requireCollisionRecursive(ent *who) {
 	}
 }
 
-static void fumble(ent *h) {
+static void fumble(gamestate *gs, ent *h) {
 	ent *a = h->holder;
 	if (!a) return;
 	h->needsCollision = 1;
@@ -167,20 +162,20 @@ static void fumble(ent *h) {
 	if (h->LL.p) h->LL.p->LL.n = h->LL.n;
 	else a->holdee = h->LL.n;
 	h->holder = NULL;
-	addRootEnt(h);
+	addRootEnt(gs, h);
 }
 
-static void rmRootEnt(ent *e) {
+static void rmRootEnt(gamestate *gs, ent *e) {
 	if (e->LL.p) e->LL.p->LL.n = e->LL.n;
-	else rootEnts = e->LL.n;
+	else gs->rootEnts = e->LL.n;
 	if (e->LL.n) e->LL.n->LL.p = e->LL.p;
 }
 
-static void pickup(ent *x, ent *y) {
+static void pickup(gamestate *gs, ent *x, ent *y) {
 	//printf("pickup, ff is %d\n", flipFlop_pickup);
 	x->onPickUp(x, y);
 	y->onPickedUp(y, x);
-	rmRootEnt(y);
+	rmRootEnt(gs, y);
 	y->LL.n = x->holdee;
 	y->LL.p = NULL;
 	if (x->holdee) x->holdee->LL.p = y;
@@ -189,26 +184,26 @@ static void pickup(ent *x, ent *y) {
 	recursiveHoldRoot(y, x->holdRoot);
 }
 
-void killEntNoHandlers(ent *e) {
-	while (e->holdee) fumble(e->holdee);
-	fumble(e);
+void killEntNoHandlers(gamestate *gs, ent *e) {
+	while (e->holdee) fumble(gs, e->holdee);
+	fumble(gs, e);
 
 	//if (ents == e) ents = e->ll.n;
 	if (e->ll.p) e->ll.p->ll.n = e->ll.n;
-	else ents = e->ll.n;
+	else gs->ents = e->ll.n;
 	if (e->ll.n) e->ll.n->ll.p = e->ll.p;
 
-	rmRootEnt(e);
+	rmRootEnt(gs, e);
 
-	e->ll.p = deadTail;
-	deadTail = e;
+	e->ll.p = gs->deadTail;
+	gs->deadTail = e;
 	e->dead = 1;
 }
 
-void crushEnt(ent *e) {
+void crushEnt(gamestate *gs, ent *e) {
 	if (e->dead) return;
 	// TODO invoke `crush` (should actually exist, with a default no-op handler)
-	killEntNoHandlers(e);
+	killEntNoHandlers(gs, e);
 }
 
 static int whoMoves(ent *a, ent *b, byte axis, int dir) {
@@ -408,11 +403,11 @@ static byte checkCollision(ent *a, ent *b) {
 	return tryCollide(b, a, axis, -dir, 0);
 }
 
-static char doIteration() {
+static char doIteration(gamestate *gs) {
 	//TODO: velbox (quadtree stuff)
 	char ret = 0;
 	ent *i, *j;
-	for (i = ents; i; i = i->ll.n) {
+	for (i = gs->ents; i; i = i->ll.n) {
 		for (j = i->ll.n; j; j = j->ll.n) {
 			if (i->needsCollision || j->needsCollision) {
 				ret |= checkCollision(i, j);
@@ -450,10 +445,10 @@ static void setDeads() {
 }
 */
 
-static void clearDeads() {
+static void clearDeads(gamestate *gs) {
 	ent *d;
-	while ( (d = deadTail) ) {
-		deadTail = d->ll.p;
+	while ( (d = gs->deadTail) ) {
+		gs->deadTail = d->ll.p;
 		freeEntState(&d->state);
 		(d->onFree)(d);
 		free(d);
@@ -471,7 +466,7 @@ static ent* getPreferredFumble(ent *leaf, ent *root) {
 	return NULL;
 }
 
-static ent* pinch(ent *e, byte axis, ent *o) {
+static ent* pinch(gamestate *gs, ent *e, byte axis, ent *o) {
 	ent *leaf1 = e;
 	while (leaf1->forcedHoldees[axis]) leaf1 = leaf1->forcedHoldees[axis];
 	ent *leaf2;
@@ -484,50 +479,50 @@ static ent* pinch(ent *e, byte axis, ent *o) {
 	ent *f1 = getPreferredFumble(leaf1, e);
 	ent *f2 = getPreferredFumble(leaf2, e);
 	if (f1) {
-		fumble(f1);
+		fumble(gs, f1);
 		if (f2) {
-			fumble(f2);
+			fumble(gs, f2);
 			return f2;
 		}
 		return e;
 	}
 	if (f2) {
-		fumble(f2);
+		fumble(gs, f2);
 		return f2;
 	}
 	if (leaf1 != e) {
-		fumble(leaf1);
+		fumble(gs, leaf1);
 		if (leaf2 != e) {
-			fumble(leaf2);
+			fumble(gs, leaf2);
 			return leaf2;
 		}
 		return e;
 	}
 	if (leaf2 != e) {
-		fumble(leaf2);
+		fumble(gs, leaf2);
 		return leaf2;
 	}
-	crushEnt(e);
+	crushEnt(gs, e);
 	return NULL;
 }
 
-static char push_helper(ent *e, ent *prev, byte axis, int dir) {
+static char push_helper(gamestate *gs, ent *e, ent *prev, byte axis, int dir) {
 	if (e->forced[axis]*dir < 0) {
-		ent* ret = pinch(e, axis, prev);
+		ent* ret = pinch(gs, e, axis, prev);
 		if (!ret) return 1;
 		if (e != ret) return 0;
 	}
 	e->forced[axis] += dir;
 	if (e->forced[axis] == dir*3) {
 		puts("Safety crush!");
-		crushEnt(e);
+		crushEnt(gs, e);
 		return 1;
 	}
 	e->forcedHoldees[axis] = prev;
 	return 0;
 }
 
-static void push(ent *e, ent *o, byte axis, int dir) {
+static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	int displacement = (o->center[axis] - e->center[axis])*dir + e->radius[axis] + o->radius[axis];
 	if (displacement < 0) printf("Shouldn't get a negative displacement!\n");
 	int accel = (o->vel[axis] - e->vel[axis])*dir;
@@ -535,28 +530,28 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	//TODO: This guy should get to know the person who was moved, and how.
 	//Does it matter that this guy might get called twice, if the other guy gets crushed? Shouldn't matter if he's told the other guy got crushed.
 	//I think we need it to be called twice, so the other guy gets to know that he was pushed while not being held.
-	o->push(o, e, axis, dir, displacement, accel);
+	o->push(gs, o, e, axis, dir, displacement, accel);
 
 	ent *prev = NULL;
 	while (1) {
-		if (push_helper(e, prev, axis, dir)) break;
+		if (push_helper(gs, e, prev, axis, dir)) break;
 		
 		int ret;
 		if (e->pushed == NULL) {
 			ret = r_pass;
 		} else {
-			ret = (*e->pushed)(e, o, axis, dir, displacement, accel);
+			ret = (*e->pushed)(gs, e, o, axis, dir, displacement, accel);
 		}
 
 		prev = e;
 		e = e->holder;
 		if (ret == r_die) {
 			puts("Chose to die!");
-			crushEnt(prev);
+			crushEnt(gs, prev);
 			break;
 		}
 		if (ret == r_pass && e) continue;
-		if (ret == r_drop && e) fumble(prev);
+		if (ret == r_drop && e) fumble(gs, prev);
 		int32_t dc[3], dv[3];
 		dc[(axis+1)%3] = dv[(axis+1)%3] = dc[(axis+2)%3] = dv[(axis+2)%3] = 0;
 		dc[axis] = displacement*dir;
@@ -566,22 +561,22 @@ static void push(ent *e, ent *o, byte axis, int dir) {
 	}
 }
 
-static void _doTick(ent *e) {
-	if (e->tick != NULL) (*e->tick)(e);
+static void _doTick(gamestate *gs, ent *e) {
+	if (e->tick != NULL) (*e->tick)(gs, e);
 }
 
-static void _doTickHeld(ent *e) {
-	if (e->tickHeld != NULL) (*e->tickHeld)(e);
+static void _doTickHeld(gamestate *gs, ent *e) {
+	if (e->tickHeld != NULL) (*e->tickHeld)(gs, e);
 }
 
-static void doTick(ent *e, int type) {
-	if (type == 1) _doTickHeld(e);
-	else _doTick(e);
+static void doTick(gamestate *gs, ent *e, int type) {
+	if (type == 1) _doTickHeld(gs, e);
+	else _doTick(gs, e);
 
 	ent *i;
 	for (i = e->holdee; i; i = i->LL.n) {
 		int ret = e->tickType(e, i);
-		if (ret) doTick(i, ret);
+		if (ret) doTick(gs, i, ret);
 	}
 }
 
@@ -608,12 +603,12 @@ void flushMisc(ent *e) {
 }
 
 //TODO: If this was ordered, onCrush could have access to its whole tree (but not those of others!)
-static void flushDeaths() {
+static void flushDeaths(gamestate *gs) {
 	ent *i;
-	for (i = ents; i; i = i->ll.n) {
-		if (i->dead_max[1^flipFlop_death]) {
-			puts("Scripted death!");
-			crushEnt(i);
+	for (i = gs->ents; i; i = i->ll.n) {
+		if (i->dead_max[1^gs->flipFlop_death]) {
+			//puts("Scripted death!");
+			crushEnt(gs, i);
 		}
 	}
 }
@@ -633,20 +628,20 @@ static void flushAdds() {
 
 //TODO: onFumble[d] could *probably* have access strictly up or down the tree (but no switching!) if we fix the ordering in here.
 //Recall that crushing situations may allow for 2 simultaneous fumbles on different branches.
-static void flushDrops() {
+static void flushDrops(gamestate *gs) {
 	ent *i;
-	for (i = ents; i; i = i->ll.n) {
-		if (i->drop_max[1^flipFlop_drop]) {
-			i->drop_max[1^flipFlop_drop] = 0;
-			fumble(i);
+	for (i = gs->ents; i; i = i->ll.n) {
+		if (i->drop_max[1^gs->flipFlop_drop]) {
+			i->drop_max[1^gs->flipFlop_drop] = 0;
+			fumble(gs, i);
 		}
 	}
 }
 
-static void flushPickups() {
+static void flushPickups(gamestate *gs) {
 	ent *i, *next;
-	byte ff = 1^flipFlop_pickup;
-	for (i = rootEnts; i; i = next) {
+	byte ff = 1^gs->flipFlop_pickup;
+	for (i = gs->rootEnts; i; i = next) {
 		next = i->LL.n;
 
 		//If I'm picking someone else up, clean up and move along.
@@ -659,27 +654,27 @@ static void flushPickups() {
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;
 		// TODO this ruins i->LL.n for the next iteration of the loop
-		if (x != i && !x->dead) pickup(x, i);
+		if (x != i && !x->dead) pickup(gs, x, i);
 		i->holder_max[ff] = NULL;
 	}
 }
 
-static void flush() {
+static void flush(gamestate *gs) {
 	//Now we've got to worry about requests issued while that same request is being flushed. Lame.
-	flipFlop_death ^= 1;
-	flushDeaths();
+	gs->flipFlop_death ^= 1;
+	flushDeaths(gs);
 	//I think deaths has to come first. Otherwise e.g. a pickup could schedule another pickup on something that will be gone by the end of this turn,
 	//or a death could schedule an add and a pickup for this guy on that add.
 	//flushAdds();
-	flipFlop_drop ^= 1;
+	gs->flipFlop_drop ^= 1;
 	//TODO: We're leaking references to unadded ents, and that causes problems. Something could be picked up by an ent that doesn't properly exist yet. Probably the best bet is to review and make damn sure that there's no harm in adding ents immediately when requested.
 	//I think our only complaint was that it permits infinitely loopy physics iterations if some jackass writes a stupid script.
 	//And face it, slow / loopy scripts are an inevitable hazard. Maybe better to drop the worries in this dep't and just add immediately.
-	flushDrops();
-	flipFlop_pickup ^= 1;
-	flushPickups(); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
+	flushDrops(gs);
+	gs->flipFlop_pickup ^= 1;
+	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
-	for (i = ents; i; i = i->ll.n) {
+	for (i = gs->ents; i; i = i->ll.n) {
 		flushMisc(i);
 		flushEntState(&i->state);
 	}
@@ -689,27 +684,27 @@ static void flush() {
 // only at the start.
 // Specifically we don't want anything flushed between ticks and physics, since then physics can't
 // read player controls.
-static void flushCtrls() {
-	for (ent *i = ents; i; i = i->ll.n) {
+static void flushCtrls(gamestate *gs) {
+	for (ent *i = gs->ents; i; i = i->ll.n) {
 		flushCtrls(i);
 	}
 }
 
-void doTicks() {
-	flushCtrls();
-	flush();
-	clearDeads();
+void doUpdates(gamestate *gs) {
+	flushCtrls(gs);
+	flush(gs);
+	clearDeads(gs);
 	ent *i;
-	for (i = rootEnts; i; i = i->LL.n) {
-		doTick(i, 2);
+	for (i = gs->rootEnts; i; i = i->LL.n) {
+		doTick(gs, i, 2);
 	}
 }
 
-void doPhysics() {
-	flush();
+void doPhysics(gamestate *gs) {
+	flush(gs);
 
 	ent *i;
-	for (i = ents; i; i = i->ll.n) {
+	for (i = gs->ents; i; i = i->ll.n) {
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
 		for (j = 0; j < 3; j++) {
@@ -722,16 +717,16 @@ void doPhysics() {
 	//TODO: This means handlers called in here (onPush[ed], onFumble[d], onCrush)
 	//can't be sure about the death status (easy, ignore death) or holditude of anything.
 	//Except onPush[ed] can access members of the pushees tree
-	while(doIteration()) {
-		for (i = rootEnts; i; i = i->LL.n) {
+	while(doIteration(gs)) {
+		for (i = gs->rootEnts; i; i = i->LL.n) {
 			if (i->collisionBuddy) {
 				//Do physics-y type things in here
-				push(i->collisionLeaf, i->collisionBuddy, i->collisionAxis, i->collisionDir);
+				push(gs, i->collisionLeaf, i->collisionBuddy, i->collisionAxis, i->collisionDir);
 				i->collisionBuddy = NULL;
 				requireCollisionRecursive(i);
 			}
 		}
-		for (i = ents; i; i = i->ll.n) {
+		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
 				memcpy(i->center, i->center2, sizeof(i->center));
 				memcpy(i->vel, i->vel2, sizeof(i->vel));
@@ -756,10 +751,10 @@ static void drawEnt(ent *e) {
 	(*e->draw)(e);
 }
 
-void doDrawing() {
+void doDrawing(gamestate *gs) {
 	ent *i;
 	//for (i = rootEnts; i; i = i->LL.n) {
-	for (i = ents; i; i = i->ll.n) {
+	for (i = gs->ents; i; i = i->ll.n) {
 		drawEnt(i);
 	}
 }
@@ -768,7 +763,20 @@ void drawEnt(ent *e, float r, float g, float b) {
 	rect(e->center, e->radius, r, g, b);
 }
 
-void doCleanup() {
-	while (rootEnts) killEntNoHandlers(rootEnts);
-	clearDeads();
+void doCleanup(gamestate *gs) {
+	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
+	clearDeads(gs);
+	delete gs->random;
 }
+
+rand_t random(gamestate *gs) {
+	return (*gs->random)() - randomBase;
+}
+
+void ent_init() {
+	std::minstd_rand *tmp = new std::minstd_rand(0);
+	randomBase = tmp->min();
+	randomMax = tmp->max() - randomBase;
+	delete tmp;
+}
+void ent_destroy() {}

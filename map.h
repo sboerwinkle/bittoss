@@ -1,2 +1,2 @@
-extern void mkMap();
-extern ent* mkHero(int n, int total);
+extern void mkMap(gamestate *gs);
+extern ent* mkHero(gamestate *gs, int n, int total);

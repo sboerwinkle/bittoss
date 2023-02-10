@@ -25,7 +25,7 @@ static void player_draw(ent *e) {
 	);
 }
 
-static int player_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
+static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	entState *state = &me->state;
 	if (axis == 2) {
 		if (dir < 0) {
@@ -46,15 +46,15 @@ static int player_pushed(ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	return r_pass;
 }
 
-static void player_push(ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (getButton(me, 1) && (type(him) & T_FLAG)) {
 		// Skip if already any holdees
 		holdeesAnyOrder(h, me) { return; }
-		uPickup(me, him);
+		uPickup(gs, me, him);
 	}
 }
 
-static void player_tick(ent *me) {
+static void player_tick(gamestate *gs, ent *me) {
 	entState *s = &me->state;
 
 	// Jumping and movement
@@ -93,7 +93,7 @@ static void player_tick(ent *me) {
 	if (numHoldees) {
 		if (numHoldees > 1 || (cooldown >= 10 && fire)) {
 			holdeesAnyOrder(h, me) {
-				uDrop(h);
+				uDrop(gs, h);
 			}
 			cooldown = 0;
 		} else {
@@ -107,7 +107,7 @@ static void player_tick(ent *me) {
 				range(i, 3) {
 					int32_t surface = 1024 + r[i];
 					if (abs(pos[i]) > surface + 1024) {
-						uDrop(h);
+						uDrop(gs, h);
 						a[i] = 0;
 					} else {
 						// 0.03125 == 1 / axisMaxis
@@ -124,7 +124,7 @@ static void player_tick(ent *me) {
 			charge -= 60;
 			cooldown = 0;
 			getLook(look, me);
-			ent* stackem = mkStackem(me, look);
+			ent* stackem = mkStackem(gs, me, look);
 			range(i, 3) { look[i] *= 7; }
 			uVel(stackem, look);
 		} else if (charge >= 180 && getTrigger(me, 1)) {
@@ -138,7 +138,7 @@ static void player_tick(ent *me) {
 				// 0.040635 == 1.3 / axisMaxis
 				look[i] *= 0.040625 * (512 + platformSize[i]);
 			}
-			mkPlatform(me, look, d);
+			mkPlatform(gs, me, look, d);
 		}
 	}
 	if (charge < 180) uStateSlider(s, 3, charge + 1);
@@ -147,9 +147,10 @@ static void player_tick(ent *me) {
 
 int32_t playerSize[3] = {512, 512, 512};
 
-ent* mkPlayer(int32_t *pos, int32_t team) {
+ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
+		gs,
 		pos, vel, playerSize,
 		7, 0,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN

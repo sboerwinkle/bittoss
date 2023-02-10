@@ -14,10 +14,11 @@ static int platform_whoMoves(ent *a, ent *b, int axis, int dir) {
 
 const int32_t platformSize[3] = {3200, 3200, 512};
 
-ent* mkPlatform(ent *owner, int32_t *offset, draw_t d) {
+ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
 	int32_t pos[3];
 	range(i, 3) pos[i] = offset[i] + owner->center[i];
 	ent *e = initEnt(
+		gs,
 		pos, owner->vel, platformSize,
 		0, 0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN

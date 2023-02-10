@@ -45,11 +45,7 @@ char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
 
-static std::minstd_rand *random_gen;
-// rand_t is defined in main.h (to avoid including <random> everywhere).
-// It is manually verified to be what std::minstd_rand returns.
-static rand_t random_base;
-rand_t random_max;
+static gamestate monostate = {0};
 
 static ALLEGRO_DISPLAY *display;
 static ALLEGRO_EVENT_QUEUE *queue;
@@ -133,10 +129,6 @@ static void drawHud() {
 		charge -= 60;
 	}
 	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
-}
-
-rand_t get_random() {
-	return (*random_gen)() - random_base;
 }
 
 static void doInputs(ent *e, char *data) {
@@ -231,7 +223,7 @@ static void doHeroes() {
 		player *p = players + i;
 		if (p->entity == NULL) {
 			if (p->reviveCounter--) continue;
-			p->entity = mkHero(i, numPlayers);
+			p->entity = mkHero(&monostate, i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
@@ -426,9 +418,7 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	random_gen = new std::minstd_rand(0);
-	random_base = random_gen->min();
-	random_max = random_gen->max() - random_base;
+	monostate.random = new std::minstd_rand(0);
 
 	init_registrar();
 
@@ -463,6 +453,7 @@ int main(int argc, char **argv) {
 	}
 	// OpenGL Setup
 	initGraphics(); // calls initFont()
+	ent_init();
 	//Set up modules
 	initMods();
 
@@ -485,7 +476,7 @@ int main(int argc, char **argv) {
 	printf("Done, I am client #%d (%d total)\n", myPlayer, numPlayers);
 	setupPlayers();
 	//map loading
-	mkMap();
+	mkMap(&monostate);
 	//Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
@@ -533,8 +524,8 @@ int main(int argc, char **argv) {
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
 		gettimeofday(&t1, NULL);
-		doCrushtainer();
-		createDebris();
+		doCrushtainer(&monostate);
+		createDebris(&monostate);
 		// Heroes must be after environmental death effects, or they can be killed and then cleaned up immediately
 		doHeroes();
 
@@ -566,14 +557,14 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		doTicks();
-		doGravity();
-		doPhysics();
+		doUpdates(&monostate);
+		doGravity(&monostate);
+		doPhysics(&monostate);
 
 		gettimeofday(&t2, NULL);
 
 		outerSetupFrame();
-		doDrawing();
+		doDrawing(&monostate);
 		drawHud();
 		gettimeofday(&t3, NULL);
 		al_flip_display();
@@ -593,7 +584,7 @@ int main(int argc, char **argv) {
 	puts("Cleaning up simple interal components...");
 	destroyFont();
 	destroy_registrar();
-	delete random_gen;
+	ent_destroy();
 	puts("Done.");
 	puts("Cancelling input thread...");
 	{
@@ -609,7 +600,7 @@ int main(int argc, char **argv) {
 	closeSocket();
 	puts("Done.");
 	puts("Cleaning up game objects...");
-	doCleanup();
+	doCleanup(&monostate);
 	puts("Done.");
 	delete[] players;
 	puts("Cleanup complete, goodbye!");

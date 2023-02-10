@@ -69,15 +69,15 @@ void uVel(ent *e, int32_t *a) {
 	}
 }
 
-void uDead(ent *e) {
-	e->dead_max[flipFlop_death] = 1;
+void uDead(gamestate *gs, ent *e) {
+	e->dead_max[gs->flipFlop_death] = 1;
 }
 
-void uDrop(ent *e) {
-	e->drop_max[flipFlop_drop] = 1;
+void uDrop(gamestate *gs, ent *e) {
+	e->drop_max[gs->flipFlop_drop] = 1;
 }
 
-void uPickup(ent *p, ent *e) {
+void uPickup(gamestate *gs, ent *p, ent *e) {
 	if (e->holder) {
 #ifndef NODEBUG_SCRIPT
 		puts("Can't pickup a non-root ent!");
@@ -92,12 +92,12 @@ void uPickup(ent *p, ent *e) {
 #endif
 		return;
 	}
-	p->holdRoot->pickup_max[flipFlop_pickup] = 1;
-	if (e->holder_max[flipFlop_pickup]) {
-		if (e->holder_max[flipFlop_pickup] != p) e->holder_max[flipFlop_pickup] = e;
+	p->holdRoot->pickup_max[gs->flipFlop_pickup] = 1;
+	if (e->holder_max[gs->flipFlop_pickup]) {
+		if (e->holder_max[gs->flipFlop_pickup] != p) e->holder_max[gs->flipFlop_pickup] = e;
 		return;
 	}
-	e->holder_max[flipFlop_pickup] = p;
+	e->holder_max[gs->flipFlop_pickup] = p;
 }
 
 entRef* uStateRef(entState *s, int ix, ent *e, int numSliders, int numRefs) {
