@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "random.h"
 
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
 // Despite the name, the iteration order is very much deterministic and boring.
@@ -19,7 +20,6 @@ We allow a special "holding" relation between objects that allows them to aglome
 */
 
 typedef unsigned char byte;
-typedef uint_fast32_t rand_t;
 
 /*
 Anatomy of a tick
@@ -58,7 +58,11 @@ typedef struct {
 typedef struct entState {
 	slider *sliders;
 	int numSliders;
-	struct entRef **refs;
+	// I think the idea was for this to be an array of linked lists?
+	// Honestly this should probably just be reworked as a list of "wireless" (i.e. non-physics) connections,
+	// which can be read at will by the ent for fun.
+	// (Relatedly, maybe a connection between type flags and sliders, maybe like some sort of property lookup thing??)
+	entRef **refs;
 	int numRefs;
 } entState;
 
@@ -73,7 +77,8 @@ typedef struct entRef {
 extern void setupEntState(entState *s, int numSliders, int numRefs);
 
 typedef struct ent {
-	//Things related to collisions
+
+	//// Things related to collisions ////
 	// If set, means it should be tested for collisions. Once it passes a single iteration w/o collisions, this is turned off.
 	char needsCollision;
 	// If set, means this ent's position and/or velocity changed during this physics iteration.
@@ -179,14 +184,6 @@ typedef struct ent {
 	ent *clone;
 } ent;
 
-class rand_gen;
-
-// Forward-declare just this part to avoid everybody having to include <random>
-namespace std {
-	template<typename _UIntType, _UIntType __a, _UIntType __c, _UIntType __m> class linear_congruential_engine;
-	typedef linear_congruential_engine<uint_fast32_t, 48271UL, 0UL, 2147483647UL> minstd_rand;
-}
-
 struct gamestate {
 	ent *ents;
 	ent *rootEnts;
@@ -194,7 +191,7 @@ struct gamestate {
 	ent *deadTail;
 	// TODO Maybe with luck we can do away with these???
 	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
-	std::minstd_rand *random;
+	int32_t rand;
 };
 
 extern void flushCtrls(ent *e);
@@ -264,5 +261,3 @@ enum retCodes {
 #define T_FLAG 16
 #define TEAM_BIT 32
 #define TEAM_MASK (7*TEAM_BIT)
-
-extern rand_t randomMax;

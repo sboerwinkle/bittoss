@@ -2,14 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <random>
 
 #include "ent.h"
 #include "main.h"
 #include "graphics.h"
-
-static rand_t randomBase;
-rand_t randomMax;
 
 static void freeEntState(entState *s);
 
@@ -766,17 +762,86 @@ void drawEnt(ent *e, float r, float g, float b) {
 void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 	clearDeads(gs);
-	delete gs->random;
 }
 
 rand_t random(gamestate *gs) {
-	return (*gs->random)() - randomBase;
+	stepRand(&gs->rand);
+	return gs->rand;
+}
+
+static ent* cloneEnt(ent *in) {
+	ent* ret = new ent();
+	// Most of the fields we can just directly copy, no fuss no muss
+	*ret = *in;
+#ifndef NODEBUG
+	if (ret->collisionLeaf || ret->collisionBuddy || ret->holder_max[0] || ret->holder_max[1]) {
+		fputs("One of the transient ent*'s wasn't null, so uhh... it's probably f*cked now\n", stderr);
+	}
+#endif
+
+	entState *inState = &in->state;
+	entState *retState = &ret->state;
+#ifndef NODEBUG
+	if (inState->numRefs) {
+		fputs("Don't know how to copy over entState refs, I thought we weren't using those!\n", stderr);
+	}
+#endif
+	size_t size = sizeof(slider) * retState->numSliders;
+	retState->sliders = (slider*) malloc(size);
+	// Maybe iterate assignment instead of this?
+	// I think maybe this is a syscall, but even so I'm not sure if it matters for performance.
+	memcpy(retState->sliders, inState->sliders, size);
+
+	return ret;
+}
+
+gamestate* dup(gamestate *in) {
+	gamestate *ret = new gamestate();
+
+	ret->rand = in->rand;
+
+	// Need to copy several linked lists as well...
+	// Note that they may not be in the same order as stuff gets dropped etc,
+	// so best bet is probably to copy down the main list and then use the `clone` or whatever
+	// to get the other lists and holdees appropriately set up
+	ent **dest = &ret->ents;
+	ent *prev = NULL;
+	for (ent *e = in->ents; e; e = e->ll.n) {
+		ent *clone = cloneEnt(e);
+		e->clone = clone;
+		*dest = clone;
+		clone->ll.p = prev;
+
+		dest = &clone->ll.n;
+		prev = clone;
+	}
+	*dest = NULL;
+
+	for (ent *e = ret->ents; e; e = e->ll.n) {
+		e->holdRoot = e->holdRoot->clone;
+
+		// Could be a function taking a property ref but this is fine too
+#define cloneCopy(field) if(e->field) e->field = e->field->clone
+		cloneCopy(LL.n);
+		cloneCopy(LL.p);
+		cloneCopy(holdee);
+		cloneCopy(holder);
+#undef cloneCopy
+	}
+
+	if (in->deadTail) {
+		fputs("Wasn't expecting to have to actually copy deadTail! Need to research on how that is set.\n", stderr);
+	}
+	ret->deadTail = NULL;
+
+	ret->flipFlop_death = in->flipFlop_death;
+	ret->flipFlop_drop = in->flipFlop_drop;
+	ret->flipFlop_pickup = in->flipFlop_pickup;
+
+	return ret;
 }
 
 void ent_init() {
-	std::minstd_rand *tmp = new std::minstd_rand(0);
-	randomBase = tmp->min();
-	randomMax = tmp->max() - randomBase;
-	delete tmp;
+	// Used to do something lol
 }
 void ent_destroy() {}

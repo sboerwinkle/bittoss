@@ -6,8 +6,6 @@
 #include <allegro5/allegro_opengl.h>
 #include <pthread.h>
 
-#include <random>
-
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
@@ -418,7 +416,7 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	monostate.random = new std::minstd_rand(0);
+	monostate.rand = 1;
 
 	init_registrar();
 
