@@ -100,27 +100,7 @@ void uPickup(gamestate *gs, ent *p, ent *e) {
 	e->holder_max[gs->flipFlop_pickup] = p;
 }
 
-entRef* uStateRef(entState *s, int ix, ent *e, int numSliders, int numRefs) {
-	if (ix < 0 || ix >= s->numRefs) {
-#ifndef NODEBUG_SCRIPT
-		printf("Invalid ref #%d (limit is %d)\n", ix, s->numRefs);
-#endif
-		return NULL;
-	}
-	if (e->dead) {
-#ifndef NODEBUG_SCRIPT
-		puts("No refs to dead things! But you might not have known.");
-#endif
-		return NULL;
-	}
-	entRef *ret = (entRef*) malloc(sizeof(entRef));
-	ret->e = e;
-	ret->status = 1;
-	setupEntState(&ret->s, numSliders, numRefs);
-	ret->n = s->refs[ix];
-	s->refs[ix] = ret;
-	return ret;
-}
+// TODO need functions for wiring / de-wiring ents
 
 void uStateSlider(entState *s, int ix, int32_t value) {
 	if (ix < 0 || ix >= s->numSliders) {

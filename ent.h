@@ -62,7 +62,7 @@ typedef struct entState {
 	// Honestly this should probably just be reworked as a list of "wireless" (i.e. non-physics) connections,
 	// which can be read at will by the ent for fun.
 	// (Relatedly, maybe a connection between type flags and sliders, maybe like some sort of property lookup thing??)
-	entRef **refs;
+	//entRef **refs;
 	int numRefs;
 } entState;
 
@@ -215,6 +215,7 @@ extern void doDrawing(gamestate *gs);
 extern void doCleanup(gamestate *gs);
 
 extern rand_t random(gamestate *gs);
+extern gamestate* dup(gamestate *gs);
 
 extern void ent_init();
 extern void ent_destroy();

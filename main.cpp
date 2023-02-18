@@ -6,6 +6,7 @@
 #include <allegro5/allegro_opengl.h>
 #include <pthread.h>
 
+#include "util.h"
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
@@ -43,7 +44,8 @@ char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
 
-static gamestate monostate = {0};
+static gamestate *rootState;
+static volatile char doClone = 0; // Not sure if we need `volatile` here, but the whole thing is temporary anyway
 
 static ALLEGRO_DISPLAY *display;
 static ALLEGRO_EVENT_QUEUE *queue;
@@ -221,7 +223,7 @@ static void doHeroes() {
 		player *p = players + i;
 		if (p->entity == NULL) {
 			if (p->reviveCounter--) continue;
-			p->entity = mkHero(&monostate, i, numPlayers);
+			p->entity = mkHero(rootState, i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
@@ -248,7 +250,9 @@ char handleKey(int code, char pressed) {
 			return true;
 		}
 	}
+	// TODO move this stuff into the KEY_DOWN section?
 	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
+	else if (pressed && code == ALLEGRO_KEY_F5) doClone = 1;
 	return false;
 }
 
@@ -416,12 +420,13 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	monostate.rand = 1;
+	rootState = (gamestate*) calloc(1, sizeof(gamestate));
+	rootState->rand = 1;
 
 	init_registrar();
 
 	// Set up allegro stuff
-	if (!al_init()) {
+	if (!al_install_system(ALLEGRO_VERSION_INT, NULL)) {
 		fputs("Couldn't init Allegro\n", stderr);
 		return 1;
 	}
@@ -474,7 +479,7 @@ int main(int argc, char **argv) {
 	printf("Done, I am client #%d (%d total)\n", myPlayer, numPlayers);
 	setupPlayers();
 	//map loading
-	mkMap(&monostate);
+	mkMap(rootState);
 	//Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
@@ -522,8 +527,17 @@ int main(int argc, char **argv) {
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
 		gettimeofday(&t1, NULL);
-		doCrushtainer(&monostate);
-		createDebris(&monostate);
+		if (doClone) {
+			doClone = 0;
+			fputs("Cloning...\n", stderr);
+			gamestate* tmp = dup(rootState);
+			range(i, numPlayers) if (players[i].entity != NULL) players[i].entity = players[i].entity->clone;
+			doCleanup(rootState);
+			free(rootState);
+			rootState = tmp;
+		}
+		doCrushtainer(rootState);
+		createDebris(rootState);
 		// Heroes must be after environmental death effects, or they can be killed and then cleaned up immediately
 		doHeroes();
 
@@ -555,14 +569,14 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		doUpdates(&monostate);
-		doGravity(&monostate);
-		doPhysics(&monostate);
+		doUpdates(rootState);
+		doGravity(rootState);
+		doPhysics(rootState);
 
 		gettimeofday(&t2, NULL);
 
 		outerSetupFrame();
-		doDrawing(&monostate);
+		doDrawing(rootState);
 		drawHud();
 		gettimeofday(&t3, NULL);
 		al_flip_display();
@@ -598,9 +612,13 @@ int main(int argc, char **argv) {
 	closeSocket();
 	puts("Done.");
 	puts("Cleaning up game objects...");
-	doCleanup(&monostate);
+	doCleanup(rootState);
+	free(rootState);
 	puts("Done.");
 	delete[] players;
+	puts("Cleaning up Allegro...");
+	al_uninstall_system();
+	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;
 }

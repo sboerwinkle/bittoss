@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 
+#include "util.h"
 #include "ent.h"
 #include "main.h"
 #include "graphics.h"
@@ -15,49 +16,25 @@ static void freeEntRef(entRef *r) {
 }
 
 static void freeEntState(entState *s) {
-	int i;
-	for (i = 0; i < s->numRefs; i++) {
-		entRef *x = s->refs[i];
-		while (x) {
-			entRef *y = x->n;
-			freeEntRef(x);
-			x = y;
-		}
-	}
 	free(s->sliders);
-	free(s->refs);
+	// Stuff about freeing refs will go here
 }
 
 static void flushEntState(entState *s) {
-	int i;
-	for (i = 0; i < s->numSliders; i++) {
+	range(i, s->numSliders) {
 		//sliders are "sticky", i.e. don't reset if left alone
 		if (s->sliders[i].max < s->sliders[i].min) continue;
 		s->sliders[i].v = (s->sliders[i].max + s->sliders[i].min)/2;
 		s->sliders[i].max = INT32_MIN;
 		s->sliders[i].min = INT32_MAX;
 	}
-	for (i = 0; i < s->numRefs; i++) {
-		entRef **pp = s->refs + i;
-		while (*pp) {
-			if ((*pp)->status == -1 || (*pp)->e->dead) {
-				entRef *tmp = *pp;
-				*pp = tmp->n;
-				freeEntRef(tmp);
-				continue;
-			}
-			if ((*pp)->status == 1) (*pp)->status = 0;
-			flushEntState(&(*pp)->s);
-			pp = &(*pp)->n;
-		}
-	}
 }
 
 void setupEntState(entState *s, int numSliders, int numRefs) {
 	s->numSliders = numSliders;
 	s->numRefs = numRefs;
-	s->refs = (entRef**) calloc(numRefs, sizeof(entRef*));
 	s->sliders = (slider*) calloc(numSliders, sizeof(slider));
+	// Something about refs here?
 	flushEntState(s);
 }
 
@@ -770,11 +747,11 @@ rand_t random(gamestate *gs) {
 }
 
 static ent* cloneEnt(ent *in) {
-	ent* ret = new ent();
+	ent* ret = (ent*) malloc(sizeof(ent));
 	// Most of the fields we can just directly copy, no fuss no muss
 	*ret = *in;
 #ifndef NODEBUG
-	if (ret->collisionLeaf || ret->collisionBuddy || ret->holder_max[0] || ret->holder_max[1]) {
+	if (ret->collisionBuddy || ret->holder_max[0] || ret->holder_max[1]) {
 		fputs("One of the transient ent*'s wasn't null, so uhh... it's probably f*cked now\n", stderr);
 	}
 #endif
@@ -796,7 +773,7 @@ static ent* cloneEnt(ent *in) {
 }
 
 gamestate* dup(gamestate *in) {
-	gamestate *ret = new gamestate();
+	gamestate *ret = (gamestate*) malloc(sizeof(gamestate));
 
 	ret->rand = in->rand;
 
@@ -816,6 +793,9 @@ gamestate* dup(gamestate *in) {
 		prev = clone;
 	}
 	*dest = NULL;
+
+	if (in->rootEnts) ret->rootEnts = in->rootEnts->clone;
+	else ret->rootEnts = NULL;
 
 	for (ent *e = ret->ents; e; e = e->ll.n) {
 		e->holdRoot = e->holdRoot->clone;

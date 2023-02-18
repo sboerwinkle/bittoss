@@ -1,0 +1,6 @@
+{
+	allegro_is_dumb
+	Memcheck:Leak
+	...
+	obj:*/lib/*/liballegro.so.*
+}
