@@ -9,10 +9,46 @@ TODO:
 	/ Get it to run again
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 	This would still maintain the "squares come out of spinning and shooting" thing
-- Name display (maybe just show chat msg over head)
+! Name display (maybe just show chat msg over head)
+	Abandoned in favor of individual colors b/c I'm lazy
+- Predictive state
+	/ State cloning operation
+	- When state comes in,
+		We use the monotonic time to tweak when we want our state sampled
+		The "root" is stepped
+		Announce latest input news from mutex
+		If we're behind, we'll immediately `continue` and step again.
+		Otherwise, we can clone it;
+		Announce the clone from mutex
+			If there's a waiting simulation thread it picks it up
+	- Catchup threads
+		Fixed number of these
+		Eventually may need to get clever with when they pick up so they don't bunch up, but for now this is fine
+		Run at full tilt with the published input news
+			They probably only check this when they start?
+		When they get to the end, they'll need to grab the mutex again
+			(TODO are there multiple mutexes?)
+			worst case they may need to run another iteration,
+				long term they may want to guess in advance how many iterations they need but that gets wacky if they go too far
+			If they're truly better than the next pending state, they'll swap them out.
+			then the mutex is released.
+		At this point they can free whichever copy they have ahold of,
+		and then line back up to pick up another clone.
+	- "real time" thread
+		Awakens from its slumber
+		Grabs the current input state and sends it out over the net
+			TODO how many frames in advance may this get sent???
+		Locks the mutex real quick,
+			to grab the input news
+			and the state it's supposed to roll with
+			if state is non-null, null it out ("taking" it)
+		If we got a new state, free up our old one before "selecting" the new one
+		Roll the state forward
+		Draw
+		Checks when the next step is forecast to be
+		Go to sleep for appropriate duration
 - Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
-	- This should enable multi-threading and state-cloning even before we get serialization all worked out
-		- This should probably be cleanly disable-able, so we don't have to worry about it at first when dealing with velbox
+	Necessary for proper serialization
 - Velbox (R-trees to handle collisions)
 - State serizalization
 	- Save to file
