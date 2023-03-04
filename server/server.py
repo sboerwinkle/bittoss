@@ -5,6 +5,8 @@
 # chat_server.py
  
 import sys, socket, select, time
+import asyncio
+import fcntl, os
 
 HOST = '' 
 SOCKET_LIST = []
@@ -24,19 +26,31 @@ def get_clients(num_clients, port):
 
     clients = []
     for x in range(num_clients):
-        clients.append(server_socket.accept()[0])
+        s = server_socket.accept()[0]
+        fcntl.fcntl(s, fcntl.F_SETFL, os.O_NONBLOCK)
+        clients.append(s)
         print("Got a client...")
     print("All clients connected")
     server_socket.shutdown(socket.SHUT_RDWR) # Not sure this is necessary, but I know it doesn't hurt!
     server_socket.close()
     return clients
 
-def loop(clients, latency, framerate = 30):
+""" TODO: Rework into not operating directly on sockets?
+https://docs.python.org/3/library/asyncio-eventloop.html#working-with-socket-objects-directly
+
+In general, protocol implementations that use transport-based APIs such as loop.create_connection() and loop.create_server() are faster than implementations that work with sockets directly. However, there are some use cases when performance is not critical, and working with socket objects directly is more convenient.
+"""
+
+async def loop(clients, latency, framerate = 30):
+
+    lp = asyncio.get_event_loop()
 
     # Init the buffer of things to be sent
     num_clients = len(clients)
     frame = 0
     buf = [[b'\0' for c in clients] for x in range(16)]
+
+    recv_len_warnings = 10
 
     # Tell each client their position and the total number of players
     for ix in range(num_clients):
@@ -54,10 +68,54 @@ def loop(clients, latency, framerate = 30):
     def rm(ix):
         nonlocal running
         active_clients.remove(clients[ix])
+        handlers[ix].cancel()
         clients[ix] = None
         if len(active_clients) == 0:
             print("All clients disconnected")
             running = False
+
+    async def handle_client(ix, sock):
+        recvd = b'';
+        try:
+            while True:
+                data = await lp.sock_recv(sock, RECV_BUFFER)
+                if not data:
+                    sock.close()
+                    print(f"Client {ix} disconnected")
+                    rm(ix)
+                    continue
+                recvd += data
+                l = len(recvd)
+                if l < 2:
+                    continue
+                end = 2 + recvd[1]
+                if l < end:
+                    continue
+                src_frame = recvd[0]
+                payload = recvd[1:end]
+                recvd = recvd[end:]
+
+                if src_frame >= 16:
+                    print(f"Bad frame number {src_frame}, raising exception now")
+                    raise Exception("Bad frame number, invalid network communication")
+                delt = (frame + 15 - src_frame) % 16 + 1
+                if delt > latency:
+                    print(f"client {ix} delivered packet {delt-latency} frames late")
+                    # If they're late, then at least we want them to have as little latency as possible
+                    # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
+                    buf[frame][ix] = payload
+                else:
+                    dest_frame = (src_frame + latency) % 16
+                    buf[dest_frame][ix] = payload
+        except:
+            # TODO Print exception
+            print(f"Exception, closing socket {ix}")
+            try:
+                sock.close()
+            except:
+                pass # TODO be more descriptive
+
+    handlers = [asyncio.create_task(handle_client(ix, clients[ix])) for ix in range(num_clients)]
 
     # Main loop
     while running:
@@ -71,7 +129,7 @@ def loop(clients, latency, framerate = 30):
             target = t
         else:
             try:
-                time.sleep(duration)
+                await asyncio.sleep(duration)
             except KeyboardInterrupt:
                 print("Keyboard interrupt caught, quitting")
                 break
@@ -80,50 +138,6 @@ def loop(clients, latency, framerate = 30):
         # get the list sockets which are ready to be read through select
         ready_to_read, ready_to_write, _ = select.select(active_clients,active_clients,[],0)
       
-        for sock in ready_to_read:
-            ix = clients.index(sock)
-            # process data recieved from client, 
-            try:
-                # receiving data from the socket.
-                data = sock.recv(RECV_BUFFER)
-                if data:
-                    while data:
-                        src_frame = data[0]
-                        if src_frame >= 16:
-                            print(f"Bad frame number {src_frame}, raising exception now")
-                            raise Exception("Bad frame number, invalid network communication")
-                        good = True
-                        delt = (frame + 15 - src_frame) % 16 + 1
-                        if delt > latency:
-                            print(f"client {ix} delivered packet {delt-latency} frames late")
-                            good = False
-                        dest_frame = (src_frame + latency) % 16
-                        while len(data) < 2:
-                            # If we have a partial message, the rest should be very close, so no harm in blocking for a bit
-                            data += sock.recv(RECV_BUFFER)
-                        end = data[1] + 2
-                        while len(data) < end:
-                            data += sock.recv(RECV_BUFFER)
-                        payload = data[1:end]
-                        data = data[end:]
-                        if good:
-                            buf[dest_frame][ix] = payload
-                        else:
-                            # If they're late, then at least we want them to have as little latency as possible
-                            # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
-                            buf[frame][ix] = payload
-                else:
-                    sock.close()
-                    print(f"Client {ix} disconnected")
-                    rm(ix)
-            except:
-                # TODO Print exception
-                print(f"Exception, closing socket {ix}")
-                try:
-                    sock.close()
-                except:
-                    pass # TODO be more descriptive
-                rm(ix)
         msg = bytes([frame])
         pieces = buf[frame]
         frame = (frame+1)%16
@@ -135,7 +149,7 @@ def loop(clients, latency, framerate = 30):
             msg += b
         msg_len = len(msg)
         for c in active_clients.copy():
-            if c not in ready_to_write or c.send(msg) != msg_len:
+            if c.send(msg) != msg_len:
                 ix = clients.index(c)
                 print(f"Network backup, closing socket {ix}");
                 rm(ix)
@@ -143,6 +157,12 @@ def loop(clients, latency, framerate = 30):
                     c.close()
                 except:
                     pass
+
+    print("Closing down asyncio tasks...")
+    # I think this is probably a lot messier than it should be lol
+    for h in handlers:
+        h.cancel()
+    await asyncio.gather(*handlers, return_exceptions = True)
 
     print("Cleaning up connections...")
     for sock in active_clients:
@@ -181,5 +201,5 @@ if __name__ == "__main__":
     if clients is None:
         print("Error, aborting")
         sys.exit(1)
-    loop(clients, latency)
+    asyncio.get_event_loop().run_until_complete(loop(clients, latency))
     print("Goodbye!")
