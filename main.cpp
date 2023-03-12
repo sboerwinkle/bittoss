@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/time.h>
+#include <time.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_opengl.h>
 #include <pthread.h>
@@ -25,6 +25,7 @@
 // Eventually I should probably abandon Allegro entirely...
 #define CUSTOM_EVT_TYPE 1025
 static ALLEGRO_EVENT_SOURCE customSrc;
+static ALLEGRO_EVENT customEvent;
 
 #define numKeys 6
 typedef struct player {
@@ -76,7 +77,23 @@ static int historical_phys_micros[micro_hist_num];
 static int historical_draw_micros[micro_hist_num];
 static int historical_flip_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
-static struct timeval t1, t2, t3, t4;
+static struct timespec t1, t2, t3, t4;
+
+#define frame_time_num 120
+#define median_window 59
+#define frame_nanos 33333333
+pthread_mutex_t timingMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t timingCond = PTHREAD_COND_INITIALIZER;
+static time_t startSec;
+static long frameTimes[frame_time_num];
+static int frameTimeIx;
+static long medianTime;
+static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
+
+#define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
+#define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
+#define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
+#define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
 static void outerSetupFrame() {
 	ent *p = players[myPlayer].entity;
@@ -265,11 +282,94 @@ static void handleMouseMove(int dx, int dy) {
 	else if (viewPitch < -M_PI_2) viewPitch = -M_PI_2;
 }
 
-static void* inputThreadFunc(void *arg) {
+static void updateMedianTime() {
+	int ixStart = (frameTimeIx - serverLead - median_window + frame_time_num) % frame_time_num;
+	int ixEnd = serverLead <= 0 ? frameTimeIx : (ixStart + median_window) % frame_time_num;
+	int lt = 0;
+	int le = 0;
+	long stepDown = 0;
+	long stepUp = INT64_MAX;
+	for (int ix = ixStart; ix != ixEnd; ix = (ix+1) % frame_time_num) {
+		long t = frameTimes[ix];
+		// TODO Should we pull `medianTime` ahead of time??
+		if (t < medianTime) {
+			lt++;
+			le++;
+			if (t > stepDown) stepDown = t;
+		} else if (t > medianTime) {
+			if (t < stepUp) stepUp = t;
+		} else {
+			le++;
+		}
+	}
+	long old = medianTime;
+	if (le <= median_window/2) {
+		medianTime = stepUp;
+	} else if (lt > median_window/2) {
+		medianTime = stepDown;
+	} else {
+		return;
+	}
+	long delt = medianTime - old;
+	if (delt > 3000000 || delt < -3000000) { // Around 10% of frame time, definitely notable
+		printf("Delay jumped by %ld ns\n", delt);
+	}
+}
+
+static void* pacedThreadFunc(void *_arg) {
+	long destNanos;
+	timespec t;
+	while (1) {
+		lock(timingMutex);
+		while (medianTime == INT64_MAX) {
+			puts("Server isn't responding, pausing pacing thread...");
+			wait(timingCond, timingMutex);
+		}
+		destNanos = medianTime;
+		unlock(timingMutex);
+
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t);
+		destNanos = destNanos - t.tv_nsec - 1000000000 * (t.tv_sec - startSec);
+		if (destNanos > 999999999) {
+			puts("Tried to wait for more than a second???");
+			// No idea why this would ever come up, but also it runs afoul of the spec to
+			// request an entire second or more in the tv_nsec field.
+			destNanos = 999999999;
+		}
+		if (destNanos > 0) {
+			t.tv_sec = 0;
+			t.tv_nsec = destNanos;
+			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
+		}
+		al_emit_user_event(&customSrc, &customEvent, NULL);
+
+		lock(timingMutex);
+		serverLead--;
+		range(i, frame_time_num) frameTimes[i] += frame_nanos;
+		medianTime += frame_nanos;
+		updateMedianTime();
+		unlock(timingMutex);
+	}
+}
+
+static void* inputThreadFunc(void *_arg) {
 	char mouse_grabbed = 0;
 	char running = 1;
+	int frame = 0;
+	// Could use an Allegro timer here, but we expect the delay to be updated moment-to-moment so this is easier
+	//ALLEGRO_TIMEOUT timeout;
 	ALLEGRO_EVENT evnt;
+	evnt.type = 0;
 	while (running) {
+		/*
+		if (evnt.type != CUSTOM_EVT_TYPE) al_init_timeout(&timeout, 1); // 1.0 seconds from now
+		bool hasEvent = al_wait_for_event_until(queue, &evnt, &timeout);
+		if (!hasEvent) {
+			evnt.type = 0;
+			puts("Boo");
+			continue;
+		}
+		*/
 		al_wait_for_event(queue, &evnt);
 		switch(evnt.type) {
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
@@ -367,9 +467,10 @@ static void* inputThreadFunc(void *arg) {
 				mouseY = evnt.mouse.y;
 				break;
 			case CUSTOM_EVT_TYPE:
-				int frame = (int) evnt.user.data1;
-				if (frame == -1) running = 0;
+				int x = (int) evnt.user.data1;
+				if (x == -1) running = 0;
 				else sendControls(frame);
+				frame = (frame + 1) % 16;
 				break;
 		}
 	}
@@ -496,12 +597,34 @@ int main(int argc, char **argv) {
 	inputTextBuffer[0] = inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 
+	timespec now;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+	startSec = now.tv_sec;
+	// Pre-populate timing buffer
+	{
+		long firstFrame = now.tv_nsec + frame_nanos;
+		range(i, frame_time_num) {
+			frameTimes[i] = firstFrame;
+		}
+		updateMedianTime();
+	}
+	customEvent.user.type = CUSTOM_EVT_TYPE;
+	customEvent.user.data1 = 0;
+
+
 	//Main loop
 	pthread_t inputThread;
+	pthread_t pacedThread;
 	{
-		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, display);
+		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, NULL);
 		if (ret) {
-			printf("pthread_create returned %d\n", ret);
+			printf("pthread_create returned %d for inputThread\n", ret);
+			return 1;
+		}
+		ret = pthread_create(&pacedThread, NULL, pacedThreadFunc, NULL);
+		if (ret) {
+			printf("pthread_create returned %d for pacedThread\n", ret);
+			pthread_cancel(inputThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
 	}
@@ -509,8 +632,6 @@ int main(int argc, char **argv) {
 	// (buttons, move_x, move_y, look_x, look_y, look_z)
 	char defaultData[6] = {0, 0, 0, 0, 0, 0};
 	char actualData[6];
-	ALLEGRO_EVENT customEvent;
-	customEvent.user.type = CUSTOM_EVT_TYPE;
 	char expectedFrame = 0;
 	while (1) {
 		char frame;
@@ -521,12 +642,26 @@ int main(int argc, char **argv) {
 		}
 		expectedFrame = (expectedFrame + 1) % 16;
 
-		// Add custom event to Allegro event queue
-		customEvent.user.data1 = frame;
-		al_emit_user_event(&customSrc, &customEvent, NULL);
+		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		// TODO: Read offset from message
+		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+
+		lock(timingMutex);
+		serverLead++;
+		frameTimes[frameTimeIx] = nanos - frame_nanos * serverLead;
+		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
+		if (serverLead <= 0) {
+			char asleep = (medianTime == INT64_MAX);
+			updateMedianTime();
+			if (asleep && medianTime != INT64_MAX) {
+				signal(timingCond);
+			}
+		}
+		unlock(timingMutex);
+
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
-		gettimeofday(&t1, NULL);
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		if (doClone) {
 			doClone = 0;
 			fputs("Cloning...\n", stderr);
@@ -573,18 +708,18 @@ int main(int argc, char **argv) {
 		doGravity(rootState);
 		doPhysics(rootState);
 
-		gettimeofday(&t2, NULL);
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 
 		outerSetupFrame();
 		doDrawing(rootState);
 		drawHud();
-		gettimeofday(&t3, NULL);
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
 		al_flip_display();
-		gettimeofday(&t4, NULL);
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
 		{
-			int physMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
-			int drawMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + t3.tv_usec - t2.tv_usec;
-			int flipMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + t4.tv_usec - t3.tv_usec;
+			int physMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
+			int drawMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
+			int flipMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
 			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
 			historical_phys_micros[micro_hist_ix] = physMicros;
 			historical_draw_micros[micro_hist_ix] = drawMicros;
@@ -597,6 +732,16 @@ int main(int argc, char **argv) {
 	destroyFont();
 	destroy_registrar();
 	ent_destroy();
+	puts("Done.");
+	puts("Cancelling pacing thread...");
+	{
+		int ret = pthread_cancel(pacedThread);
+		if (ret) printf("Error while cancelling pacing thread: %d\n", ret);
+		else {
+			ret = pthread_join(pacedThread, NULL);
+			if (ret) printf("Error while joining pacing thread: %d\n", ret);
+		}
+	}
 	puts("Done.");
 	puts("Cancelling input thread...");
 	{

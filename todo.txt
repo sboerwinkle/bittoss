@@ -9,6 +9,7 @@ TODO:
 	/ Get it to run again
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 	This would still maintain the "squares come out of spinning and shooting" thing
+- Turn off TCP scheduling heuristic for more real-time communication
 ! Name display (maybe just show chat msg over head)
 	Abandoned in favor of individual colors b/c I'm lazy
 - Predictive state
