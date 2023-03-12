@@ -85,28 +85,29 @@ async def loop(clients, latency, framerate = 30):
                     rm(ix)
                     continue
                 recvd += data
-                l = len(recvd)
-                if l < 2:
-                    continue
-                end = 2 + recvd[1]
-                if l < end:
-                    continue
-                src_frame = recvd[0]
-                payload = recvd[1:end]
-                recvd = recvd[end:]
+                while True:
+                    l = len(recvd)
+                    if l < 2:
+                        break
+                    end = 2 + recvd[1]
+                    if l < end:
+                        break
+                    src_frame = recvd[0]
+                    payload = recvd[1:end]
+                    recvd = recvd[end:]
 
-                if src_frame >= 16:
-                    print(f"Bad frame number {src_frame}, raising exception now")
-                    raise Exception("Bad frame number, invalid network communication")
-                delt = (frame + 15 - src_frame) % 16 + 1
-                if delt > latency:
-                    print(f"client {ix} delivered packet {delt-latency} frames late")
-                    # If they're late, then at least we want them to have as little latency as possible
-                    # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
-                    buf[frame][ix] = payload
-                else:
-                    dest_frame = (src_frame + latency) % 16
-                    buf[dest_frame][ix] = payload
+                    if src_frame >= 16:
+                        print(f"Bad frame number {src_frame}, raising exception now")
+                        raise Exception("Bad frame number, invalid network communication")
+                    delt = (frame + 15 - src_frame) % 16 + 1
+                    if delt > latency:
+                        print(f"client {ix} delivered packet {delt-latency} frames late")
+                        # If they're late, then at least we want them to have as little latency as possible
+                        # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
+                        buf[frame][ix] = payload
+                    else:
+                        dest_frame = (src_frame + latency) % 16
+                        buf[dest_frame][ix] = payload
         except:
             # TODO Print exception
             print(f"Exception, closing socket {ix}")
@@ -135,9 +136,6 @@ async def loop(clients, latency, framerate = 30):
                 break
         target += incr
 
-        # get the list sockets which are ready to be read through select
-        ready_to_read, ready_to_write, _ = select.select(active_clients,active_clients,[],0)
-      
         msg = bytes([frame])
         pieces = buf[frame]
         frame = (frame+1)%16
