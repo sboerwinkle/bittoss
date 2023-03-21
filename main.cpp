@@ -4,6 +4,7 @@
 #include <time.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_opengl.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 
 #include "util.h"
@@ -89,6 +90,7 @@ static long frameTimes[frame_time_num];
 static int frameTimeIx;
 static long medianTime;
 static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
+#define FRAME_ID_MAX 128
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
@@ -470,7 +472,7 @@ static void* inputThreadFunc(void *_arg) {
 				int x = (int) evnt.user.data1;
 				if (x == -1) running = 0;
 				else sendControls(frame);
-				frame = (frame + 1) % 16;
+				frame = (frame + 1) % FRAME_ID_MAX;
 				break;
 		}
 	}
@@ -640,15 +642,19 @@ int main(int argc, char **argv) {
 			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
 			break;
 		}
-		expectedFrame = (expectedFrame + 1) % 16;
+		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		// TODO: Read offset from message
 		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+		int32_t msgNanos; // Can hold approx 2s in nanos, should be enough if you assume a maximum backup of 1s (very worst case) and base latency of < 1s
+		if (readData(&msgNanos, 4)) break;
+		msgNanos = ntohl(msgNanos);
+		nanos = nanos - frame_nanos * serverLead + msgNanos;
 
 		lock(timingMutex);
 		serverLead++;
-		frameTimes[frameTimeIx] = nanos - frame_nanos * serverLead;
+		frameTimes[frameTimeIx] = nanos;
 		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
 		if (serverLead <= 0) {
 			char asleep = (medianTime == INT64_MAX);

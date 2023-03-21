@@ -47,7 +47,8 @@ static void cp(char* dst, char* src, int len) {
 	while (len--) *(dst++) = *(src++);
 }
 
-char readData(char *dst, int len) {
+char readData(void *dst_arg, int len) {
+	char *dst = (char*)dst_arg;
 	while (buf_ix + len > buf_len) {
 		int available = buf_len - buf_ix;
 		cp(dst, buf + buf_ix, available);

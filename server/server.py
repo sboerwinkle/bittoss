@@ -10,9 +10,10 @@ import fcntl, os
 
 HOST = '' 
 SOCKET_LIST = []
-RECV_BUFFER = 4096 
+RECV_BUFFER = 4096
+FRAME_ID_MAX = 128
 
-usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than 16"
+usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX)
 
 def get_clients(num_clients, port):
     # Open port
@@ -48,7 +49,7 @@ async def loop(clients, latency, framerate = 30):
     # Init the buffer of things to be sent
     num_clients = len(clients)
     frame = 0
-    buf = [[b'\0' for c in clients] for x in range(16)]
+    buf = [[b'\0' for c in clients] for x in range(FRAME_ID_MAX)]
 
     recv_len_warnings = 10
 
@@ -96,17 +97,17 @@ async def loop(clients, latency, framerate = 30):
                     payload = recvd[1:end]
                     recvd = recvd[end:]
 
-                    if src_frame >= 16:
+                    if src_frame >= FRAME_ID_MAX:
                         print(f"Bad frame number {src_frame}, raising exception now")
                         raise Exception("Bad frame number, invalid network communication")
-                    delt = (frame + 15 - src_frame) % 16 + 1
+                    delt = (frame + FRAME_ID_MAX - 1 - src_frame) % FRAME_ID_MAX + 1
                     if delt > latency:
                         print(f"client {ix} delivered packet {delt-latency} frames late")
                         # If they're late, then at least we want them to have as little latency as possible
                         # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
                         buf[frame][ix] = payload
                     else:
-                        dest_frame = (src_frame + latency) % 16
+                        dest_frame = (src_frame + latency) % FRAME_ID_MAX
                         buf[dest_frame][ix] = payload
         except:
             # TODO Print exception
@@ -136,9 +137,9 @@ async def loop(clients, latency, framerate = 30):
                 break
         target += incr
 
-        msg = bytes([frame])
+        msg = bytes([frame]) + bytes(4) # This will be something like `remaining_micros.to_bytes(4, 'big')`
         pieces = buf[frame]
-        frame = (frame+1)%16
+        frame = (frame+1)%FRAME_ID_MAX
         for ix in range(num_clients):
             b = pieces[ix]
             pieces[ix] = b'\0'
