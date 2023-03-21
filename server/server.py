@@ -13,7 +13,7 @@ SOCKET_LIST = []
 RECV_BUFFER = 4096
 FRAME_ID_MAX = 128
 
-usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX)
+usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4)
 
 def get_clients(num_clients, port):
     # Open port
@@ -29,6 +29,7 @@ def get_clients(num_clients, port):
     for x in range(num_clients):
         s = server_socket.accept()[0]
         fcntl.fcntl(s, fcntl.F_SETFL, os.O_NONBLOCK)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         clients.append(s)
         print("Got a client...")
     print("All clients connected")
@@ -100,7 +101,7 @@ async def loop(clients, latency, framerate = 30):
                     if src_frame >= FRAME_ID_MAX:
                         print(f"Bad frame number {src_frame}, raising exception now")
                         raise Exception("Bad frame number, invalid network communication")
-                    delt = (frame + FRAME_ID_MAX - 1 - src_frame) % FRAME_ID_MAX + 1
+                    delt = (frame + FRAME_ID_MAX//2 - src_frame) % FRAME_ID_MAX - FRAME_ID_MAX//2
                     if delt > latency:
                         print(f"client {ix} delivered packet {delt-latency} frames late")
                         # If they're late, then at least we want them to have as little latency as possible

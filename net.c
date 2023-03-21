@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 
@@ -31,6 +32,14 @@ char initSocket(char *srvAddr, int port) {
 		puts("Failed to connect to server");
 		return 1;
 	}
+
+	// Set TCP_NODELAY for more real-time TCP, we're not terribly concerned with network congestion.
+	int flag = 1;
+	int result = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+	if (result < 0) {
+		printf("\n!!!!! Failed to set TCP_NODELAY, errno is %d\n\n", errno);
+	}
+
 	return 0;
 }
 
