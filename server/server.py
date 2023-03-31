@@ -15,6 +15,11 @@ FRAME_ID_MAX = 128
 
 usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4)
 
+class Client:
+    def __init__(self, ix, sock):
+        self.ix = ix
+        self.sock = sock
+
 def get_clients(num_clients, port):
     # Open port
 
@@ -30,7 +35,7 @@ def get_clients(num_clients, port):
         s = server_socket.accept()[0]
         fcntl.fcntl(s, fcntl.F_SETFL, os.O_NONBLOCK)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        clients.append(s)
+        clients.append(Client(len(clients), s))
         print("Got a client...")
     print("All clients connected")
     server_socket.shutdown(socket.SHUT_RDWR) # Not sure this is necessary, but I know it doesn't hurt!
@@ -56,7 +61,7 @@ async def loop(clients, latency, framerate = 30):
 
     # Tell each client their position and the total number of players
     for ix in range(num_clients):
-        c = clients[ix]
+        c = clients[ix].sock
         c.send(bytes([0x80, ix, num_clients]))
 
     # Framerate setup
@@ -65,27 +70,34 @@ async def loop(clients, latency, framerate = 30):
 
     running = True
 
-    # Tracking which clients are still connected
-    active_clients = clients.copy()
-    def rm(ix):
+    def rm(cl):
         nonlocal running
-        active_clients.remove(clients[ix])
-        handlers[ix].cancel()
-        clients[ix] = None
-        if len(active_clients) == 0:
+        clients.remove(cl)
+        handlers[cl.ix].cancel()
+        # Honestly I have no idea what I'm doing here, let's try to close this socket politely
+        try:
+            cl.sock.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        try:
+            cl.sock.close()
+        except:
+            pass
+        if len(clients) == 0:
             print("All clients disconnected")
             running = False
 
-    async def handle_client(ix, sock):
+    async def handle_client(cl):
+        ix = cl.ix
+        sock = cl.sock
         recvd = b'';
         try:
             while True:
                 data = await lp.sock_recv(sock, RECV_BUFFER)
                 if not data:
-                    sock.close()
                     print(f"Client {ix} disconnected")
-                    rm(ix)
-                    continue
+                    rm(cl)
+                    return
                 recvd += data
                 while True:
                     l = len(recvd)
@@ -114,11 +126,11 @@ async def loop(clients, latency, framerate = 30):
             # TODO Print exception
             print(f"Exception, closing socket {ix}")
             try:
-                sock.close()
+                rm(cl)
             except:
                 pass # TODO be more descriptive
 
-    handlers = [asyncio.create_task(handle_client(ix, clients[ix])) for ix in range(num_clients)]
+    handlers = [asyncio.create_task(handle_client(cl)) for cl in clients]
 
     # Main loop
     while running:
@@ -148,27 +160,20 @@ async def loop(clients, latency, framerate = 30):
             #    print(f"No packet for client {ix}") # Kinda excessive when combined with the "packet came late" messages
             msg += b
         msg_len = len(msg)
-        for c in active_clients.copy():
-            if c.send(msg) != msg_len:
-                ix = clients.index(c)
-                print(f"Network backup, closing socket {ix}");
-                rm(ix)
+        for cl in clients.copy():
+            if cl.sock.send(msg) != msg_len:
+                print(f"Network backup, closing socket {cl.ix}");
+                rm(cl)
                 try:
-                    c.close()
+                    cl.sock.close()
                 except:
                     pass
 
-    print("Closing down asyncio tasks...")
-    # I think this is probably a lot messier than it should be lol
-    for h in handlers:
-        h.cancel()
+    print("Gathering up tasks")
+    # In theory they should all be cancelled by the time we get out of the loop,
+    # if not either we're not calling `rm` or it's not doing its job.
     await asyncio.gather(*handlers, return_exceptions = True)
 
-    print("Cleaning up connections...")
-    for sock in active_clients:
-        sock.shutdown(socket.SHUT_RDWR)
-        sock.close()
-    
 if __name__ == "__main__":
     args = sys.argv
     if len(args) < 3 or len(args) > 4:
