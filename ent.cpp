@@ -157,7 +157,7 @@ static void pickup(gamestate *gs, ent *x, ent *y) {
 	recursiveHoldRoot(y, x->holdRoot);
 }
 
-void killEntNoHandlers(gamestate *gs, ent *e) {
+static void killEntNoHandlers(gamestate *gs, ent *e) {
 	while (e->holdee) fumble(gs, e->holdee);
 	fumble(gs, e);
 
@@ -173,8 +173,11 @@ void killEntNoHandlers(gamestate *gs, ent *e) {
 	e->dead = 1;
 }
 
-void crushEnt(gamestate *gs, ent *e) {
-	if (e->dead) return;
+static void crushEnt(gamestate *gs, ent *e) {
+	if (e->dead) {
+		fputs("I don't think we should ever try to re-crush!\n", stderr);
+		return;
+	}
 	// TODO invoke `crush` (should actually exist, with a default no-op handler)
 	killEntNoHandlers(gs, e);
 }
@@ -391,33 +394,6 @@ static char doIteration(gamestate *gs) {
 	return ret;
 }
 
-/*
-static void setDeads() {
-	int i;
-	ent *d, *h;
-	for (d = deadTail; d; d = d->prev) {
-		if (d->dead) return; // They will all be dead after this
-		//Fumble my holds
-		for (i = d->numHolds - 1; i >= 0; i--) {
-			fumble(d, i);
-			//(d->onFumble)(d, i);
-			//(d->holds[i]->onFumbled)(d->holds[i]);
-		}
-		//Fumble myself
-		if ( (h = d->holder) ) {
-			for (i = h->numHolds - 1; i >= 0; i--) {
-				if (h->holds[i] == d) break;
-			}
-			fumble(h, i);
-			//(h->onFumble)(h, i);
-			//(d->onFumbled)(d);
-		}
-		//Mark myself dead
-		d->dead = 1;
-	}
-}
-*/
-
 static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
@@ -586,19 +562,6 @@ static void flushDeaths(gamestate *gs) {
 	}
 }
 
-/*
-static void flushAdds() {
-	//Requests for these ents to be killed will have been just missed, so we go through here and clean them up.
-	ent *e;
-	for (e = entsToAdd; e != ents; e = e->ll.n) {
-		recursiveHoldRoot(e, e);
-		//Add it as a root ent here?
-		e->dead_max[1^flipFlop_death] = 0;
-	}
-	ents = entsToAdd;
-}
-*/
-
 //TODO: onFumble[d] could *probably* have access strictly up or down the tree (but no switching!) if we fix the ordering in here.
 //Recall that crushing situations may allow for 2 simultaneous fumbles on different branches.
 static void flushDrops(gamestate *gs) {
@@ -665,8 +628,6 @@ static void flushCtrls(gamestate *gs) {
 
 void doUpdates(gamestate *gs) {
 	flushCtrls(gs);
-	flush(gs);
-	clearDeads(gs);
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
 		doTick(gs, i, 2);
@@ -675,7 +636,6 @@ void doUpdates(gamestate *gs) {
 
 void doPhysics(gamestate *gs) {
 	flush(gs);
-
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
 		memcpy(i->old, i->center, sizeof(i->old));
@@ -714,6 +674,11 @@ void doPhysics(gamestate *gs) {
 		level 1 - If a round has any unpushed pushers, only resolve them. This might require more careful maintenance of the "needsCollision" flags.
 		level 2 - Like level 1, but if there are no unpushed pushers we next check for circular pushers.
 	*/
+	flush(gs);
+}
+
+void finishStep(gamestate *gs) {
+	clearDeads(gs);
 }
 
 static void drawEnt(ent *e) {
@@ -738,7 +703,6 @@ void drawEnt(ent *e, float r, float g, float b) {
 
 void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
-	clearDeads(gs);
 }
 
 rand_t random(gamestate *gs) {
@@ -810,7 +774,7 @@ gamestate* dup(gamestate *in) {
 	}
 
 	if (in->deadTail) {
-		fputs("Wasn't expecting to have to actually copy deadTail! Need to research on how that is set.\n", stderr);
+		fputs("deadTail should be NULL! This is bad!\n", stderr);
 	}
 	ret->deadTail = NULL;
 

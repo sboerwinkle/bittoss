@@ -8,6 +8,8 @@
 #include <pthread.h>
 
 #include "util.h"
+#include "list.h"
+#include "queue.h"
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
@@ -35,7 +37,9 @@ typedef struct player {
 	int reviveCounter;
 } player;
 
-static player *players;
+static char globalRunning = 1;
+
+static player *players, *phantomPlayers;
 static int myPlayer;
 static int numPlayers;
 
@@ -46,11 +50,10 @@ char p1Keys[numKeys];
 static char mouseBtnDown = 0;
 static char mouseSecondaryDown = 0;
 
-static gamestate *rootState;
-static volatile char doClone = 0; // Not sure if we need `volatile` here, but the whole thing is temporary anyway
+static gamestate *rootState, *phantomState;
 
 static ALLEGRO_DISPLAY *display;
-static ALLEGRO_EVENT_QUEUE *queue;
+static ALLEGRO_EVENT_QUEUE *evntQueue;
 
 #define mouseSensitivity 0.0025
 
@@ -68,7 +71,6 @@ static char thirdPerson = 1;
 // At the moment we use a byte to give the network message length, so this has to be fairly small
 #define TEXT_BUF_LEN 200
 static char inputTextBuffer[TEXT_BUF_LEN];
-static char cmdBuffer[TEXT_BUF_LEN];
 static char chatBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
@@ -90,15 +92,22 @@ static long frameTimes[frame_time_num];
 static int frameTimeIx;
 static long medianTime;
 static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
+static int latency;
 #define FRAME_ID_MAX 128
+
+queue<list<char>> frameData;
+queue<list<char>> outboundData;
+static char *emptyFrameData;
+pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
 #define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
-static void outerSetupFrame() {
-	ent *p = players[myPlayer].entity;
+static void outerSetupFrame(player *ps) {
+	ent *p = ps[myPlayer].entity;
 	float up, forward;
 	if (p && thirdPerson) {
 		up = 32*PTS_PER_PX;
@@ -124,21 +133,21 @@ static float hudColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
-static void drawHud() {
+static void drawHud(player *ps) {
 	setupText();
 	drawHudText(chatBuffer, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
 
-	float f1 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
-	float f2 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
-	float f3 = (double) historical_flip_micros[micro_hist_ix] / micros_per_frame;
+	float f1 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
+	float f2 = (double) historical_flip_micros[micro_hist_ix] / micros_per_frame;
+	float f3 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
 	// Draw frame timing bars
-	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, grnColor);
-	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, bluColor);
-	drawHudRect(f1+f2, 1 - 1.0/64, f3, 1.0/64, redColor);
+	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, bluColor);
+	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, redColor);
+	drawHudRect(f1+f2, 1 - 1.0/64, f3, 1.0/64, grnColor);
 
 	// Draw ammo bars if applicable
-	ent *p = players[myPlayer].entity;
+	ent *p = ps[myPlayer].entity;
 	if (!p) return;
 	int charge = p->state.sliders[3].v;
 	float x = 0.5 - 3.0/128;
@@ -183,11 +192,21 @@ static void setupTyping() {
 }
 
 static void sendControls(int frame) {
-	char data[8];
-	data[0] = (char) frame;
-	data[1] = 6;
+	// This is a cheap trick which I need to codify as a method.
+	// It's a threadsafe way to get what the next `add` will be, assuming we're the only
+	// thread that ever calls `add`.
+	list<char> &out = outboundData.items[outboundData.end];
+
+	unsigned char size = 8;
+	if (textInputMode >= 2) size += bufferedTextLen;
+
+	out.setMaxUp(size);
+	out.num = 0;
+
+	out[0] = (char) frame;
+	out[1] = size-2;
 	// Other buttons also go here, once they exist; bitfield
-	data[2] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
+	out[2] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
@@ -202,10 +221,10 @@ static void sendControls(int frame) {
 		// Normally messy properties of floating point division
 		// are mitigated by the fact that `axisMaxis` is a power of 2
 		double divisor = (mag_x > mag_y ? mag_x : mag_y) / axisMaxis;
-		data[3] = round(r_x / divisor);
-		data[4] = round(r_y / divisor);
+		out[3] = round(r_x / divisor);
+		out[4] = round(r_y / divisor);
 	} else {
-		data[3] = data[4] = 0;
+		out[3] = out[4] = 0;
 	}
 	double pitchRadians = viewPitch;
 	double pitchCos = cos(pitchRadians);
@@ -218,16 +237,22 @@ static void sendControls(int frame) {
 	mag2 = abs(pitchSine);
 	if (mag2 > mag) mag = mag2;
 	double divisor = mag / axisMaxis;
-	data[5] = round(sine / divisor);
-	data[6] = round(-cosine / divisor);
-	data[7] = round(pitchSine / divisor);
-	if (textInputMode >= 2) data[1] += bufferedTextLen;
-	sendData(data, 8);
+	out[5] = round(sine / divisor);
+	out[6] = round(-cosine / divisor);
+	out[7] = round(pitchSine / divisor);
 	if (textInputMode >= 2) {
-		sendData(inputTextBuffer, bufferedTextLen);
+		memcpy(out.items + 8, inputTextBuffer, bufferedTextLen);
 		textInputMode -= 2;
 		if (textInputMode == 1) setupTyping();
 	}
+	sendData(out.items, size);
+
+	lock(outboundMutex);
+	outboundData.add();
+	signal(outboundCond);
+	unlock(outboundMutex);
+	// TODO: The other guy now pushes this out and locks it to read data for phantom frames
+	//       Also maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
 }
 
 static void updateColor(player *p) {
@@ -236,27 +261,31 @@ static void updateColor(player *p) {
 	}
 }
 
-static void doHeroes() {
-	int i;
-	for (i = 0; i < numPlayers; i++) {
-		player *p = players + i;
+static void mkHeroes(player *ps, gamestate *state) {
+	range(i, numPlayers) {
+		player *p = ps + i;
 		if (p->entity == NULL) {
 			if (p->reviveCounter--) continue;
-			p->entity = mkHero(rootState, i, numPlayers);
+			p->entity = mkHero(state, i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
 			}
 			updateColor(p);
 		}
-		if (p->entity->dead) {
+	}
+}
+
+static void cleanupDeadHeroes(player *ps) {
+	range(i, numPlayers) {
+		player *p = ps + i;
+		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
 			p->reviveCounter = FRAMERATE * 3;
 			if (i == myPlayer) {
 				viewPitch = M_PI_4 / 2;
 				viewYaw = 0;
 			}
-			continue;
 		}
 	}
 }
@@ -271,7 +300,6 @@ char handleKey(int code, char pressed) {
 	}
 	// TODO move this stuff into the KEY_DOWN section?
 	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
-	else if (pressed && code == ALLEGRO_KEY_F5) doClone = 1;
 	return false;
 }
 
@@ -318,22 +346,113 @@ static void updateMedianTime() {
 	}
 }
 
+static void processCmd(player *p, char *data, int chars) {
+	if (chars >= 6 && !strncmp(data, "/c ", 3)) {
+		int32_t color = (data[3] - '0') + 4 * (data[4] - '0') + 16 * (data[5] - '0');
+		p->color = color;
+		updateColor(p);
+		return;
+	}
+	// Default case, just display it. Message could get lost here if multiple people send on the same frame,
+	// but it will at least be consistent? Maybe fixing this is a TODO
+	memcpy(chatBuffer, data, chars);
+	chatBuffer[chars] = '\0';
+}
+
+static void doWholeStep(gamestate *state, player *ps, char *inputData, char *data2) {
+	// TODO: If view direction ever matters, that should carry over rather than have a constant default
+	// (buttons, move_x, move_y, look_x, look_y, look_z)
+	static char defaultData[6] = {0, 0, 0, 0, 0, 0};
+
+	doCrushtainer(state);
+	createDebris(state);
+	mkHeroes(ps, state);
+
+	range(i, numPlayers) {
+		char *toProcess;
+		if (data2 && i == myPlayer) {
+			toProcess = data2 + 1;
+		} else {
+			toProcess = inputData;
+		}
+		inputData += 1 + *inputData;
+
+		char *data;
+		char size = *toProcess;
+		if (size == 0) {
+			data = defaultData;
+		} else {
+			data = toProcess + 1;
+			if (size > 6 && (data2 == NULL || i == myPlayer)) {
+				processCmd(&ps[i], toProcess + 7, size - 6);
+			}
+		}
+		if (ps[i].entity != NULL) {
+			doInputs(ps[i].entity, data);
+		}
+	}
+
+	doUpdates(state);
+
+	// Gravity should be applied right before physics;
+	// `doPhysics` has a flush at the beginning, so we're sure it hits every single entity (nothing new is created that we miss), 
+	// and also things that are "at rest" on a surface will see a "stationary" vertical velocity (except during collisions)
+	doGravity(state);
+
+	doPhysics(state); 
+
+	// This happens just before finishing the step so we can be 100% sure whether the player's entity is dead or not
+	cleanupDeadHeroes(ps);
+	finishStep(state);
+}
+
+static void cloneToPhantom() {
+	doCleanup(phantomState);
+	free(phantomState);
+	phantomState = dup(rootState);
+	range(i, numPlayers) {
+		player *p = &phantomPlayers[i];
+		*p = players[i];
+		if (p->entity != NULL) {
+			p->entity = p->entity->clone;
+		}
+	}
+}
+
 static void* pacedThreadFunc(void *_arg) {
+	int reqdOutboundSize = latency;
 	long destNanos;
 	timespec t;
+	
+	list<char> latestFrameData;
+	latestFrameData.init(numPlayers);
+	range(i, numPlayers) latestFrameData.add(0);
+
+	lock(outboundMutex);
+	range(i, latency) {
+		// Populate the initial `latency` frames with empty data,
+		// since we didn't have the chance to send anything there.
+		list<char> &t = outboundData.add();
+		t.num = 0;
+		t.add(0); // Bogus frame number, we don't care
+		t.add(0); // zero add'l bytes of info
+	}
+	unlock(outboundMutex);
+
 	while (1) {
 		lock(timingMutex);
-		while (medianTime == INT64_MAX) {
+		while (medianTime == INT64_MAX && globalRunning) {
 			puts("Server isn't responding, pausing pacing thread...");
 			wait(timingCond, timingMutex);
 		}
 		destNanos = medianTime;
 		unlock(timingMutex);
+		if (!globalRunning) break;
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t);
 		destNanos = destNanos - t.tv_nsec - 1000000000 * (t.tv_sec - startSec);
 		if (destNanos > 999999999) {
-			puts("Tried to wait for more than a second???");
+			puts("WARN - Tried to wait for more than a second???");
 			// No idea why this would ever come up, but also it runs afoul of the spec to
 			// request an entire second or more in the tv_nsec field.
 			destNanos = 999999999;
@@ -344,7 +463,77 @@ static void* pacedThreadFunc(void *_arg) {
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
 		al_emit_user_event(&customSrc, &customEvent, NULL);
+		reqdOutboundSize++;
 
+		// Begin setting up the tick, including some hard-coded things like gravity / lava
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+		outerSetupFrame(phantomPlayers);
+		doDrawing(phantomState);
+		drawHud(phantomPlayers);
+
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
+		al_flip_display();
+
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
+		int framesProcessed = 0;
+		while(1) {
+			lock(timingMutex); // Should we hang onto this lock for longer??
+			list<char> *prevFrame;
+			if (framesProcessed) prevFrame = &frameData.pop();
+			int size = frameData.size();
+			if (size == 0 || size <= serverLead) {
+				if (framesProcessed) {
+					latestFrameData.num = 0;
+					latestFrameData.addAll(*prevFrame);
+				}
+				unlock(timingMutex);
+				break;
+			}
+			char *data = frameData.items[frameData.start].items;
+			unlock(timingMutex);
+			framesProcessed++;
+			doWholeStep(rootState, players, data, NULL);
+		}
+
+		lock(outboundMutex);
+		while (outboundData.size() < reqdOutboundSize) {
+			puts("WARN - this case should be handled gracefully but I wasn't expecting it to actually happen");
+			if (!globalRunning) {
+				unlock(outboundMutex);
+				goto paced_exit;
+			}
+			wait(outboundCond, outboundMutex);
+		}
+		outboundData.multipop(framesProcessed);
+		reqdOutboundSize -= framesProcessed;
+		unlock(outboundMutex);
+
+		int outboundStart;
+		if (framesProcessed) {
+			cloneToPhantom();
+			outboundStart = 0;
+		} else {
+			outboundStart = reqdOutboundSize - 1;
+		}
+		while (outboundStart < reqdOutboundSize) {
+			lock(outboundMutex);
+			char *myData = outboundData.peek(outboundStart++).items;
+			unlock(outboundMutex);
+			doWholeStep(phantomState, phantomPlayers, latestFrameData.items, myData);
+		}
+
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
+		{
+			int drawMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
+			int flipMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
+			int physMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
+			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
+			historical_draw_micros[micro_hist_ix] = drawMicros;
+			historical_flip_micros[micro_hist_ix] = flipMicros;
+			historical_phys_micros[micro_hist_ix] = physMicros;
+		}
+
+		// if `serverLead == 0` here, I *think* that means the server has sent us the packet for this frame, but nothing extra yet
 		lock(timingMutex);
 		serverLead--;
 		range(i, frame_time_num) frameTimes[i] += frame_nanos;
@@ -352,6 +541,10 @@ static void* pacedThreadFunc(void *_arg) {
 		updateMedianTime();
 		unlock(timingMutex);
 	}
+
+	paced_exit:;
+	latestFrameData.destroy();
+	return NULL;
 }
 
 static void* inputThreadFunc(void *_arg) {
@@ -365,18 +558,21 @@ static void* inputThreadFunc(void *_arg) {
 	while (running) {
 		/*
 		if (evnt.type != CUSTOM_EVT_TYPE) al_init_timeout(&timeout, 1); // 1.0 seconds from now
-		bool hasEvent = al_wait_for_event_until(queue, &evnt, &timeout);
+		bool hasEvent = al_wait_for_event_until(evntQueue, &evnt, &timeout);
 		if (!hasEvent) {
 			evnt.type = 0;
 			puts("Boo");
 			continue;
 		}
 		*/
-		al_wait_for_event(queue, &evnt);
+		al_wait_for_event(evntQueue, &evnt);
 		switch(evnt.type) {
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				// Forces main thread to exit, it will then tell us to exit and we'll quit gracefully
-				closeSocket();
+				// Make sure the main thread knows to stop, it will handle the others (including this thread)
+				globalRunning = 0;
+				lock(timingMutex);
+				signal(timingCond); // It could potentially be waiting on this condition
+				unlock(timingMutex);
 				break;
 			case ALLEGRO_EVENT_KEY_UP:
 				handleKey(evnt.keyboard.keycode, 0);
@@ -476,34 +672,85 @@ static void* inputThreadFunc(void *_arg) {
 				break;
 		}
 	}
-	puts("\tCleaning up Allegro stuff...");
-	al_unregister_event_source(queue, &customSrc);
-	al_destroy_user_event_source(&customSrc);
-	al_destroy_event_queue(queue);
-	al_destroy_display(display);
-	puts("\tDone.");
 	return NULL;
 }
 
 static void setupPlayers() {
 	memset(p1Keys, 0, sizeof(p1Keys));
 	players = new player[numPlayers];
+	phantomPlayers = new player[numPlayers];
 	for (int i = 0; i < numPlayers; i++) {
 		players[i].reviveCounter = 0;
 		players[i].entity = NULL;
 		players[i].color = defaultColors[i % 8];
+		phantomPlayers[i] = players[i];
 	}
+
+	emptyFrameData = (char*)calloc(numPlayers, 1);
 }
 
-static void processCmd(player *p, int chars) {
-	if (chars >= 6 && !strncmp(cmdBuffer, "/c ", 3)) {
-		int32_t color = (cmdBuffer[3] - '0') + 4 * (cmdBuffer[4] - '0') + 16 * (cmdBuffer[5] - '0');
-		p->color = color;
-		updateColor(p);
-		return;
+static void* netThreadFunc(void *_arg) {
+	// The 0.3 here is pretty arbitrary;
+	// lower values (> 0) are better at handling long network latency,
+	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us)
+	long serverDelay = frame_nanos * latency * 0.4;
+
+	char expectedFrame = 0;
+	while (1) {
+		char frame;
+		if (readData(&frame, 1)) break;
+		if (frame != expectedFrame) {
+			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
+			break;
+		}
+		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
+
+		timespec now;
+		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+		int32_t msgNanos; // Can hold approx 2s in nanos, should be enough if you assume a maximum backup of 1s (very worst case) and base latency of < 1s
+		if (readData(&msgNanos, 4)) break;
+		// At time of writing server always sends 0 for `msgNanos` but that's fine I guess
+		msgNanos = ntohl(msgNanos);
+		nanos = nanos - frame_nanos * serverLead + msgNanos + serverDelay;
+
+		// This is a cheap trick which I need to codify as a method.
+		// It's a threadsafe way to get what the next `add` will be, assuming we're the only
+		// thread that ever calls `add`.
+		list<char> &thisFrameData = frameData.items[frameData.end];
+		thisFrameData.num = 0;
+		for (int i = 0; i < numPlayers; i++) {
+			unsigned char size;
+			if (readData((char*)&size, 1)) goto done;
+			if ((size && size < 6) || size >= TEXT_BUF_LEN + 6) {
+				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
+				goto done;
+			}
+			thisFrameData.setMaxUp(thisFrameData.num + size + 1);
+			thisFrameData.add(size);
+			if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
+			thisFrameData.num += size;
+		}
+
+		lock(timingMutex);
+		frameData.add();
+		serverLead++;
+		frameTimes[frameTimeIx] = nanos;
+		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
+		if (serverLead <= 0) {
+			char asleep = (medianTime == INT64_MAX);
+			updateMedianTime();
+			if (asleep && medianTime != INT64_MAX) {
+				signal(timingCond);
+			}
+		}
+		unlock(timingMutex);
+
+		// TODO Now that the data is stored in `threadData`, we need to handle it appropriately and run ticks.
+		//      For a first pass, I imagine the "guess" ticks won't have any user input.
 	}
-	// Default case, just display it
-	memcpy(chatBuffer, cmdBuffer, chars + 1);
+	done:;
+	return NULL;
 }
 
 const char* usage = "Arguments: server_addr [port]\n\tport default is 15000";
@@ -525,6 +772,8 @@ int main(int argc, char **argv) {
 
 	rootState = (gamestate*) calloc(1, sizeof(gamestate));
 	rootState->rand = 1;
+	phantomState = (gamestate*) calloc(1, sizeof(gamestate));
+	phantomState->rand = 1;
 
 	init_registrar();
 
@@ -557,19 +806,19 @@ int main(int argc, char **argv) {
 	if (!al_install_mouse()) {
 		fputs("No mouse support.\n", stderr);
 	}
-	// OpenGL Setup
-	initGraphics(); // calls initFont()
+	initGraphics(); // OpenGL Setup (calls initFont())
 	ent_init();
-	//Set up modules
-	initMods();
+	initMods(); //Set up modules
+	frameData.init();
+	outboundData.init();
 
 	// Other general game setup, including networking
 	puts("Connecting to host...");
 	if (initSocket(srvAddr, port)) return 1;
 	puts("Done.");
 	puts("Awaiting other clients...");
-	char clientCounts[3];
-	if (readData(clientCounts, 3)) {
+	char clientCounts[4];
+	if (readData(clientCounts, 4)) {
 		puts("Error, aborting!");
 		return 1;
 	}
@@ -579,6 +828,7 @@ int main(int argc, char **argv) {
 	}
 	myPlayer = clientCounts[1];
 	numPlayers = clientCounts[2];
+	latency = clientCounts[3];
 	printf("Done, I am client #%d (%d total)\n", myPlayer, numPlayers);
 	setupPlayers();
 	//map loading
@@ -586,24 +836,24 @@ int main(int argc, char **argv) {
 	//Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
-	queue = al_create_event_queue();
-	al_register_event_source(queue, &customSrc);
-	al_register_event_source(queue, al_get_display_event_source(display));
+	evntQueue = al_create_event_queue();
+	al_register_event_source(evntQueue, &customSrc);
+	al_register_event_source(evntQueue, al_get_display_event_source(display));
 	//al_register_event_source(queue, al_get_timer_event_source(timer));
-	al_register_event_source(queue, al_get_keyboard_event_source());
+	al_register_event_source(evntQueue, al_get_keyboard_event_source());
 	if (al_is_mouse_installed()) {
-		al_register_event_source(queue, al_get_mouse_event_source());
+		al_register_event_source(evntQueue, al_get_mouse_event_source());
 		// For now, don't capture mouse on startup. Might prevent mouse warpiness in first frame, idk, feel free to mess around
 	}
 
 	inputTextBuffer[0] = inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 
-	timespec now;
-	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-	startSec = now.tv_sec;
-	// Pre-populate timing buffer
+	// Pre-populate timing buffer, set `startSec`
 	{
+		timespec now;
+		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		startSec = now.tv_sec;
 		long firstFrame = now.tv_nsec + frame_nanos;
 		range(i, frame_time_num) {
 			frameTimes[i] = firstFrame;
@@ -615,138 +865,39 @@ int main(int argc, char **argv) {
 
 
 	//Main loop
+	// TODO ugh need to switch things around so graphics are on the main thread
 	pthread_t inputThread;
-	pthread_t pacedThread;
+	pthread_t netThread;
 	{
 		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, NULL);
 		if (ret) {
 			printf("pthread_create returned %d for inputThread\n", ret);
 			return 1;
 		}
-		ret = pthread_create(&pacedThread, NULL, pacedThreadFunc, NULL);
+		ret = pthread_create(&netThread, NULL, netThreadFunc, NULL);
 		if (ret) {
-			printf("pthread_create returned %d for pacedThread\n", ret);
+			printf("pthread_create returned %d for netThread\n", ret);
 			pthread_cancel(inputThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
 	}
-	// TODO: If view direction ever matters, that should carry over rather than have a constant default
-	// (buttons, move_x, move_y, look_x, look_y, look_z)
-	char defaultData[6] = {0, 0, 0, 0, 0, 0};
-	char actualData[6];
-	char expectedFrame = 0;
-	while (1) {
-		char frame;
-		if (readData(&frame, 1)) break;
-		if (frame != expectedFrame) {
-			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
-			break;
-		}
-		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
 
-		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		// TODO: Read offset from message
-		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
-		int32_t msgNanos; // Can hold approx 2s in nanos, should be enough if you assume a maximum backup of 1s (very worst case) and base latency of < 1s
-		if (readData(&msgNanos, 4)) break;
-		msgNanos = ntohl(msgNanos);
-		nanos = nanos - frame_nanos * serverLead + msgNanos;
+	// Main thread lives in here until the program exits
+	pacedThreadFunc(NULL);
 
-		lock(timingMutex);
-		serverLead++;
-		frameTimes[frameTimeIx] = nanos;
-		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
-		if (serverLead <= 0) {
-			char asleep = (medianTime == INT64_MAX);
-			updateMedianTime();
-			if (asleep && medianTime != INT64_MAX) {
-				signal(timingCond);
-			}
-		}
-		unlock(timingMutex);
-
-
-		// Begin setting up the tick, including some hard-coded things like gravity / lava
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-		if (doClone) {
-			doClone = 0;
-			fputs("Cloning...\n", stderr);
-			gamestate* tmp = dup(rootState);
-			range(i, numPlayers) if (players[i].entity != NULL) players[i].entity = players[i].entity->clone;
-			doCleanup(rootState);
-			free(rootState);
-			rootState = tmp;
-		}
-		doCrushtainer(rootState);
-		createDebris(rootState);
-		// Heroes must be after environmental death effects, or they can be killed and then cleaned up immediately
-		doHeroes();
-
-		for (int i = 0; i < numPlayers; i++) {
-			unsigned char size;
-			if (readData((char*)&size, 1)) goto done;
-			char *data;
-			if (size == 0) {
-				data = defaultData;
-			} else if (size < 6) {
-				printf("Fatal error, can't handle player net input of size %d\n", size);
-				goto done;
-			} else {
-				data = actualData;
-				if (readData(data, 6)) goto done;
-				size -= 6;
-				if (size >= TEXT_BUF_LEN) {
-					printf("Fatal error, can't handle player chat of length %d\n", size);
-					goto done;
-				}
-				if (size) {
-					if (readData(cmdBuffer, size)) goto done;
-					cmdBuffer[size] = '\0';
-					processCmd(&players[i], size);
-				}
-			}
-			if (players[i].entity != NULL) {
-				doInputs(players[i].entity, data);
-			}
-		}
-
-		doUpdates(rootState);
-		doGravity(rootState);
-		doPhysics(rootState);
-
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-
-		outerSetupFrame();
-		doDrawing(rootState);
-		drawHud();
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
-		al_flip_display();
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
-		{
-			int physMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
-			int drawMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
-			int flipMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
-			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
-			historical_phys_micros[micro_hist_ix] = physMicros;
-			historical_draw_micros[micro_hist_ix] = drawMicros;
-			historical_flip_micros[micro_hist_ix] = flipMicros;
-		}
-	}
-	done:;
 	puts("Beginning cleanup.");
 	puts("Cleaning up simple interal components...");
+	frameData.destroy();
+	outboundData.destroy();
 	destroyFont();
 	destroy_registrar();
 	ent_destroy();
 	puts("Done.");
-	puts("Cancelling pacing thread...");
+	puts("Cancelling network thread...");
 	{
-		int ret = pthread_cancel(pacedThread);
-		if (ret) printf("Error while cancelling pacing thread: %d\n", ret);
-		else {
-			ret = pthread_join(pacedThread, NULL);
-			if (ret) printf("Error while joining pacing thread: %d\n", ret);
-		}
+		closeSocket();
+		int ret = pthread_join(netThread, NULL);
+		if (ret) printf("Error while joining pacing thread: %d\n", ret);
 	}
 	puts("Done.");
 	puts("Cancelling input thread...");
@@ -759,16 +910,23 @@ int main(int argc, char **argv) {
 		if (ret) printf("Error while joining input thread: %d\n", ret);
 	}
 	puts("Done.");
-	puts("Closing socket...");
-	closeSocket();
-	puts("Done.");
 	puts("Cleaning up game objects...");
 	doCleanup(rootState);
 	free(rootState);
+	doCleanup(phantomState);
+	free(phantomState);
 	puts("Done.");
-	delete[] players;
 	puts("Cleaning up Allegro...");
+	al_unregister_event_source(evntQueue, &customSrc);
+	al_destroy_user_event_source(&customSrc);
+	al_destroy_event_queue(evntQueue);
+	al_destroy_display(display);
 	al_uninstall_system();
+	puts("Done.");
+	puts("Final misc cleanup...");
+	delete[] players;
+	delete[] phantomPlayers;
+	free(emptyFrameData);
 	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;

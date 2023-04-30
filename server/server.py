@@ -62,7 +62,7 @@ async def loop(clients, latency, framerate = 30):
     # Tell each client their position and the total number of players
     for ix in range(num_clients):
         c = clients[ix].sock
-        c.send(bytes([0x80, ix, num_clients]))
+        c.send(bytes([0x80, ix, num_clients, latency]))
 
     # Framerate setup
     incr = 1 / framerate

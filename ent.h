@@ -140,20 +140,14 @@ typedef struct ent {
 	char pickup_max[2];
 	char drop_max[2];
 
-	/*
-	struct ent **holds;
-	int numHolds, maxHolds;
-	*/
-	//struct ent *relevantHold;
-
 	//Things really definitely not related to collisions
 	// For whatever internal state they need
 	entState state;
 	struct {
 		struct ent *n, *p;
 	} ll, LL;
-	// This is guaranteed to be set for one tick before the memory address is freed.
 	char dead, dead_max[2];
+	char hasExternalWatcher;
 
 	// Many, many event handlers.
 	whoMoves_t whoMoves;
@@ -205,12 +199,11 @@ extern byte getAxis(ent *a, ent *b);
 
 extern void addEnt(gamestate *gs, ent *e);
 
-extern void killEntNoHandlers(gamestate *gs, ent *e);
-extern void crushEnt(gamestate *gs, ent *e);
 extern void drawEnt(ent *e, float r, float g, float b);
 
 extern void doUpdates(gamestate *gs);
 extern void doPhysics(gamestate *gs);
+extern void finishStep(gamestate *gs);
 extern void doDrawing(gamestate *gs);
 extern void doCleanup(gamestate *gs);
 

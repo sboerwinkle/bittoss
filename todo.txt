@@ -51,6 +51,29 @@ TODO:
 - Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
 	Necessary for proper serialization
 - Velbox (R-trees to handle collisions)
+- state resync
+	- Server detects new connection
+		For now, if another join is in progress maybe just deny them
+		Might re-use existing client slot if one is available
+	- Server issues advisory message about state re-sync
+		All regular ticks stop, but this doesn't really need special handling client-side
+	- Server asks an existing client for its state
+		This client must be careful to stop the its tick thread from running while serialization happens
+		Write state of everything to a big ol' byte list
+		Send big ol' byte list to server
+			This can all be on the net thread, not expecting anything to come in during this time
+	- Server receives big state packet from somebody
+		This gets put in a big list
+		Server decides on who's in the client list, sends "player x of y" packets out
+		The list is sent out to everybody
+	- Clients receive the big state packet
+		The tick thread is manually stalled out so it will stop running
+		Clean up old state
+		Read new state from the buffer
+		Send an acknowledgement back to server
+	- Server awaits all acknowledgement packets (or dropped connections)
+		Server sends a "resume" packet
+		All clients proceed to do work
 - State serizalization
 	- Save to file
 	- Send over wire

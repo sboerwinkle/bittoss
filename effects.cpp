@@ -24,16 +24,16 @@ void doGravity(gamestate *gs) {
 void doLava(gamestate *gs) {
         ent *e;
         for (e = gs->ents; e; e = e->ll.n) {
-                if (e->center[2] > 64000) crushEnt(gs, e);
+                if (e->center[2] > 64000) uDead(gs, e);
         }
 }
 
 void doCrushtainer(gamestate *gs) {
 	// This is small enough corner-to-corner (< 444K even with 128K radius per side) that the vision range (480K) encloses it safely
 	for (ent *e = gs->ents; e; e = e->ll.n) {
-		if (abs(e->center[0]) > 128000) crushEnt(gs, e);
-		else if (abs(e->center[1]) > 64000) crushEnt(gs, e);
-		else if (abs(e->center[2]) > 64000) crushEnt(gs, e);
+		if (abs(e->center[0]) > 128000) uDead(gs, e);
+		else if (abs(e->center[1]) > 64000) uDead(gs, e);
+		else if (abs(e->center[2]) > 64000) uDead(gs, e);
 	}
 }
 
