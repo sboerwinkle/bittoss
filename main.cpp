@@ -432,10 +432,10 @@ static void* pacedThreadFunc(void *_arg) {
 	range(i, latency) {
 		// Populate the initial `latency` frames with empty data,
 		// since we didn't have the chance to send anything there.
-		list<char> &t = outboundData.add();
-		t.num = 0;
-		t.add(0); // Bogus frame number, we don't care
-		t.add(0); // zero add'l bytes of info
+		list<char> &tmp = outboundData.add();
+		tmp.num = 0;
+		tmp.add(0); // Bogus frame number, we don't care
+		tmp.add(0); // zero add'l bytes of info
 	}
 	unlock(outboundMutex);
 
@@ -482,7 +482,12 @@ static void* pacedThreadFunc(void *_arg) {
 			if (framesProcessed) prevFrame = &frameData.pop();
 			int size = frameData.size();
 			if (size == 0 || size <= serverLead) {
-				if (framesProcessed) {
+				if (framesProcessed && !(*prevFrame)[0]) {
+					// We want to exclude large frames from being counted as the "latest",
+					// since we probably don't want to run them multiple times in the case of a delay.
+					// The way we check right now means it could actually exlude some normal frames too
+					// if they were delivered close to (and processed with) the large frame,
+					// but that's not really a concern.
 					latestFrameData.num = 0;
 					latestFrameData.addAll(*prevFrame);
 				}
@@ -492,7 +497,21 @@ static void* pacedThreadFunc(void *_arg) {
 			char *data = frameData.items[frameData.start].items;
 			unlock(timingMutex);
 			framesProcessed++;
-			doWholeStep(rootState, players, data, NULL);
+			if (*data) {
+				puts("Got a big data thing, in practice we'd do stuff here\n");
+				t.tv_sec = 0;
+				t.tv_nsec = 500000000;
+				nanosleep(&t, NULL);
+				// This is a little awkward, but it's a rare occurence so that's fine.
+				// Basically we don't want all our frameData's to be alloced out to the size of a long command,
+				// so we manually shrink it back down once we're done with the data.
+				lock(timingMutex);
+				frameData.items[frameData.start].num = 0;
+				frameData.items[frameData.start].setMax(1);
+				unlock(timingMutex);
+			} else {
+				doWholeStep(rootState, players, data + 1, NULL);
+			}
 		}
 
 		lock(outboundMutex);
@@ -519,7 +538,7 @@ static void* pacedThreadFunc(void *_arg) {
 			lock(outboundMutex);
 			char *myData = outboundData.peek(outboundStart++).items;
 			unlock(outboundMutex);
-			doWholeStep(phantomState, phantomPlayers, latestFrameData.items, myData);
+			doWholeStep(phantomState, phantomPlayers, latestFrameData.items + 1, myData);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
@@ -570,12 +589,14 @@ static void* inputThreadFunc(void *_arg) {
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
 				// Make sure the main thread knows to stop, it will handle the others (including this thread)
 				globalRunning = 0;
+				// It could potentially be waiting on this condition
 				lock(timingMutex);
-				signal(timingCond); // It could potentially be waiting on this condition
+				signal(timingCond);
 				unlock(timingMutex);
+				// Could also be waiting here, we just want it to wake up so it knows it's time to leave
 				lock(outboundMutex);
-				signal(outboundCond); // Could also be waiting here, we just want it to wake up so it knows it's time to leave
-				unlock(outboundMutx);
+				signal(outboundCond);
+				unlock(outboundMutex);
 				break;
 			case ALLEGRO_EVENT_KEY_UP:
 				handleKey(evnt.keyboard.keycode, 0);
@@ -702,7 +723,7 @@ static void* netThreadFunc(void *_arg) {
 	while (1) {
 		char frame;
 		if (readData(&frame, 1)) break;
-		if (frame != expectedFrame) {
+		if (frame != expectedFrame && frame != 255) {
 			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
 			break;
 		}
@@ -722,17 +743,33 @@ static void* netThreadFunc(void *_arg) {
 		// thread that ever calls `add`.
 		list<char> &thisFrameData = frameData.items[frameData.end];
 		thisFrameData.num = 0;
-		for (int i = 0; i < numPlayers; i++) {
-			unsigned char size;
-			if (readData((char*)&size, 1)) goto done;
-			if ((size && size < 6) || size >= TEXT_BUF_LEN + 6) {
-				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
-				goto done;
+		if (frame == 255) {
+			thisFrameData.add(1); // 1 indicates a bulk data frame
+			int32_t lgSize;
+			readData(&lgSize, 4);
+			lgSize = ntohl(lgSize);
+
+			thisFrameData.setMaxUp(thisFrameData.num + lgSize + 4);
+
+			*(int32_t*)(thisFrameData.items + thisFrameData.num) = lgSize;
+			thisFrameData.num += 4;
+
+			if (readData(thisFrameData.items + thisFrameData.num, lgSize)) goto done;
+			thisFrameData.num += lgSize;
+		} else {
+			thisFrameData.add(0); // 0 indicates a regular frame
+			for (int i = 0; i < numPlayers; i++) {
+				unsigned char size;
+				if (readData((char*)&size, 1)) goto done;
+				if ((size && size < 6) || size >= TEXT_BUF_LEN + 6) {
+					fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
+					goto done;
+				}
+				thisFrameData.setMaxUp(thisFrameData.num + size + 1);
+				thisFrameData.add(size);
+				if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
+				thisFrameData.num += size;
 			}
-			thisFrameData.setMaxUp(thisFrameData.num + size + 1);
-			thisFrameData.add(size);
-			if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
-			thisFrameData.num += size;
 		}
 
 		lock(timingMutex);
