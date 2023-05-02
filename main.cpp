@@ -573,6 +573,9 @@ static void* inputThreadFunc(void *_arg) {
 				lock(timingMutex);
 				signal(timingCond); // It could potentially be waiting on this condition
 				unlock(timingMutex);
+				lock(outboundMutex);
+				signal(outboundCond); // Could also be waiting here, we just want it to wake up so it knows it's time to leave
+				unlock(outboundMutx);
 				break;
 			case ALLEGRO_EVENT_KEY_UP:
 				handleKey(evnt.keyboard.keycode, 0);
