@@ -13,6 +13,7 @@
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
+#include "player.h"
 #include "main.h"
 #include "modules.h"
 #include "net.h"
@@ -31,11 +32,6 @@ static ALLEGRO_EVENT_SOURCE customSrc;
 static ALLEGRO_EVENT customEvent;
 
 #define numKeys 6
-typedef struct player {
-	ent *entity;
-	int32_t color;
-	int reviveCounter;
-} player;
 
 static char globalRunning = 1;
 
@@ -197,16 +193,16 @@ static void sendControls(int frame) {
 	// thread that ever calls `add`.
 	list<char> &out = outboundData.items[outboundData.end];
 
-	unsigned char size = 8;
+	int32_t size = 11; // 1 frame + 4 size + 6 input data
 	if (textInputMode >= 2) size += bufferedTextLen;
 
 	out.setMaxUp(size);
 	out.num = 0;
 
 	out[0] = (char) frame;
-	out[1] = size-2;
+	*(int32_t*)(out.items + 1) = htonl(size - 5);
 	// Other buttons also go here, once they exist; bitfield
-	out[2] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
+	out[5] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
 
 	int axis1 = p1Keys[1] - p1Keys[0];
 	int axis2 = p1Keys[3] - p1Keys[2];
@@ -221,10 +217,10 @@ static void sendControls(int frame) {
 		// Normally messy properties of floating point division
 		// are mitigated by the fact that `axisMaxis` is a power of 2
 		double divisor = (mag_x > mag_y ? mag_x : mag_y) / axisMaxis;
-		out[3] = round(r_x / divisor);
-		out[4] = round(r_y / divisor);
+		out[6] = round(r_x / divisor);
+		out[7] = round(r_y / divisor);
 	} else {
-		out[3] = out[4] = 0;
+		out[6] = out[7] = 0;
 	}
 	double pitchRadians = viewPitch;
 	double pitchCos = cos(pitchRadians);
@@ -237,11 +233,11 @@ static void sendControls(int frame) {
 	mag2 = abs(pitchSine);
 	if (mag2 > mag) mag = mag2;
 	double divisor = mag / axisMaxis;
-	out[5] = round(sine / divisor);
-	out[6] = round(-cosine / divisor);
-	out[7] = round(pitchSine / divisor);
+	out[8] = round(sine / divisor);
+	out[9] = round(-cosine / divisor);
+	out[10] = round(pitchSine / divisor);
 	if (textInputMode >= 2) {
-		memcpy(out.items + 8, inputTextBuffer, bufferedTextLen);
+		memcpy(out.items + 11, inputTextBuffer, bufferedTextLen);
 		textInputMode -= 2;
 		if (textInputMode == 1) setupTyping();
 	}
@@ -355,8 +351,16 @@ static void processCmd(player *p, char *data, int chars) {
 	}
 	// Default case, just display it. Message could get lost here if multiple people send on the same frame,
 	// but it will at least be consistent? Maybe fixing this is a TODO
-	memcpy(chatBuffer, data, chars);
-	chatBuffer[chars] = '\0';
+	if (chars < TEXT_BUF_LEN) {
+		memcpy(chatBuffer, data, chars);
+		chatBuffer[chars] = '\0';
+	} else {
+		puts("Got a big data thing, in practice we'd do stuff here\n");
+		timespec t;
+		t.tv_sec = 0;
+		t.tv_nsec = 500000000;
+		nanosleep(&t, NULL);
+	}
 }
 
 static void doWholeStep(gamestate *state, player *ps, char *inputData, char *data2) {
@@ -375,16 +379,17 @@ static void doWholeStep(gamestate *state, player *ps, char *inputData, char *dat
 		} else {
 			toProcess = inputData;
 		}
-		inputData += 1 + *inputData;
+		int32_t size = ntohl(*(int32_t*)inputData);
+		inputData += 4 + size;
 
+		size = ntohl(*(int32_t*)toProcess);
 		char *data;
-		char size = *toProcess;
 		if (size == 0) {
 			data = defaultData;
 		} else {
-			data = toProcess + 1;
+			data = toProcess + 4;
 			if (size > 6 && (data2 == NULL || i == myPlayer)) {
-				processCmd(&ps[i], toProcess + 7, size - 6);
+				processCmd(&ps[i], toProcess + 10, size - 6);
 			}
 		}
 		if (ps[i].entity != NULL) {
@@ -425,8 +430,8 @@ static void* pacedThreadFunc(void *_arg) {
 	timespec t;
 	
 	list<char> latestFrameData;
-	latestFrameData.init(numPlayers);
-	range(i, numPlayers) latestFrameData.add(0);
+	latestFrameData.init(numPlayers*4);
+	range(i, numPlayers*4) latestFrameData.add(0);
 
 	lock(outboundMutex);
 	range(i, latency) {
@@ -434,8 +439,7 @@ static void* pacedThreadFunc(void *_arg) {
 		// since we didn't have the chance to send anything there.
 		list<char> &tmp = outboundData.add();
 		tmp.num = 0;
-		tmp.add(0); // Bogus frame number, we don't care
-		tmp.add(0); // zero add'l bytes of info
+		range(j, 5) tmp.add(0); // 1 byte frame number (doesn't matter), 4 bytes size (all zero)
 	}
 	unlock(outboundMutex);
 
@@ -480,9 +484,10 @@ static void* pacedThreadFunc(void *_arg) {
 			lock(timingMutex); // Should we hang onto this lock for longer??
 			list<char> *prevFrame;
 			if (framesProcessed) prevFrame = &frameData.pop();
+			// TODO Should we manually de-allocate very large frames so they don't hang around holding memory?
 			int size = frameData.size();
 			if (size == 0 || size <= serverLead) {
-				if (framesProcessed && !(*prevFrame)[0]) {
+				if (framesProcessed && prevFrame->num < 100) {
 					// We want to exclude large frames from being counted as the "latest",
 					// since we probably don't want to run them multiple times in the case of a delay.
 					// The way we check right now means it could actually exlude some normal frames too
@@ -497,21 +502,7 @@ static void* pacedThreadFunc(void *_arg) {
 			char *data = frameData.items[frameData.start].items;
 			unlock(timingMutex);
 			framesProcessed++;
-			if (*data) {
-				puts("Got a big data thing, in practice we'd do stuff here\n");
-				t.tv_sec = 0;
-				t.tv_nsec = 500000000;
-				nanosleep(&t, NULL);
-				// This is a little awkward, but it's a rare occurence so that's fine.
-				// Basically we don't want all our frameData's to be alloced out to the size of a long command,
-				// so we manually shrink it back down once we're done with the data.
-				lock(timingMutex);
-				frameData.items[frameData.start].num = 0;
-				frameData.items[frameData.start].setMax(1);
-				unlock(timingMutex);
-			} else {
-				doWholeStep(rootState, players, data + 1, NULL);
-			}
+			doWholeStep(rootState, players, data, NULL);
 		}
 
 		lock(outboundMutex);
@@ -538,7 +529,7 @@ static void* pacedThreadFunc(void *_arg) {
 			lock(outboundMutex);
 			char *myData = outboundData.peek(outboundStart++).items;
 			unlock(outboundMutex);
-			doWholeStep(phantomState, phantomPlayers, latestFrameData.items + 1, myData);
+			doWholeStep(phantomState, phantomPlayers, latestFrameData.items, myData);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
@@ -723,7 +714,7 @@ static void* netThreadFunc(void *_arg) {
 	while (1) {
 		char frame;
 		if (readData(&frame, 1)) break;
-		if (frame != expectedFrame && frame != 255) {
+		if (frame != expectedFrame) {
 			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
 			break;
 		}
@@ -743,33 +734,19 @@ static void* netThreadFunc(void *_arg) {
 		// thread that ever calls `add`.
 		list<char> &thisFrameData = frameData.items[frameData.end];
 		thisFrameData.num = 0;
-		if (frame == 255) {
-			thisFrameData.add(1); // 1 indicates a bulk data frame
-			int32_t lgSize;
-			readData(&lgSize, 4);
-			lgSize = ntohl(lgSize);
-
-			thisFrameData.setMaxUp(thisFrameData.num + lgSize + 4);
-
-			*(int32_t*)(thisFrameData.items + thisFrameData.num) = lgSize;
-			thisFrameData.num += 4;
-
-			if (readData(thisFrameData.items + thisFrameData.num, lgSize)) goto done;
-			thisFrameData.num += lgSize;
-		} else {
-			thisFrameData.add(0); // 0 indicates a regular frame
-			for (int i = 0; i < numPlayers; i++) {
-				unsigned char size;
-				if (readData((char*)&size, 1)) goto done;
-				if ((size && size < 6) || size >= TEXT_BUF_LEN + 6) {
-					fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
-					goto done;
-				}
-				thisFrameData.setMaxUp(thisFrameData.num + size + 1);
-				thisFrameData.add(size);
-				if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
-				thisFrameData.num += size;
+		for (int i = 0; i < numPlayers; i++) {
+			int32_t netSize;
+			if (readData(&netSize, 4)) goto done;
+			int32_t size = ntohl(netSize);
+			if (size && size < 6) {
+				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
+				goto done;
 			}
+			thisFrameData.setMaxUp(thisFrameData.num + size + 4);
+			*(int32_t*)(thisFrameData.items + thisFrameData.num) = netSize;
+			thisFrameData.num += 4;
+			if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
+			thisFrameData.num += size;
 		}
 
 		lock(timingMutex);
@@ -926,13 +903,6 @@ int main(int argc, char **argv) {
 	pacedThreadFunc(NULL);
 
 	puts("Beginning cleanup.");
-	puts("Cleaning up simple interal components...");
-	frameData.destroy();
-	outboundData.destroy();
-	destroyFont();
-	destroy_registrar();
-	ent_destroy();
-	puts("Done.");
 	puts("Cancelling network thread...");
 	{
 		closeSocket();
@@ -949,6 +919,13 @@ int main(int argc, char **argv) {
 		int ret = pthread_join(inputThread, NULL);
 		if (ret) printf("Error while joining input thread: %d\n", ret);
 	}
+	puts("Done.");
+	puts("Cleaning up simple interal components...");
+	frameData.destroy();
+	outboundData.destroy();
+	destroyFont();
+	destroy_registrar();
+	ent_destroy();
 	puts("Done.");
 	puts("Cleaning up game objects...");
 	doCleanup(rootState);

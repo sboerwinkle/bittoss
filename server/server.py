@@ -13,6 +13,8 @@ SOCKET_LIST = []
 RECV_BUFFER = 4096
 FRAME_ID_MAX = 128
 
+EMPTY_MSG = b'\0\0\0\0'
+
 usage = "Usage: num_clients frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4)
 
 class Client:
@@ -55,7 +57,7 @@ async def loop(clients, latency, framerate = 30):
     # Init the buffer of things to be sent
     num_clients = len(clients)
     frame = 0
-    buf = [[b'\0' for c in clients] for x in range(FRAME_ID_MAX)]
+    buf = [[EMPTY_MSG for c in clients] for x in range(FRAME_ID_MAX)]
 
     recv_len_warnings = 10
 
@@ -101,11 +103,12 @@ async def loop(clients, latency, framerate = 30):
                 recvd += data
                 while True:
                     l = len(recvd)
-                    if l < 2:
+                    if l < 5:
                         break
-                    end = 2 + recvd[1]
+                    end = 5 + int.from_bytes(recvd[1:5], 'big')
                     if l < end:
                         break
+                    print(f"Size is {end-5}")
                     src_frame = recvd[0]
                     payload = recvd[1:end]
                     recvd = recvd[end:]
@@ -155,13 +158,13 @@ async def loop(clients, latency, framerate = 30):
         frame = (frame+1)%FRAME_ID_MAX
         for ix in range(num_clients):
             b = pieces[ix]
-            pieces[ix] = b'\0'
-            #if b == b'\0' and clients[ix] is not None:
-            #    print(f"No packet for client {ix}") # Kinda excessive when combined with the "packet came late" messages
+            pieces[ix] = EMPTY_MSG
             msg += b
         msg_len = len(msg)
         for cl in clients.copy():
             if cl.sock.send(msg) != msg_len:
+                # Time to pay the piper for my shitty netcode,
+                # I think there's a good chance this will choke up if I try to send a couple KB at once...
                 print(f"Network backup, closing socket {cl.ix}");
                 rm(cl)
                 try:
