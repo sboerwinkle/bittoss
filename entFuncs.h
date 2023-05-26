@@ -38,3 +38,5 @@ extern ent *initEnt(
 );
 
 extern void setWhoMoves(ent *e, const char* text);
+
+extern void init_entFuncs();

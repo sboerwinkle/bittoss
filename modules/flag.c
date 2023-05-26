@@ -23,10 +23,10 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	//      all our handlers are registered, however.
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
-	e->whoMoves = getWhoMovesHandler(handlerByName("flag-whomoves"));
-	e->draw = getDrawHandler(handlerByName("team-draw"));
-	e->pushed = getPushedHandler(handlerByName("stackem-pushed"));
-	e->tick = getTickHandler(handlerByName("stackem-tick"));
+	e->whoMoves = whoMovesHandlers.getByName("flag-whomoves");
+	e->draw = drawHandlers.getByName("team-draw");
+	e->pushed = pushedHandlers.getByName("stackem-pushed");
+	e->tick = tickHandlers.getByName("stackem-tick");
 
 	return e;
 }
@@ -58,11 +58,11 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 		T_WEIGHTLESS, 0
 	);
 	uStateSlider(&ret->state, 1, team);
-	ret->tick = getTickHandler(handlerByName("flag-spawner-tick"));
-	ret->draw = getDrawHandler(handlerByName("no-draw"));
+	ret->tick = tickHandlers.getByName("flag-spawner-tick");
+	ret->draw = drawHandlers.getByName("no-draw");
 }
 
 void flag_init() {
-	regWhoMovesHandler("flag-whomoves", flag_whoMoves);
-	regTickHandler("flag-spawner-tick", flagSpawner_tick);
+	whoMovesHandlers.reg("flag-whomoves", flag_whoMoves);
+	tickHandlers.reg("flag-spawner-tick", flagSpawner_tick);
 }

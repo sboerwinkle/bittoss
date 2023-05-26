@@ -23,11 +23,11 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
 		0, 0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 	);
-	e->whoMoves = getWhoMovesHandler(handlerByName("platform-whomoves"));
+	e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
 	e->draw = d;
 	return e;
 }
 
 void platform_init() {
-	regWhoMovesHandler("platform-whomoves", platform_whoMoves);
+	whoMovesHandlers.reg("platform-whomoves", platform_whoMoves);
 }

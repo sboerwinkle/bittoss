@@ -23,11 +23,11 @@ static void team_draw(ent *e) {
 }
 
 void colors_init() {
-	regDrawHandler("no-draw", no_draw);
-	regDrawHandler("clr-white", colors_white);
-	regDrawHandler("clr-blue", colors_blue);
-	regDrawHandler("clr-mag-1", colors_mag_1);
-	regDrawHandler("clr-mag-2", colors_mag_2);
-	regDrawHandler("clr-mag-3", colors_mag_3);
-	regDrawHandler("team-draw", team_draw);
+	drawHandlers.reg("no-draw", no_draw);
+	drawHandlers.reg("clr-white", colors_white);
+	drawHandlers.reg("clr-blue", colors_blue);
+	drawHandlers.reg("clr-mag-1", colors_mag_1);
+	drawHandlers.reg("clr-mag-2", colors_mag_2);
+	drawHandlers.reg("clr-mag-3", colors_mag_3);
+	drawHandlers.reg("team-draw", team_draw);
 }

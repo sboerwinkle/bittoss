@@ -74,17 +74,17 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	//      all our handlers are registered, however.
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
-	e->whoMoves = getWhoMovesHandler(handlerByName("stackem-whomoves"));
-	e->draw = getDrawHandler(handlerByName("stackem-draw"));
-	e->pushed = getPushedHandler(handlerByName("stackem-pushed"));
-	e->tick = getTickHandler(handlerByName("stackem-tick"));
+	e->whoMoves = whoMovesHandlers.getByName("stackem-whomoves");
+	e->draw = drawHandlers.getByName("stackem-draw");
+	e->pushed = pushedHandlers.getByName("stackem-pushed");
+	e->tick = tickHandlers.getByName("stackem-tick");
 
 	return e;
 }
 
 void stackem_init() {
-	regWhoMovesHandler("stackem-whomoves", stackem_whoMoves);
-	regDrawHandler("stackem-draw", stackem_draw);
-	regPushedHandler("stackem-pushed", stackem_pushed);
-	regTickHandler("stackem-tick", stackem_tick);
+	whoMovesHandlers.reg("stackem-whomoves", stackem_whoMoves);
+	drawHandlers.reg("stackem-draw", stackem_draw);
+	pushedHandlers.reg("stackem-pushed", stackem_pushed);
+	tickHandlers.reg("stackem-tick", stackem_tick);
 }

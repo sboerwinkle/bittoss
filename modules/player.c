@@ -133,7 +133,7 @@ static void player_tick(gamestate *gs, ent *me) {
 			getLook(look, me);
 			int colorToggle = getSlider(s, 5);
 			uStateSlider(s, 5, !colorToggle);
-			draw_t d = getDrawHandler(handlerByName(colorToggle ? "clr-white" : "clr-blue"));
+			draw_t d = drawHandlers.getByName(colorToggle ? "clr-white" : "clr-blue");
 			range(i, 3) {
 				// 0.040635 == 1.3 / axisMaxis
 				look[i] *= 0.040625 * (512 + platformSize[i]);
@@ -155,18 +155,18 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 		7, 0,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
-	ret->whoMoves = getWhoMovesHandler(handlerByName("player-whomoves"));
-	ret->draw = getDrawHandler(handlerByName("player-draw"));
-	ret->pushed = getPushedHandler(handlerByName("player-pushed"));
-	ret->push = getPushHandler(handlerByName("player-push"));
-	ret->tick = getTickHandler(handlerByName("player-tick"));
+	ret->whoMoves = whoMovesHandlers.getByName("player-whomoves");
+	ret->draw = drawHandlers.getByName("player-draw");
+	ret->pushed = pushedHandlers.getByName("player-pushed");
+	ret->push = pushHandlers.getByName("player-push");
+	ret->tick = tickHandlers.getByName("player-tick");
 	return ret;
 }
 
 void player_init() {
-	regWhoMovesHandler("player-whomoves", player_whoMoves);
-	regTickHandler("player-tick", player_tick);
-	regDrawHandler("player-draw", player_draw);
-	regPushedHandler("player-pushed", player_pushed);
-	regPushHandler("player-push", player_push);
+	whoMovesHandlers.reg("player-whomoves", player_whoMoves);
+	tickHandlers.reg("player-tick", player_tick);
+	drawHandlers.reg("player-draw", player_draw);
+	pushedHandlers.reg("player-pushed", player_pushed);
+	pushHandlers.reg("player-push", player_push);
 }

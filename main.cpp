@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,6 +7,7 @@
 #include <allegro5/allegro_opengl.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "util.h"
 #include "list.h"
@@ -20,6 +22,7 @@
 #include "handlerRegistrar.h"
 #include "effects.h"
 #include "map.h"
+#include "serialize.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -153,6 +156,31 @@ static void drawHud(player *ps) {
 		charge -= 60;
 	}
 	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
+}
+
+static void saveGame(const char *name) {
+	list<char> data;
+	data.init();
+	serialize(rootState, players, numPlayers, &data);
+	int fd = open(name, O_WRONLY | O_CREAT);
+	if (fd == -1) {
+		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
+		return;
+	}
+	int ret = write(fd, data.items, data.num);
+	if (ret != data.num) {
+		fprintf(stderr, "ERROR - Save failed - `write` returned %d when %d was expected\n", ret, data.num);
+		// We could always retry a partial write but that's more effort that I'm not sure is necessary
+		if (ret == -1) {
+			fprintf(stderr, "errno is %d\n", errno);
+		}
+	}
+	data.destroy();
+	close(fd);
+}
+
+static void loadGame(const char *name) {
+	printf("Would have saved to \"%s\" here\n", name);
 }
 
 static void doInputs(ent *e, char *data) {
@@ -342,7 +370,9 @@ static void updateMedianTime() {
 	}
 }
 
-static void processCmd(player *p, char *data, int chars) {
+static void processCmd(player *p, char *data, int chars, char isMe, char isReal) {
+	// Probably should put this inside the "short message" case,
+	// but it's a very very simple one w/ minimal string processing so it works fine out here too
 	if (chars >= 6 && !strncmp(data, "/c ", 3)) {
 		int32_t color = (data[3] - '0') + 4 * (data[4] - '0') + 16 * (data[5] - '0');
 		p->color = color;
@@ -354,6 +384,23 @@ static void processCmd(player *p, char *data, int chars) {
 	if (chars < TEXT_BUF_LEN) {
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
+		if (!strncmp(chatBuffer, "/save", 5)) {
+			if (isMe && isReal) {
+				const char *name = "savegame";
+				if (chars > 6) name = chatBuffer + 6;
+				printf("Saving game to %s\n", name);
+				saveGame(name);
+			}
+			chatBuffer[0] = '\0';
+		} else if (!strncmp(chatBuffer, "/load", 5)) {
+			if (isMe && isReal) {
+				const char *name = "savegame";
+				if (chars > 6) name = chatBuffer + 6;
+				printf("Loading game from %s\n", name);
+				loadGame(name); // TODO
+			}
+			chatBuffer[0] = '\0';
+		}
 	} else {
 		puts("Got a big data thing, in practice we'd do stuff here\n");
 		timespec t;
@@ -373,8 +420,9 @@ static void doWholeStep(gamestate *state, player *ps, char *inputData, char *dat
 	mkHeroes(ps, state);
 
 	range(i, numPlayers) {
+		char isMe = i == myPlayer;
 		char *toProcess;
-		if (data2 && i == myPlayer) {
+		if (data2 && isMe) {
 			toProcess = data2 + 1;
 		} else {
 			toProcess = inputData;
@@ -388,8 +436,8 @@ static void doWholeStep(gamestate *state, player *ps, char *inputData, char *dat
 			data = defaultData;
 		} else {
 			data = toProcess + 4;
-			if (size > 6 && (data2 == NULL || i == myPlayer)) {
-				processCmd(&ps[i], toProcess + 10, size - 6);
+			if (size > 6 && (isMe || !data2)) {
+				processCmd(&ps[i], toProcess + 10, size - 6, isMe, !data2);
 			}
 		}
 		if (ps[i].entity != NULL) {
@@ -419,7 +467,7 @@ static void cloneToPhantom() {
 		player *p = &phantomPlayers[i];
 		*p = players[i];
 		if (p->entity != NULL) {
-			p->entity = p->entity->clone;
+			p->entity = p->entity->clone.ref;
 		}
 	}
 }
@@ -793,6 +841,7 @@ int main(int argc, char **argv) {
 	phantomState->rand = 1;
 
 	init_registrar();
+	init_entFuncs();
 
 	// Set up allegro stuff
 	if (!al_install_system(ALLEGRO_VERSION_INT, NULL)) {

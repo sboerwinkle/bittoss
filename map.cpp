@@ -24,8 +24,8 @@ ent* mkHero(gamestate *gs, int n, int total) {
 
 static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 	int32_t width = groundSize[0] * 2;
-	draw_t white = getDrawHandler(handlerByName("clr-white"));
-	draw_t blue = getDrawHandler(handlerByName("clr-blue"));
+	draw_t white = drawHandlers.getByName("clr-white");
+	draw_t blue = drawHandlers.getByName("clr-blue");
 	int32_t pos[3];
 	pos[2] = 0; // Ground is at "sea level"
 	range(x, 3) {

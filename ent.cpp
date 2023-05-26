@@ -144,10 +144,7 @@ static void rmRootEnt(gamestate *gs, ent *e) {
 	if (e->LL.n) e->LL.n->LL.p = e->LL.p;
 }
 
-static void pickup(gamestate *gs, ent *x, ent *y) {
-	//printf("pickup, ff is %d\n", flipFlop_pickup);
-	x->onPickUp(x, y);
-	y->onPickedUp(y, x);
+void pickupNoHandlers(gamestate *gs, ent *x, ent *y) {
 	rmRootEnt(gs, y);
 	y->LL.n = x->holdee;
 	y->LL.p = NULL;
@@ -155,6 +152,13 @@ static void pickup(gamestate *gs, ent *x, ent *y) {
 	x->holdee = y;
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
+}
+
+static void pickup(gamestate *gs, ent *x, ent *y) {
+	//printf("pickup, ff is %d\n", flipFlop_pickup);
+	x->onPickUp(x, y);
+	y->onPickedUp(y, x);
+	pickupNoHandlers(gs, x, y);
 }
 
 static void killEntNoHandlers(gamestate *gs, ent *e) {
@@ -749,7 +753,7 @@ gamestate* dup(gamestate *in) {
 	ent *prev = NULL;
 	for (ent *e = in->ents; e; e = e->ll.n) {
 		ent *clone = cloneEnt(e);
-		e->clone = clone;
+		e->clone.ref = clone;
 		*dest = clone;
 		clone->ll.p = prev;
 
@@ -758,14 +762,14 @@ gamestate* dup(gamestate *in) {
 	}
 	*dest = NULL;
 
-	if (in->rootEnts) ret->rootEnts = in->rootEnts->clone;
+	if (in->rootEnts) ret->rootEnts = in->rootEnts->clone.ref;
 	else ret->rootEnts = NULL;
 
 	for (ent *e = ret->ents; e; e = e->ll.n) {
-		e->holdRoot = e->holdRoot->clone;
+		e->holdRoot = e->holdRoot->clone.ref;
 
 		// Could be a function taking a property ref but this is fine too
-#define cloneCopy(field) if(e->field) e->field = e->field->clone
+#define cloneCopy(field) if(e->field) e->field = e->field->clone.ref
 		cloneCopy(LL.n);
 		cloneCopy(LL.p);
 		cloneCopy(holdee);

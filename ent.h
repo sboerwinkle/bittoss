@@ -147,7 +147,6 @@ typedef struct ent {
 		struct ent *n, *p;
 	} ll, LL;
 	char dead, dead_max[2];
-	char hasExternalWatcher;
 
 	// Many, many event handlers.
 	whoMoves_t whoMoves;
@@ -175,7 +174,10 @@ typedef struct ent {
 	char (*okayFumble)(struct ent *me, struct ent *him);
 	char (*okayFumbleHim)(struct ent *me, struct ent *him);
 
-	ent *clone;
+	union {
+		ent *ref;
+		int32_t ix;
+	} clone;
 } ent;
 
 struct gamestate {
@@ -198,6 +200,7 @@ extern void flushMisc(ent *e);
 extern byte getAxis(ent *a, ent *b);
 
 extern void addEnt(gamestate *gs, ent *e);
+extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y);
 
 extern void drawEnt(ent *e, float r, float g, float b);
 

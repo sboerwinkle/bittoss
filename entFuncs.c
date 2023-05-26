@@ -20,8 +20,6 @@ void onCrushDefault(ent *me) {}
 //default for onFree
 void doNothing(ent *me) {}
 
-void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
-
 void onFumbleDefault(ent *me, ent *him) {}
 
 void onFumbledDefault(ent *me, ent *im) {}
@@ -37,6 +35,8 @@ char okayFumbleDefault(ent *me, ent *him) {
 char okayFumbleHimDefault(ent *me, ent *him) {
 	return 0;
 }
+
+static push_t defaultPush;
 
 //TODO: Orientation is an arg here.
 ent *initEnt(
@@ -68,7 +68,7 @@ ent *initEnt(
 	ret->draw = NULL;
 	//ret->onCrush = onCrushDefault;
 	ret->onFree = doNothing;
-	ret->push = onPushDefault;
+	ret->push = defaultPush;
 	ret->pushed = NULL;
 	ret->onFumble = onFumbleDefault;
 	ret->onFumbled = onFumbledDefault;
@@ -78,4 +78,8 @@ ent *initEnt(
 	ret->okayFumbleHim = okayFumbleHimDefault;
 	addEnt(gs, ret);
 	return ret;
+}
+
+void init_entFuncs() {
+	defaultPush = pushHandlers.getByName("nil");
 }

@@ -1,5 +1,4 @@
-#ifndef __list_h
-#define __list_h
+#pragma once
 
 #include <stdlib.h>
 #include <string.h>
@@ -325,5 +324,3 @@ char list<T>::sorted() const {
 	}
 	return 1;
 }
-
-#endif
