@@ -709,6 +709,19 @@ void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 }
 
+gamestate *mkGamestate() {
+	gamestate *ret = (gamestate*)calloc(1, sizeof(gamestate));
+	ret->rand = 1;
+	return ret;
+}
+
+// Usually we'll just make a new one, but it's possible to need this version as well.
+// Note that we're not cleaning anything up, so the caller had better do that first!
+void resetGamestate(gamestate *gs) {
+	bzero(gs, sizeof(gamestate));
+	gs->rand = 1;
+}
+
 rand_t random(gamestate *gs) {
 	stepRand(&gs->rand);
 	return gs->rand;

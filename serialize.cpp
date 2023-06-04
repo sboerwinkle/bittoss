@@ -90,20 +90,14 @@ void serialize(gamestate *gs, player *ps, int numPlayers, list<char> *data) {
 	write32(data, gs->rand);
 }
 
-static int32_t read32(list<char> *data, int *ix) {
+static int32_t read32(const list<char> *data, int *ix) {
 	int i = *ix;
 	if (i + 4 > data->num) return 0;
 	*ix = i + 4;
 	return ntohl(*(int32_t*)(data->items + i));
 }
 
-static ent* readEntRef(list<char> *data, int *ix, ent **ents) {
-	int i = read32(data, ix);
-	if (i == -1) return NULL;
-	return ents[i];
-}
-
-static ent* deserializeEnt(gamestate *gs, ent** ents, list<char> *data, int *ix) {
+static ent* deserializeEnt(gamestate *gs, ent** ents, const list<char> *data, int *ix) {
 	int32_t numSliders = read32(data, ix);
 	ent *e = initEnt(gs, dummyArr, dummyArr, dummyArr, numSliders, 0, 0, 0);
 #define i32(x) x = read32(data, ix)
@@ -119,7 +113,7 @@ static ent* deserializeEnt(gamestate *gs, ent** ents, list<char> *data, int *ix)
 }
 
 // TODO Whoever calls this needs to be sure to reset `gs` and `ps` or it won't be consistent afterwards
-void deserialize(gamestate *gs, player *ps, int numPlayers, list<char> *data) {
+void deserialize(gamestate *gs, player *ps, int numPlayers, const list<char> *data) {
 	int _ix = 0; // Used to step through the inbound data
 	int *ix = &_ix;
 	int32_t numEnts = read32(data, ix);

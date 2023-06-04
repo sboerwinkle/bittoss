@@ -209,6 +209,8 @@ extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
 extern void doDrawing(gamestate *gs);
 extern void doCleanup(gamestate *gs);
+extern gamestate* mkGamestate();
+extern void resetGamestate(gamestate *gs);
 
 extern rand_t random(gamestate *gs);
 extern gamestate* dup(gamestate *gs);

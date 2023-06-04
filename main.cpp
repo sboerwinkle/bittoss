@@ -94,6 +94,7 @@ static int serverLead = -1; // Starts at -1 since it hasn't provided our first f
 static int latency;
 #define FRAME_ID_MAX 128
 
+#define BIN_CMD_LOAD 128
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
 static char *emptyFrameData;
@@ -158,6 +159,33 @@ static void drawHud(player *ps) {
 	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
 }
 
+static void resetPlayers() {
+	for (int i = 0; i < numPlayers; i++) {
+		players[i].reviveCounter = 0;
+		players[i].entity = NULL;
+		players[i].color = defaultColors[i % 8];
+	}
+}
+
+static void readFile(const char *name, list<char> *out) {
+	int fd = open(name, O_RDONLY);
+	if (fd == -1) {
+		fprintf(stderr, "ERROR - Load failed - Couldn't read file '%s'\n", name);
+		return;
+	}
+	int ret;
+	do {
+		out->setMaxUp(out->num + 1000);
+		ret = read(fd, out->items + out->num, 1000);
+		if (ret == -1) {
+			fprintf(stderr, "Failed to read from file, errno is %d\n", errno);
+			break;
+		}
+		out->num += ret;
+	} while (ret);
+	close(fd);
+}
+
 static void saveGame(const char *name) {
 	list<char> data;
 	data.init();
@@ -177,10 +205,6 @@ static void saveGame(const char *name) {
 	}
 	data.destroy();
 	close(fd);
-}
-
-static void loadGame(const char *name) {
-	printf("Would have saved to \"%s\" here\n", name);
 }
 
 static void doInputs(ent *e, char *data) {
@@ -221,14 +245,11 @@ static void sendControls(int frame) {
 	// thread that ever calls `add`.
 	list<char> &out = outboundData.items[outboundData.end];
 
-	int32_t size = 11; // 1 frame + 4 size + 6 input data
-	if (textInputMode >= 2) size += bufferedTextLen;
-
-	out.setMaxUp(size);
-	out.num = 0;
+	out.setMaxUp(11); // 1 frame + 4 size + 6 input data
+	out.num = 11;
 
 	out[0] = (char) frame;
-	*(int32_t*)(out.items + 1) = htonl(size - 5);
+	// Size will go in 1-4, we populate it in a minute
 	// Other buttons also go here, once they exist; bitfield
 	out[5] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
 
@@ -264,12 +285,24 @@ static void sendControls(int frame) {
 	out[8] = round(sine / divisor);
 	out[9] = round(-cosine / divisor);
 	out[10] = round(pitchSine / divisor);
+
 	if (textInputMode >= 2) {
-		memcpy(out.items + 11, inputTextBuffer, bufferedTextLen);
+		if (!strncmp(inputTextBuffer, "/load", 5)) {
+			const char *file = "savegame";
+			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
+			out.add((char)BIN_CMD_LOAD);
+			readFile(file, &out);
+		} else {
+			int start = out.num;
+			out.num += bufferedTextLen;
+			out.setMaxUp(out.num);
+			memcpy(out.items + start, inputTextBuffer, bufferedTextLen);
+		}
 		textInputMode -= 2;
 		if (textInputMode == 1) setupTyping();
 	}
-	sendData(out.items, size);
+	*(int32_t*)(out.items + 1) = htonl(out.num - 5);
+	sendData(out.items, out.num);
 
 	lock(outboundMutex);
 	outboundData.add();
@@ -379,6 +412,22 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 		updateColor(p);
 		return;
 	}
+	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
+		if (!isReal) return;
+		doCleanup(rootState);
+		// Can't make a new gamestate here (as we might be tempted to),
+		// since stuff further up the call stack (like `doUpdate`) has a reference
+		// to the existing `gamestate` pointer
+		resetGamestate(rootState);
+		resetPlayers();
+
+		list<char> fakeList;
+		fakeList.items = data+1;
+		fakeList.num = fakeList.max = chars - 1;
+
+		deserialize(rootState, players, numPlayers, &fakeList);
+		return;
+	}
 	// Default case, just display it. Message could get lost here if multiple people send on the same frame,
 	// but it will at least be consistent? Maybe fixing this is a TODO
 	if (chars < TEXT_BUF_LEN) {
@@ -393,20 +442,19 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 			}
 			chatBuffer[0] = '\0';
 		} else if (!strncmp(chatBuffer, "/load", 5)) {
+			// TODO I think this is handled elsewhere actually,
+			// at least until we have a dedicated "sync" command (when things will get weird...)
+			// Or maybe we can use this, and it just puts it in some buffer somewhere that input thread can use?
+			// but that will mean more locking as well...
 			if (isMe && isReal) {
-				const char *name = "savegame";
-				if (chars > 6) name = chatBuffer + 6;
-				printf("Loading game from %s\n", name);
-				loadGame(name); // TODO
+				//const char *name = "savegame";
+				//if (chars > 6) name = chatBuffer + 6;
+				printf("This shouldn't be in use!\n");
 			}
 			chatBuffer[0] = '\0';
 		}
 	} else {
-		puts("Got a big data thing, in practice we'd do stuff here\n");
-		timespec t;
-		t.tv_sec = 0;
-		t.tv_nsec = 500000000;
-		nanosleep(&t, NULL);
+		fputs("Incoming \"chat\" buffer was too long, ignoring\n", stderr);
 	}
 }
 
@@ -741,11 +789,9 @@ static void* inputThreadFunc(void *_arg) {
 static void setupPlayers() {
 	memset(p1Keys, 0, sizeof(p1Keys));
 	players = new player[numPlayers];
+	resetPlayers();
 	phantomPlayers = new player[numPlayers];
 	for (int i = 0; i < numPlayers; i++) {
-		players[i].reviveCounter = 0;
-		players[i].entity = NULL;
-		players[i].color = defaultColors[i % 8];
 		phantomPlayers[i] = players[i];
 	}
 
@@ -835,10 +881,8 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	rootState = (gamestate*) calloc(1, sizeof(gamestate));
-	rootState->rand = 1;
-	phantomState = (gamestate*) calloc(1, sizeof(gamestate));
-	phantomState->rand = 1;
+	rootState = mkGamestate();
+	phantomState = mkGamestate();
 
 	init_registrar();
 	init_entFuncs();

@@ -108,7 +108,6 @@ async def loop(clients, latency, framerate = 30):
                     end = 5 + int.from_bytes(recvd[1:5], 'big')
                     if l < end:
                         break
-                    print(f"Size is {end-5}")
                     src_frame = recvd[0]
                     payload = recvd[1:end]
                     recvd = recvd[end:]
