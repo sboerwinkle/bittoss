@@ -97,6 +97,8 @@ static int latency;
 #define BIN_CMD_LOAD 128
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
+list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
+char syncReady;
 static char *emptyFrameData;
 pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
@@ -286,7 +288,10 @@ static void sendControls(int frame) {
 	out[9] = round(-cosine / divisor);
 	out[10] = round(pitchSine / divisor);
 
-	if (textInputMode >= 2) {
+	if (syncReady == 2) {
+		out.add((char)BIN_CMD_LOAD);
+		out.addAll(syncData);
+	} else if (textInputMode >= 2) {
 		if (!strncmp(inputTextBuffer, "/load", 5)) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
@@ -305,6 +310,7 @@ static void sendControls(int frame) {
 	sendData(out.items, out.num);
 
 	lock(outboundMutex);
+	if (syncReady == 2) syncReady = 0;
 	outboundData.add();
 	signal(outboundCond);
 	unlock(outboundMutex);
@@ -441,15 +447,11 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 				saveGame(name);
 			}
 			chatBuffer[0] = '\0';
-		} else if (!strncmp(chatBuffer, "/load", 5)) {
-			// TODO I think this is handled elsewhere actually,
-			// at least until we have a dedicated "sync" command (when things will get weird...)
-			// Or maybe we can use this, and it just puts it in some buffer somewhere that input thread can use?
-			// but that will mean more locking as well...
-			if (isMe && isReal) {
-				//const char *name = "savegame";
-				//if (chars > 6) name = chatBuffer + 6;
-				printf("This shouldn't be in use!\n");
+		} else if (!strncmp(chatBuffer, "/sync", 5)) {
+			if (isMe && isReal && !syncReady) {
+				syncData.num = 0;
+				serialize(rootState, players, numPlayers, &syncData);
+				syncReady = 1;
 			}
 			chatBuffer[0] = '\0';
 		}
@@ -603,7 +605,6 @@ static void* pacedThreadFunc(void *_arg) {
 
 		lock(outboundMutex);
 		while (outboundData.size() < reqdOutboundSize) {
-			puts("WARN - this case should be handled gracefully but I wasn't expecting it to actually happen");
 			if (!globalRunning) {
 				unlock(outboundMutex);
 				goto paced_exit;
@@ -612,6 +613,7 @@ static void* pacedThreadFunc(void *_arg) {
 		}
 		outboundData.multipop(framesProcessed);
 		reqdOutboundSize -= framesProcessed;
+		if (syncReady == 1) syncReady = 2;
 		unlock(outboundMutex);
 
 		int outboundStart;
@@ -622,6 +624,10 @@ static void* pacedThreadFunc(void *_arg) {
 			outboundStart = reqdOutboundSize - 1;
 		}
 		while (outboundStart < reqdOutboundSize) {
+			// TODO Is all this locking and re-locking even necessary?
+			// I don't think it's even going to try to re-lock until we tell it to send again,
+			// so we're just wasting effort. Maybe should expand this to be one big
+			// continuation of the previous lock.
 			lock(outboundMutex);
 			char *myData = outboundData.peek(outboundStart++).items;
 			unlock(outboundMutex);
@@ -921,6 +927,7 @@ int main(int argc, char **argv) {
 	initMods(); //Set up modules
 	frameData.init();
 	outboundData.init();
+	syncData.init();
 
 	// Other general game setup, including networking
 	puts("Connecting to host...");
@@ -1014,6 +1021,7 @@ int main(int argc, char **argv) {
 	}
 	puts("Done.");
 	puts("Cleaning up simple interal components...");
+	syncData.destroy();
 	frameData.destroy();
 	outboundData.destroy();
 	destroyFont();
