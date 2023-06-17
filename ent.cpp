@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "util.h"
+#include "list.h"
 #include "ent.h"
 #include "main.h"
 #include "graphics.h"
@@ -709,16 +710,23 @@ void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 }
 
-gamestate *mkGamestate() {
+gamestate *mkGamestate(list<player> *players) {
 	gamestate *ret = (gamestate*)calloc(1, sizeof(gamestate));
 	ret->rand = 1;
+	players->num = 0;
+	ret->players = players;
 	return ret;
 }
 
 // Usually we'll just make a new one, but it's possible to need this version as well.
 // Note that we're not cleaning anything up, so the caller had better do that first!
 void resetGamestate(gamestate *gs) {
+	// Save off `players`
+	list<player> *p = gs->players;
+	// Zero everything
 	bzero(gs, sizeof(gamestate));
+	// Restore / reset the fields we care about
+	gs->players = p;
 	gs->rand = 1;
 }
 
@@ -753,7 +761,7 @@ static ent* cloneEnt(ent *in) {
 	return ret;
 }
 
-gamestate* dup(gamestate *in) {
+gamestate* dup(gamestate *in, list<player> *players) {
 	gamestate *ret = (gamestate*) malloc(sizeof(gamestate));
 
 	ret->rand = in->rand;
@@ -798,6 +806,16 @@ gamestate* dup(gamestate *in) {
 	ret->flipFlop_death = in->flipFlop_death;
 	ret->flipFlop_drop = in->flipFlop_drop;
 	ret->flipFlop_pickup = in->flipFlop_pickup;
+
+	players->num = 0;
+	players->addAll(*in->players);
+	range(i, players->num) {
+		player *p = &(*players)[i];
+		if (p->entity) {
+			p->entity = p->entity->clone.ref;
+		}
+	}
+	ret->players = players;
 
 	return ret;
 }

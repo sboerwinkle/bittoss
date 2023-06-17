@@ -15,7 +15,6 @@
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
-#include "player.h"
 #include "main.h"
 #include "modules.h"
 #include "net.h"
@@ -38,9 +37,8 @@ static ALLEGRO_EVENT customEvent;
 
 static char globalRunning = 1;
 
-static player *players, *phantomPlayers;
+static list<player> players, phantomPlayers;
 static int myPlayer;
-static int numPlayers;
 
 static int32_t defaultColors[8] = {11, 8, 19, 15, 2, 44, 23, 29};
 
@@ -99,7 +97,6 @@ queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
 char syncReady;
-static char *emptyFrameData;
 pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
 
@@ -108,8 +105,8 @@ pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
 #define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
-static void outerSetupFrame(player *ps) {
-	ent *p = ps[myPlayer].entity;
+static void outerSetupFrame(list<player> *ps) {
+	ent *p = (*ps)[myPlayer].entity;
 	float up, forward;
 	if (p && thirdPerson) {
 		up = 32*PTS_PER_PX;
@@ -135,7 +132,7 @@ static float hudColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
-static void drawHud(player *ps) {
+static void drawHud(list<player> *ps) {
 	setupText();
 	drawHudText(chatBuffer, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
@@ -149,7 +146,7 @@ static void drawHud(player *ps) {
 	drawHudRect(f1+f2, 1 - 1.0/64, f3, 1.0/64, grnColor);
 
 	// Draw ammo bars if applicable
-	ent *p = ps[myPlayer].entity;
+	ent *p = (*ps)[myPlayer].entity;
 	if (!p) return;
 	int charge = p->state.sliders[3].v;
 	float x = 0.5 - 3.0/128;
@@ -161,12 +158,15 @@ static void drawHud(player *ps) {
 	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
 }
 
-static void resetPlayers() {
-	for (int i = 0; i < numPlayers; i++) {
-		players[i].reviveCounter = 0;
-		players[i].entity = NULL;
-		players[i].color = defaultColors[i % 8];
-	}
+static void resetPlayer(gamestate *gs, int i) {
+	player *p = &(*gs->players)[i];
+	p->reviveCounter = 0;
+	p->entity = NULL;
+	p->color = defaultColors[i % 8];
+}
+
+static void resetPlayers(gamestate *gs) {
+	range(i, gs->players->num) resetPlayer(gs, i);
 }
 
 static void readFile(const char *name, list<char> *out) {
@@ -191,7 +191,7 @@ static void readFile(const char *name, list<char> *out) {
 static void saveGame(const char *name) {
 	list<char> data;
 	data.init();
-	serialize(rootState, players, numPlayers, &data);
+	serialize(rootState, &data);
 	int fd = open(name, O_WRONLY | O_CREAT);
 	if (fd == -1) {
 		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
@@ -314,8 +314,7 @@ static void sendControls(int frame) {
 	outboundData.add();
 	signal(outboundCond);
 	unlock(outboundMutex);
-	// TODO: The other guy now pushes this out and locks it to read data for phantom frames
-	//       Also maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
+	// Todo: Maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
 }
 
 static void updateColor(player *p) {
@@ -324,12 +323,13 @@ static void updateColor(player *p) {
 	}
 }
 
-static void mkHeroes(player *ps, gamestate *state) {
+static void mkHeroes(gamestate *gs) {
+	int numPlayers = gs->players->num;
 	range(i, numPlayers) {
-		player *p = ps + i;
+		player *p = &(*gs->players)[i];
 		if (p->entity == NULL) {
 			if (p->reviveCounter--) continue;
-			p->entity = mkHero(state, i, numPlayers);
+			p->entity = mkHero(gs, i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
@@ -339,9 +339,10 @@ static void mkHeroes(player *ps, gamestate *state) {
 	}
 }
 
-static void cleanupDeadHeroes(player *ps) {
+static void cleanupDeadHeroes(gamestate *gs) {
+	int numPlayers = gs->players->num;
 	range(i, numPlayers) {
-		player *p = ps + i;
+		player *p = &(*gs->players)[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
 			p->reviveCounter = FRAMERATE * 3;
@@ -361,7 +362,6 @@ char handleKey(int code, char pressed) {
 			return true;
 		}
 	}
-	// TODO move this stuff into the KEY_DOWN section?
 	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
 	return false;
 }
@@ -385,6 +385,7 @@ static void updateMedianTime() {
 	for (int ix = ixStart; ix != ixEnd; ix = (ix+1) % frame_time_num) {
 		long t = frameTimes[ix];
 		// TODO Should we pull `medianTime` ahead of time??
+		//      (What does this mean? Was I thinking about threading? Surely it doesn't matter, right?)
 		if (t < medianTime) {
 			lt++;
 			le++;
@@ -425,13 +426,13 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 		// since stuff further up the call stack (like `doUpdate`) has a reference
 		// to the existing `gamestate` pointer
 		resetGamestate(rootState);
-		resetPlayers();
+		resetPlayers(rootState);
 
 		list<char> fakeList;
 		fakeList.items = data+1;
 		fakeList.num = fakeList.max = chars - 1;
 
-		deserialize(rootState, players, numPlayers, &fakeList);
+		deserialize(rootState, &fakeList);
 		return;
 	}
 	// Default case, just display it. Message could get lost here if multiple people send on the same frame,
@@ -450,7 +451,7 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 		} else if (!strncmp(chatBuffer, "/sync", 5)) {
 			if (isMe && isReal && !syncReady) {
 				syncData.num = 0;
-				serialize(rootState, players, numPlayers, &syncData);
+				serialize(rootState, &syncData);
 				syncReady = 1;
 			}
 			chatBuffer[0] = '\0';
@@ -460,14 +461,21 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 	}
 }
 
-static void doWholeStep(gamestate *state, player *ps, char *inputData, char *data2) {
+static void doWholeStep(gamestate *state, char *inputData, char *data2) {
 	// TODO: If view direction ever matters, that should carry over rather than have a constant default
 	// (buttons, move_x, move_y, look_x, look_y, look_z)
 	static char defaultData[6] = {0, 0, 0, 0, 0, 0};
 
+	unsigned char numPlayers = *inputData++;
+	list<player> &players = *state->players;
+	players.setMaxUp(numPlayers);
+	while (players.num < numPlayers) {
+		resetPlayer(state, players.num++);
+	}
+
 	doCrushtainer(state);
 	createDebris(state);
-	mkHeroes(ps, state);
+	mkHeroes(state);
 
 	range(i, numPlayers) {
 		char isMe = i == myPlayer;
@@ -487,11 +495,11 @@ static void doWholeStep(gamestate *state, player *ps, char *inputData, char *dat
 		} else {
 			data = toProcess + 4;
 			if (size > 6 && (isMe || !data2)) {
-				processCmd(&ps[i], toProcess + 10, size - 6, isMe, !data2);
+				processCmd(&players[i], toProcess + 10, size - 6, isMe, !data2);
 			}
 		}
-		if (ps[i].entity != NULL) {
-			doInputs(ps[i].entity, data);
+		if (players[i].entity != NULL) {
+			doInputs(players[i].entity, data);
 		}
 	}
 
@@ -505,21 +513,14 @@ static void doWholeStep(gamestate *state, player *ps, char *inputData, char *dat
 	doPhysics(state); 
 
 	// This happens just before finishing the step so we can be 100% sure whether the player's entity is dead or not
-	cleanupDeadHeroes(ps);
+	cleanupDeadHeroes(state);
 	finishStep(state);
 }
 
 static void cloneToPhantom() {
 	doCleanup(phantomState);
 	free(phantomState);
-	phantomState = dup(rootState);
-	range(i, numPlayers) {
-		player *p = &phantomPlayers[i];
-		*p = players[i];
-		if (p->entity != NULL) {
-			p->entity = p->entity->clone.ref;
-		}
-	}
+	phantomState = dup(rootState, &phantomPlayers);
 }
 
 static void* pacedThreadFunc(void *_arg) {
@@ -528,8 +529,13 @@ static void* pacedThreadFunc(void *_arg) {
 	timespec t;
 	
 	list<char> latestFrameData;
-	latestFrameData.init(numPlayers*4);
-	range(i, numPlayers*4) latestFrameData.add(0);
+	{
+		// Initialize it with valid (but "empty") data
+		int numPlayers = rootState->players->num;
+		latestFrameData.init(1 + numPlayers*4);
+		latestFrameData.add(numPlayers);
+		range(i, numPlayers*4) latestFrameData.add(0);
+	}
 
 	lock(outboundMutex);
 	range(i, latency) {
@@ -569,9 +575,9 @@ static void* pacedThreadFunc(void *_arg) {
 
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-		outerSetupFrame(phantomPlayers);
+		outerSetupFrame(&phantomPlayers);
 		doDrawing(phantomState);
-		drawHud(phantomPlayers);
+		drawHud(&phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 		al_flip_display();
@@ -600,7 +606,7 @@ static void* pacedThreadFunc(void *_arg) {
 			char *data = frameData.items[frameData.start].items;
 			unlock(timingMutex);
 			framesProcessed++;
-			doWholeStep(rootState, players, data, NULL);
+			doWholeStep(rootState, data, NULL);
 		}
 
 		lock(outboundMutex);
@@ -631,7 +637,7 @@ static void* pacedThreadFunc(void *_arg) {
 			lock(outboundMutex);
 			char *myData = outboundData.peek(outboundStart++).items;
 			unlock(outboundMutex);
-			doWholeStep(phantomState, phantomPlayers, latestFrameData.items, myData);
+			doWholeStep(phantomState, latestFrameData.items, myData);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
@@ -659,10 +665,10 @@ static void* pacedThreadFunc(void *_arg) {
 	return NULL;
 }
 
-static void* inputThreadFunc(void *_arg) {
+static void* inputThreadFunc(void *arg) {
 	char mouse_grabbed = 0;
 	char running = 1;
-	int frame = 0;
+	int frame = *(char*)arg;
 	// Could use an Allegro timer here, but we expect the delay to be updated moment-to-moment so this is easier
 	//ALLEGRO_TIMEOUT timeout;
 	ALLEGRO_EVENT evnt;
@@ -792,25 +798,20 @@ static void* inputThreadFunc(void *_arg) {
 	return NULL;
 }
 
-static void setupPlayers() {
+static void setupPlayers(gamestate *gs, int numPlayers) {
 	memset(p1Keys, 0, sizeof(p1Keys));
-	players = new player[numPlayers];
-	resetPlayers();
-	phantomPlayers = new player[numPlayers];
-	for (int i = 0; i < numPlayers; i++) {
-		phantomPlayers[i] = players[i];
-	}
-
-	emptyFrameData = (char*)calloc(numPlayers, 1);
+	gs->players->setMaxUp(numPlayers);
+	gs->players->num = numPlayers;
+	resetPlayers(gs);
 }
 
-static void* netThreadFunc(void *_arg) {
+static void* netThreadFunc(void *arg) {
 	// The 0.3 here is pretty arbitrary;
 	// lower values (> 0) are better at handling long network latency,
 	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us)
 	long serverDelay = frame_nanos * latency * 0.4;
 
-	char expectedFrame = 0;
+	char expectedFrame = *(char*)arg;
 	while (1) {
 		char frame;
 		if (readData(&frame, 1)) break;
@@ -823,17 +824,16 @@ static void* netThreadFunc(void *_arg) {
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
-		int32_t msgNanos; // Can hold approx 2s in nanos, should be enough if you assume a maximum backup of 1s (very worst case) and base latency of < 1s
-		if (readData(&msgNanos, 4)) break;
-		// At time of writing server always sends 0 for `msgNanos` but that's fine I guess
-		msgNanos = ntohl(msgNanos);
-		nanos = nanos - frame_nanos * serverLead + msgNanos + serverDelay;
+		nanos = nanos - frame_nanos * serverLead + serverDelay;
 
 		// This is a cheap trick which I need to codify as a method.
 		// It's a threadsafe way to get what the next `add` will be, assuming we're the only
 		// thread that ever calls `add`.
 		list<char> &thisFrameData = frameData.items[frameData.end];
 		thisFrameData.num = 0;
+		unsigned char numPlayers;
+		readData(&numPlayers, 1);
+		thisFrameData.add(numPlayers);
 		for (int i = 0; i < numPlayers; i++) {
 			int32_t netSize;
 			if (readData(&netSize, 4)) goto done;
@@ -862,9 +862,6 @@ static void* netThreadFunc(void *_arg) {
 			}
 		}
 		unlock(timingMutex);
-
-		// TODO Now that the data is stored in `threadData`, we need to handle it appropriately and run ticks.
-		//      For a first pass, I imagine the "guess" ticks won't have any user input.
 	}
 	done:;
 	return NULL;
@@ -887,8 +884,11 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	rootState = mkGamestate();
-	phantomState = mkGamestate();
+	players.init();
+	phantomPlayers.init();
+
+	rootState = mkGamestate(&players);
+	phantomState = mkGamestate(&phantomPlayers);
 
 	init_registrar();
 	init_entFuncs();
@@ -898,8 +898,9 @@ int main(int argc, char **argv) {
 		fputs("Couldn't init Allegro\n", stderr);
 		return 1;
 	}
-	/* Joystick code is still laying around places, but only player one gets the view window,
-	 * and additionally joysticks don't account for yaw when sending inputs. TODO maybe?
+	/* Joystick code is still laying around places, but it's all out of date,
+	   and I had some comment about how they "don't account for yaw when sending inputs".
+	   TODO maybe?
 	if (al_install_joystick()) {
 		numPlayers = al_get_num_joysticks() + 1;
 	} else {
@@ -907,7 +908,6 @@ int main(int argc, char **argv) {
 		fputs("Couldn't install joystick driver\n", stderr);
 	}
 	 */
-	numPlayers = 1;
 	al_set_new_display_flags(ALLEGRO_OPENGL);
 	al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
 	display = al_create_display(displayWidth, displayHeight);
@@ -933,7 +933,7 @@ int main(int argc, char **argv) {
 	puts("Connecting to host...");
 	if (initSocket(srvAddr, port)) return 1;
 	puts("Done.");
-	puts("Awaiting other clients...");
+	puts("Awaiting setup info...");
 	char clientCounts[4];
 	if (readData(clientCounts, 4)) {
 		puts("Error, aborting!");
@@ -944,12 +944,16 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	myPlayer = clientCounts[1];
-	numPlayers = clientCounts[2];
-	latency = clientCounts[3];
-	printf("Done, I am client #%d (%d total)\n", myPlayer, numPlayers);
-	setupPlayers();
+	latency = clientCounts[2];
+	char startFrame = clientCounts[3];
+	printf("Done, I am client #%d\n", myPlayer);
+
+	// `myPlayer + 1` is the minimum number where our index makes sense,
+	// try to avoid things catching on fire
+	setupPlayers(rootState, myPlayer + 1);
 	//map loading
 	mkMap(rootState);
+	cloneToPhantom();
 	//Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
@@ -982,23 +986,21 @@ int main(int argc, char **argv) {
 
 
 	//Main loop
-	// TODO ugh need to switch things around so graphics are on the main thread
 	pthread_t inputThread;
 	pthread_t netThread;
 	{
-		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, NULL);
+		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, &startFrame);
 		if (ret) {
 			printf("pthread_create returned %d for inputThread\n", ret);
 			return 1;
 		}
-		ret = pthread_create(&netThread, NULL, netThreadFunc, NULL);
+		ret = pthread_create(&netThread, NULL, netThreadFunc, &startFrame);
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
 			pthread_cancel(inputThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
 	}
-
 	// Main thread lives in here until the program exits
 	pacedThreadFunc(NULL);
 
@@ -1042,9 +1044,8 @@ int main(int argc, char **argv) {
 	al_uninstall_system();
 	puts("Done.");
 	puts("Final misc cleanup...");
-	delete[] players;
-	delete[] phantomPlayers;
-	free(emptyFrameData);
+	players.destroy();
+	phantomPlayers.destroy();
 	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;

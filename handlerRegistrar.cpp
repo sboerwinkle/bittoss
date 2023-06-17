@@ -1,6 +1,5 @@
 #include <string.h>
 
-#include "list.h"
 #include "main.h"
 #include "ent.h"
 #include "util.h"

@@ -1,3 +1,5 @@
+#pragma once
+
 typedef struct player {
 	ent *entity;
 	int32_t color;

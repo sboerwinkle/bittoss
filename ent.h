@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "list.h"
 #include "random.h"
 
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
@@ -180,6 +181,12 @@ typedef struct ent {
 	} clone;
 } ent;
 
+struct player {
+	ent *entity;
+	int32_t color;
+	int32_t reviveCounter;
+};
+
 struct gamestate {
 	ent *ents;
 	ent *rootEnts;
@@ -188,6 +195,8 @@ struct gamestate {
 	// TODO Maybe with luck we can do away with these???
 	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
 	int32_t rand;
+
+	list<player> *players;
 };
 
 extern void flushCtrls(ent *e);
@@ -209,11 +218,11 @@ extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
 extern void doDrawing(gamestate *gs);
 extern void doCleanup(gamestate *gs);
-extern gamestate* mkGamestate();
+extern gamestate* mkGamestate(list<player> *players);
 extern void resetGamestate(gamestate *gs);
 
 extern rand_t random(gamestate *gs);
-extern gamestate* dup(gamestate *gs);
+extern gamestate* dup(gamestate *gs, list<player> *players);
 
 extern void ent_init();
 extern void ent_destroy();

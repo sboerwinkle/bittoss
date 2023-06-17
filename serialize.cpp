@@ -3,7 +3,6 @@
 #include "list.h"
 #include "ent.h"
 #include "entFuncs.h"
-#include "player.h"
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
@@ -71,7 +70,7 @@ static int serializeSiblings(ent *e, int ix, list<char> *data) {
 	return ix;
 }
 
-void serialize(gamestate *gs, player *ps, int numPlayers, list<char> *data) {
+void serialize(gamestate *gs, list<char> *data) {
 	int countIx = data->num;
 	// This space intentionally left blank; we populate the first 4 bytes (which is
 	// the number of entities) after we've iterated through them.
@@ -79,9 +78,10 @@ void serialize(gamestate *gs, player *ps, int numPlayers, list<char> *data) {
 	int num = serializeSiblings(gs->rootEnts, 0, data);
 	write32Raw(data, countIx, num);
 
+	int numPlayers = gs->players->num;
 	write32(data, numPlayers);
 	range(i, numPlayers) {
-		player *p = ps + i;
+		player *p = &(*gs->players)[i];
 		write32(data, p->color);
 		write32(data, p->reviveCounter);
 		writeEntRef(data, p->entity);
@@ -112,8 +112,7 @@ static ent* deserializeEnt(gamestate *gs, ent** ents, const list<char> *data, in
 	return e;
 }
 
-// TODO Whoever calls this needs to be sure to reset `gs` and `ps` or it won't be consistent afterwards
-void deserialize(gamestate *gs, player *ps, int numPlayers, const list<char> *data) {
+void deserialize(gamestate *gs, const list<char> *data) {
 	int _ix = 0; // Used to step through the inbound data
 	int *ix = &_ix;
 	int32_t numEnts = read32(data, ix);
@@ -126,7 +125,7 @@ void deserialize(gamestate *gs, player *ps, int numPlayers, const list<char> *da
 	player dummy;
 	range(i, serializedPlayers) {
 		player *p;
-		if (i < numPlayers) p = ps + i;
+		if (i < gs->players->num) p = &(*gs->players)[i];
 		else p = &dummy;
 
 		p->color = read32(data, ix);
