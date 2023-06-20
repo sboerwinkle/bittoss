@@ -113,6 +113,14 @@ void uStateSlider(entState *s, int ix, int32_t value) {
 	if (value < s->sliders[ix].min) s->sliders[ix].min = value;
 }
 
+void uWire(ent *e, ent *w) {
+	e->wiresAdd.add(w);
+}
+
+void uUnwire(ent *e, ent *w) {
+	e->wiresRm.add(w);
+}
+
 void uTypeMask(ent *e, uint32_t mask, char turnOn) {
 	if (turnOn) {
 		e->d_typeMask_max |= mask;

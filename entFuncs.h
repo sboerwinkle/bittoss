@@ -9,9 +9,6 @@ extern void onDrawDefault(ent *me, int layer);
 
 extern void onCrushDefault(ent *me);
 
-//default for onFree
-extern void doNothing(ent *me);
-
 extern void onPushedDefault(ent *cd, ent *me, ent *leaf, ent *him);
 
 extern void onFumbleDefault(ent *me, ent *him);

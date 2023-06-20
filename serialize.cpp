@@ -18,6 +18,9 @@ static const int32_t dummyArr[3] = {0, 0, 0};
 	range(i, e->state.numSliders) { \
 		i32(e->state.sliders[i].v); \
 	} \
+	range(i, e->wires.num) { \
+		wire(e->wires[i]); \
+	} \
 	i32(e->typeMask); \
 	i32(e->collideMask); \
 	/* We're not handling any of the fields related to pending changes, */\
@@ -50,24 +53,32 @@ static void writeEntRef(list<char> *data, ent *e) {
 	write32(data, e ? e->clone.ix : -1);
 }
 
-static void serializeEnt(ent *e, int ix, list<char> *data) {
-	e->clone.ix = ix;
+static int enumerateSiblings(ent *e, int ix) {
+	for (; e; e = e->LL.n) {
+		e->clone.ix = ix++;
+		ix = enumerateSiblings(e->holdee, ix);
+	}
+	return ix;
+}
+
+static void serializeEnt(ent *e, list<char> *data) {
 	write32(data, e->state.numSliders);
+	write32(data, e->wires.num);
 #define i32(x) write32(data, x)
 #define handler(x, y) write32(data, y.reverseLookup(x))
+#define wire(w) write32(data, w->clone.ix)
 	processEnt(e);
+#undef wire
 #undef handler
 #undef i32
 	writeEntRef(data, e->holder);
 }
 
-static int serializeSiblings(ent *e, int ix, list<char> *data) {
+static void serializeSiblings(ent *e, list<char> *data) {
 	for (; e; e = e->LL.n) {
-		serializeEnt(e, ix, data);
-		ix++;
-		ix = serializeSiblings(e->holdee, ix, data);
+		serializeEnt(e, data);
+		serializeSiblings(e->holdee, data);
 	}
-	return ix;
 }
 
 void serialize(gamestate *gs, list<char> *data) {
@@ -75,7 +86,8 @@ void serialize(gamestate *gs, list<char> *data) {
 	// This space intentionally left blank; we populate the first 4 bytes (which is
 	// the number of entities) after we've iterated through them.
 	data->num += 4;
-	int num = serializeSiblings(gs->rootEnts, 0, data);
+	int num = enumerateSiblings(gs->rootEnts, 0);
+	serializeSiblings(gs->rootEnts, data);
 	write32Raw(data, countIx, num);
 
 	int numPlayers = gs->players->num;
@@ -97,19 +109,25 @@ static int32_t read32(const list<char> *data, int *ix) {
 	return ntohl(*(int32_t*)(data->items + i));
 }
 
-static ent* deserializeEnt(gamestate *gs, ent** ents, const list<char> *data, int *ix) {
+static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix) {
 	int32_t numSliders = read32(data, ix);
-	ent *e = initEnt(gs, dummyArr, dummyArr, dummyArr, numSliders, 0, 0, 0);
+	freeEntState(&e->state);
+	setupEntState(&e->state, numSliders, 0);
+	int32_t numWires = read32(data, ix);
+	e->wires.setMaxUp(numWires);
+	e->wires.num = numWires;
+
 #define i32(x) x = read32(data, ix)
 #define handler(x, y) x = y.get(read32(data, ix))
+#define wire(x) x = ents[read32(data, ix)]
 	processEnt(e);
+#undef wire
 #undef i32
 #undef handler
 	int holder = read32(data, ix);
 	if (holder != -1) {
 		pickupNoHandlers(gs, ents[holder], e);
 	}
-	return e;
 }
 
 void deserialize(gamestate *gs, const list<char> *data) {
@@ -118,7 +136,11 @@ void deserialize(gamestate *gs, const list<char> *data) {
 	int32_t numEnts = read32(data, ix);
 	ent** ents = new ent*[numEnts];
 	range(i, numEnts) {
-		ents[i] = deserializeEnt(gs, ents, data, ix);
+		// A bunch of empty ents
+		ents[i] = initEnt(gs, dummyArr, dummyArr, dummyArr, 0, 0, 0, 0);
+	}
+	range(i, numEnts) {
+		deserializeEnt(gs, ents, ents[i], data, ix);
 	}
 
 	int serializedPlayers = read32(data, ix);

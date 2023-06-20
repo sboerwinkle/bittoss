@@ -9,18 +9,6 @@
 #include "main.h"
 #include "graphics.h"
 
-static void freeEntState(entState *s);
-
-static void freeEntRef(entRef *r) {
-	freeEntState(&r->s);
-	free(r);
-}
-
-static void freeEntState(entState *s) {
-	free(s->sliders);
-	// Stuff about freeing refs will go here
-}
-
 static void flushEntState(entState *s) {
 	range(i, s->numSliders) {
 		//sliders are "sticky", i.e. don't reset if left alone
@@ -31,11 +19,13 @@ static void flushEntState(entState *s) {
 	}
 }
 
+void freeEntState(entState *s) {
+	free(s->sliders);
+}
+
 void setupEntState(entState *s, int numSliders, int numRefs) {
 	s->numSliders = numSliders;
-	s->numRefs = numRefs;
 	s->sliders = (slider*) calloc(numSliders, sizeof(slider));
-	// Something about refs here?
 	flushEntState(s);
 }
 
@@ -404,7 +394,9 @@ static void clearDeads(gamestate *gs) {
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
 		freeEntState(&d->state);
-		(d->onFree)(d);
+		d->wires.destroy();
+		d->wiresAdd.destroy();
+		d->wiresRm.destroy();
 		free(d);
 	}
 }
@@ -546,14 +538,30 @@ void flushMisc(ent *e) {
 	e->collideMask &= e->d_collideMask_max | e->d_collideMask_min;
 	e->d_collideMask_max = e->d_collideMask_min = 0;
 
-	int i;
-	for (i = 0; i < 3; i++) {
+	range(i, 3) {
 		e->center[i] += (e->d_center_min[i] + e->d_center_max[i]) / 2;
 		e->vel[i] += e->d_vel[i];
 		e->d_center_min[i] = e->d_center_max[i] = e->d_vel[i] = 0;
 	}
 
-	//TODO: Flush orientation, sprite/size
+	// We have a "rule" that the order of wires doesn't matter;
+	// but if some module violates that assumption,
+	// we don't actually want to cause a desync. Hence, we aren't going to
+	// store the wires sorted (as that would depend on assigned memory addresses),
+	// though we have no qualms about mangling the order (deterministically) when a wire is removed.
+	range(i, e->wires.num) {
+		ent *w = e->wires[i];
+		if (w->dead || e->wiresRm.has(w)) {
+			e->wires.quickRmAt(i); // Mangles the order, just pulls the last element into this place
+			i--;
+		}
+	}
+	e->wiresRm.num = 0;
+	range(i, e->wiresAdd.num) {
+		ent *w = e->wiresAdd[i];
+		if (!e->wires.has(w)) e->wires.add(w);
+	}
+	e->wiresAdd.num = 0;
 }
 
 //TODO: If this was ordered, onCrush could have access to its whole tree (but not those of others!)
@@ -708,6 +716,7 @@ void drawEnt(ent *e, float r, float g, float b) {
 
 void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
+	clearDeads(gs);
 }
 
 gamestate *mkGamestate(list<player> *players) {
@@ -758,6 +767,9 @@ static ent* cloneEnt(ent *in) {
 	// I think maybe this is a syscall, but even so I'm not sure if it matters for performance.
 	memcpy(retState->sliders, inState->sliders, size);
 
+	ret->wires.init(in->wires);
+	ret->wiresAdd.init();
+	ret->wiresRm.init();
 	return ret;
 }
 
@@ -788,6 +800,11 @@ gamestate* dup(gamestate *in, list<player> *players) {
 
 	for (ent *e = ret->ents; e; e = e->ll.n) {
 		e->holdRoot = e->holdRoot->clone.ref;
+
+		list<ent*> &wires = e->wires;
+		range(i, wires.num) {
+			wires[i] = wires[i]->clone.ref;
+		}
 
 		// Could be a function taking a property ref but this is fine too
 #define cloneCopy(field) if(e->field) e->field = e->field->clone.ref

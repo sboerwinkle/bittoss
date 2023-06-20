@@ -75,6 +75,7 @@ typedef struct entRef {
 	int status;
 } entRef;
 
+extern void freeEntState(entState *s);
 extern void setupEntState(entState *s, int numSliders, int numRefs);
 
 typedef struct ent {
@@ -135,11 +136,20 @@ typedef struct ent {
 	struct ent *holdRoot;
 	//The first person (if any) I'm holding
 	struct ent *holdee;
+	// Each ent can keep track of arbitrarily many other ents. We add some more rules to this for fun:
+	// Ents do not know who (if anyone) is tracking them
+	// Tracked ents do not have an explicit order (even though they're stored as a list, we think of it as a set)
+	// An ent cannot track another ent multiple times (again, it's a set) or associate any other info with the tracking
+	list<struct ent*> wires;
 
 	//Two sets for these, because the handler for the event may request an event of the same type, and it's got to happen *next* iteration
 	struct ent *holder_max[2];
 	char pickup_max[2];
 	char drop_max[2];
+
+	// Don't need two per of these, since there's no handler code called when a wire is actually added / removed
+	list<struct ent*> wiresAdd;
+	list<struct ent*> wiresRm;
 
 	//Things really definitely not related to collisions
 	// For whatever internal state they need
@@ -157,9 +167,8 @@ typedef struct ent {
 	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
 	draw_t draw;
+	// Why was this commented out??
 	//void (*onCrush)(struct ent *me);
-	//This should only do pointer management etc., nothing in-game
-	void (*onFree)(struct ent *me);
 	push_t push;
 	pushed_t pushed;
 

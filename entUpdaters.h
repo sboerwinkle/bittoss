@@ -8,5 +8,7 @@ extern void uDrop(gamestate *gs, ent *e);
 extern void uPickup(gamestate *gs, ent *e, ent *p);
 extern entRef* uStateRef(entState *s, int ix, ent *e, int numSliders, int numRefs);
 extern void uStateSlider(entState *s, int ix, int32_t value);
+extern void uWire(ent *e, ent *w);
+extern void uUnwire(ent *e, ent *w);
 extern void uTypeMask(ent *e, uint32_t mask, char turnOn);
 extern void uCollideMask(ent *e, uint32_t mask, char turnOn);

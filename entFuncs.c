@@ -17,9 +17,6 @@ int tickTypeDefault(ent *a, ent *b) {return 1;}
 void onCrushDefault(ent *me) {}
 */
 
-//default for onFree
-void doNothing(ent *me) {}
-
 void onFumbleDefault(ent *me, ent *him) {}
 
 void onFumbledDefault(ent *me, ent *im) {}
@@ -50,6 +47,13 @@ ent *initEnt(
 	int32_t collideMask
 ) {
 	ent *ret = (ent*) calloc(1, sizeof(ent));
+	// TODO Kind of dumb to do 3 `malloc`s that will probably never be used over the lifetime of the ent.
+	//      It looks like `realloc` and `free` both appropriately treat NULL as a valid pointer to a zero-length allocation,
+	//      so maybe we could modify `list` to start with `max = 0` and see if anything is broken by that assumption?
+	//      I know there's some stuff in the brains codebase that wouldn't like that...
+	ret->wires.init();
+	ret->wiresRm.init();
+	ret->wiresAdd.init();
 	flushCtrls(ret);
 	flushMisc(ret);
 	memcpy(ret->center, c, sizeof(ret->center));
@@ -67,7 +71,6 @@ ent *initEnt(
 	//ret->onDraw = onDrawDefault;
 	ret->draw = NULL;
 	//ret->onCrush = onCrushDefault;
-	ret->onFree = doNothing;
 	ret->push = defaultPush;
 	ret->pushed = NULL;
 	ret->onFumble = onFumbleDefault;
