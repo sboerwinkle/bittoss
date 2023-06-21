@@ -33,16 +33,14 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 
 
 static void flagSpawner_tick(gamestate *gs, ent *me) {
+	// TODO entState is an obsolete concept, should just be passing ent* around
 	entState *s = &me->state;
 	int cooldown = getSlider(s, 0);
-	// Right now this always makes a flag when the
-	// countdown expires; if we get ent references
-	// fully working, it could wait for the destruction
-	// of the existing flag before making a replacement
 	if (cooldown == 0) {
+		if (me->wires.num) return;
 		cooldown = 90; // 3 seconds
 		int team = getSlider(s, 1);
-		mkFlag(gs, me, team);
+		uWire(me, mkFlag(gs, me, team));
 	}
 	uStateSlider(s, 0, cooldown - 1);
 }

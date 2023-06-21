@@ -951,10 +951,17 @@ int main(int argc, char **argv) {
 	// `myPlayer + 1` is the minimum number where our index makes sense,
 	// try to avoid things catching on fire
 	setupPlayers(rootState, myPlayer + 1);
-	//map loading
+	// Map loading
 	mkMap(rootState);
+	// Loading from file is one thing, but programatically defined maps may need a `flush` so things aren't weird the first time around.
+	// `flush` isn't exposed since this is the one time we need it, and it's not like it really matters,
+	// so we just do the second half of a normal step to get the same effect.
+	doPhysics(rootState);
+	finishStep(rootState);
+	// Not 100% sure this part is necessary, but it's simpler if we know the phantom state is also in a valid state.
 	cloneToPhantom();
-	//Events
+
+	// Allegro Events
 	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
 	al_init_user_event_source(&customSrc);
 	evntQueue = al_create_event_queue();
