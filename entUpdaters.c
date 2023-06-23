@@ -80,7 +80,9 @@ void uDrop(gamestate *gs, ent *e) {
 void uPickup(gamestate *gs, ent *p, ent *e) {
 	if (e->holder) {
 #ifndef NODEBUG_SCRIPT
-		puts("Can't pickup a non-root ent!");
+		// Previously this would log something, but it's probably not a script bug to try to pick something up
+		// without knowing for sure if it's root
+		//puts("Can't pickup a non-root ent!");
 #endif
 		//And we're not going to write a ref to values that aren't checked for a while, that's just a bad plan.
 		return;
