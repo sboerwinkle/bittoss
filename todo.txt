@@ -9,75 +9,48 @@ TODO:
 	/ Get it to run again
 - Movement shouldn't be so wacky - friction should be along a vector towards the destination.
 	This would still maintain the "squares come out of spinning and shooting" thing
+- Better color options for players I guess
 / Turn off TCP scheduling heuristic for more real-time communication
 ! Name display (maybe just show chat msg over head)
 	Abandoned in favor of individual colors b/c I'm lazy
-- Predictive state
+/ Predictive state
 	/ State cloning operation
-	- When state comes in,
-		We use the monotonic time to tweak when we want our state sampled
-		The "root" is stepped
-		Announce latest input news from mutex
-		If we're behind, we'll immediately `continue` and step again.
-		Otherwise, we can clone it;
-		Announce the clone from mutex
-			If there's a waiting simulation thread it picks it up
-	- Catchup threads
-		Fixed number of these
-		Eventually may need to get clever with when they pick up so they don't bunch up, but for now this is fine
-		Run at full tilt with the published input news
-			They probably only check this when they start?
-		When they get to the end, they'll need to grab the mutex again
-			(TODO are there multiple mutexes?)
-			worst case they may need to run another iteration,
-				long term they may want to guess in advance how many iterations they need but that gets wacky if they go too far
-			If they're truly better than the next pending state, they'll swap them out.
-			then the mutex is released.
-		At this point they can free whichever copy they have ahold of,
-		and then line back up to pick up another clone.
-	- "real time" thread
-		Awakens from its slumber
-		Grabs the current input state and sends it out over the net
-			TODO how many frames in advance may this get sent???
-		Locks the mutex real quick,
-			to grab the input news
-			and the state it's supposed to roll with
-			if state is non-null, null it out ("taking" it)
-		If we got a new state, free up our old one before "selecting" the new one
-		Roll the state forward
-		Draw
-		Checks when the next step is forecast to be
-		Go to sleep for appropriate duration
-- Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
+! Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
 	Necessary for proper serialization
+	/ Jokes on me, turns out you can count without using enums lol
 - Velbox (R-trees to handle collisions)
-- state resync
-	- Server detects new connection
-		For now, if another join is in progress maybe just deny them
-		Might re-use existing client slot if one is available
-	- Server issues advisory message about state re-sync
-		All regular ticks stop, but this doesn't really need special handling client-side
-	- Server asks an existing client for its state
-		This client must be careful to stop the its tick thread from running while serialization happens
-		Write state of everything to a big ol' byte list
-		Send big ol' byte list to server
-			This can all be on the net thread, not expecting anything to come in during this time
-	- Server receives big state packet from somebody
-		This gets put in a big list
-		Server decides on who's in the client list, sends "player x of y" packets out
-		The list is sent out to everybody
-	- Clients receive the big state packet
-		The tick thread is manually stalled out so it will stop running
-		Clean up old state
-		Read new state from the buffer
-		Send an acknowledgement back to server
-	- Server awaits all acknowledgement packets (or dropped connections)
-		Server sends a "resume" packet
-		All clients proceed to do work
-- State serizalization
-	- Save to file
-	- Send over wire
-	- dynamic joining
+- Tweak platform spawning
+- Flags explode on contact <3
+- User platforms expire?
+	- fade to grey near end of life
+	- Particles on death
+- User platforms less prone to jank
+	- Magic expanding pellet magic
+	- Should also refund player resources if they have to abort
+- Automatic state sync on join
+	I don't remember how I'm handling the /sync command,
+	but if I'm actually round-tripping it before it's converted to level data,
+	I could just have the server insert one.
+- Some way to use tools
+	I was going to go with hands but then I realized hands are dumb
+	Everyone is going to get hats
+	If you have two hats on, any hat that isn't on top gets dropped
+	Unlike hands, the active hat is actually on you
+	You do have "hat racks" (definitely not hands) to manage a hat(s) not on your head
+		Oh my god I've been able to store numbers on things this entire time
+			Hat racks that have the same "order" are of course incinerated
+		Even so, I like the hat lore better
+		You're not manipulating an item, that's slow and cumbersome
+		The hat is responding to your state, the hat is doing its own thing
+	With hats, the only controls you need are "cycle hat" and "throw hat"
+		"throw hat" projects a hat picker-upper if you aren't wearing a hat
+		This keeps a reference to you, and attaches a hat-rack at the relevant order when it hits
+		And if multiple hit at once, we already handled that case!
+	And we probably keep LMB / RMB as well.
+/ State serizalization
+	/ Save to file
+	/ Send over wire
+	/ dynamic joining
 
 - CTF scoring plz
 
