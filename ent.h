@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "list.h"
 #include "random.h"
+#include "box.h"
 
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
 // Despite the name, the iteration order is very much deterministic and boring.
@@ -56,27 +57,14 @@ typedef struct {
 	int32_t v, min, max;
 } slider;
 
+// TODO This whole struct is leftover nonsense, should just be in `ent`
 typedef struct entState {
 	slider *sliders;
 	int numSliders;
-	// I think the idea was for this to be an array of linked lists?
-	// Honestly this should probably just be reworked as a list of "wireless" (i.e. non-physics) connections,
-	// which can be read at will by the ent for fun.
-	// (Relatedly, maybe a connection between type flags and sliders, maybe like some sort of property lookup thing??)
-	//entRef **refs;
-	int numRefs;
 } entState;
 
-typedef struct entRef {
-	struct ent *e;
-	struct entRef *n;
-	entState s;
-	//0:normal 1:new -1:dying
-	int status;
-} entRef;
-
 extern void freeEntState(entState *s);
-extern void setupEntState(entState *s, int numSliders, int numRefs);
+extern void setupEntState(entState *s, int numSliders);
 
 typedef struct ent {
 
@@ -204,6 +192,7 @@ struct gamestate {
 	// TODO Maybe with luck we can do away with these???
 	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
 	int32_t rand;
+	box *rootBox;
 
 	list<player> *players;
 };

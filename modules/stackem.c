@@ -64,7 +64,7 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 		pos[i] = offset[i] + owner->center[i];
 	}
 	ent *e = initEnt(
-		gs,
+		gs, owner,
 		pos, owner->vel, stackemSize,
 		2, 0,
 		T_HEAVY + T_OBSTACLE + (TEAM_MASK & type(owner)), T_TERRAIN + T_OBSTACLE

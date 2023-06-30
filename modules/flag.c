@@ -13,7 +13,7 @@ static const int32_t flagSize[3] = {350, 350, 350};
 
 static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	ent *e = initEnt(
-		gs,
+		gs, owner,
 		owner->center, owner->vel, flagSize,
 		2, 0,
 		T_FLAG + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
@@ -50,7 +50,7 @@ const int32_t spawnerSize[3] = {1, 1, 1};
 void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
-		gs,
+		gs, NULL,
 		pos, vel, spawnerSize,
 		2, 0,
 		T_WEIGHTLESS, 0

@@ -35,52 +35,65 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 
 static push_t defaultPush;
 
-//TODO: Orientation is an arg here.
 ent *initEnt(
 	gamestate *gs,
+	ent *relative,
 	const int32_t *c,
 	const int32_t *v,
 	const int32_t *r,
 	int numSliders,
-	int numRefs,
 	int32_t typeMask,
 	int32_t collideMask
 ) {
 	ent *ret = (ent*) calloc(1, sizeof(ent));
+	initEnt(ret, gs, relative, c, v, r, numSliders, typeMask, collideMask);
+	return ret;
+}
+
+void initEnt(
+	ent *e,
+	gamestate *gs,
+	ent *relative,
+	const int32_t *c,
+	const int32_t *v,
+	const int32_t *r,
+	int numSliders,
+	int32_t typeMask,
+	int32_t collideMask
+) {
 	// TODO Kind of dumb to do 3 `malloc`s that will probably never be used over the lifetime of the ent.
 	//      It looks like `realloc` and `free` both appropriately treat NULL as a valid pointer to a zero-length allocation,
 	//      so maybe we could modify `list` to start with `max = 0` and see if anything is broken by that assumption?
 	//      I know there's some stuff in the brains codebase that wouldn't like that...
-	ret->wires.init();
-	ret->wiresRm.init();
-	ret->wiresAdd.init();
-	flushCtrls(ret);
-	flushMisc(ret);
-	memcpy(ret->center, c, sizeof(ret->center));
-	memcpy(ret->vel, v, sizeof(ret->vel));
-	memcpy(ret->radius, r, sizeof(ret->radius));
-	ret->typeMask = typeMask;
-	ret->collideMask = collideMask;
+	e->wires.init();
+	e->wiresRm.init();
+	e->wiresAdd.init();
+	flushCtrls(e);
+	flushMisc(e);
+	memcpy(e->center, c, sizeof(e->center));
+	memcpy(e->vel, v, sizeof(e->vel));
+	memcpy(e->radius, r, sizeof(e->radius));
+	e->typeMask = typeMask;
+	e->collideMask = collideMask;
 
-	setupEntState(&ret->state, numSliders, numRefs);
+	setupEntState(&e->state, numSliders);
 
-	ret->whoMoves = NULL;
-	ret->tick = NULL;
-	ret->tickHeld = NULL;
-	ret->tickType = tickTypeDefault;
-	//ret->onDraw = onDrawDefault;
-	ret->draw = NULL;
-	//ret->onCrush = onCrushDefault;
-	ret->push = defaultPush;
-	ret->pushed = NULL;
-	ret->onFumble = onFumbleDefault;
-	ret->onFumbled = onFumbledDefault;
-	ret->onPickUp = onPickUpDefault;
-	ret->onPickedUp = onPickedUpDefault;
-	ret->okayFumble = okayFumbleDefault;
-	ret->okayFumbleHim = okayFumbleHimDefault;
-	addEnt(gs, ret);
-	return ret;
+	e->whoMoves = NULL;
+	e->tick = NULL;
+	e->tickHeld = NULL;
+	e->tickType = tickTypeDefault;
+	//e->onDraw = onDrawDefault;
+	e->draw = NULL;
+	//e->onCrush = onCrushDefault;
+	e->push = defaultPush;
+	e->pushed = NULL;
+	e->onFumble = onFumbleDefault;
+	e->onFumbled = onFumbledDefault;
+	e->onPickUp = onPickUpDefault;
+	e->onPickedUp = onPickedUpDefault;
+	e->okayFumble = okayFumbleDefault;
+	e->okayFumbleHim = okayFumbleHimDefault;
+	addEnt(gs, e, relative);
 }
 
 void init_entFuncs() {

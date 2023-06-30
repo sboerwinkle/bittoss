@@ -23,7 +23,7 @@ void freeEntState(entState *s) {
 	free(s->sliders);
 }
 
-void setupEntState(entState *s, int numSliders, int numRefs) {
+void setupEntState(entState *s, int numSliders) {
 	s->numSliders = numSliders;
 	s->sliders = (slider*) calloc(numSliders, sizeof(slider));
 	flushEntState(s);
@@ -68,20 +68,24 @@ static void addRootEnt(gamestate *gs, ent *e) {
 	recursiveHoldRoot(e, e);
 }
 
-void addEnt(gamestate *gs, ent *e) {
+void addEnt(gamestate *gs, ent *e, ent *relative) {
+	box *b = velbox_alloc();
+	e->box = b;
+	b->data = e;
+	range(d, 3) {
+		b->p1[d] = e->center[d];
+		b->p2[d] = e->center[d] + e->vel[d];
+		int r = e->r[d];
+		b->r[d] = r ? r : 1; // velbox doesn't like radii of 0, and frankly neither do I
+	}
+	box *relBox = relative ? relative->box : gs->rootBox;
+	velbox_insert(relBox, b);
+
 	if (gs->ents) gs->ents->ll.p = e;
 	e->ll.n = gs->ents;
 	e->ll.p = NULL;
 	gs->ents = e;
-	/*
-	if (entsToAdd) entsToAdd->ll.p = e;
-	e->ll.n = entsToAdd;
-	e->ll.p = NULL;
-	entsToAdd = e;
-	*/
 	addRootEnt(gs, e);
-	//Some basic state that we may want to get in place now, e.g. in case anyone asks if it's okay to schedule a pickup.
-	//e->holdRoot = e;
 }
 
 static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
@@ -393,6 +397,7 @@ static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
+		velbox_remove(d->box);
 		freeEntState(&d->state);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
@@ -659,6 +664,10 @@ void doPhysics(gamestate *gs) {
 		}
 		i->needsCollision = 1;
 	}
+
+	// TODO This will be where we reset the velbox boxes to "from `old` to `center`"
+	//      and then revalidate the box heirarchy
+
 	//Note that deaths, drops get flushed in here periodically.
 	//TODO: This means handlers called in here (onPush[ed], onFumble[d], onCrush)
 	//can't be sure about the death status (easy, ignore death) or holditude of anything.
@@ -677,6 +686,8 @@ void doPhysics(gamestate *gs) {
 				memcpy(i->center, i->center2, sizeof(i->center));
 				memcpy(i->vel, i->vel2, sizeof(i->vel));
 				i->needsPhysUpdate = 0;
+				// TODO Update velbox with our new "to" destination for this tick
+				//      (I think we decided against doing velocity separately, for simplicity's sake)
 			}
 		}
 	}
@@ -687,10 +698,19 @@ void doPhysics(gamestate *gs) {
 		level 1 - If a round has any unpushed pushers, only resolve them. This might require more careful maintenance of the "needsCollision" flags.
 		level 2 - Like level 1, but if there are no unpushed pushers we next check for circular pushers.
 	*/
+
+	// TODO Assuming new things get added as "my box goes from `center` by `vel" (maybe a flawed assumption!),
+	//      at this point we need to advance all the parent boxes one step (since they're "from `old` to `center`" during collisions)
+
 	flush(gs);
 }
 
 void finishStep(gamestate *gs) {
+	// TODO Maybe call onCrush here instead?
+	//      The advantage is we don't have to worry about
+	//      adding boxes specially when we're mid-collision.
+	//      We'll also have to be careful to ignore collisions
+	//      with dead boxes, however.
 	clearDeads(gs);
 }
 
@@ -717,6 +737,7 @@ void drawEnt(ent *e, float r, float g, float b) {
 void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 	clearDeads(gs);
+	velbox_freeRoot(gs->rootBox);
 }
 
 gamestate *mkGamestate(list<player> *players) {
@@ -724,6 +745,7 @@ gamestate *mkGamestate(list<player> *players) {
 	ret->rand = 1;
 	players->num = 0;
 	ret->players = players;
+	ret->rootBox = velbox_getRoot();
 	return ret;
 }
 
@@ -737,6 +759,7 @@ void resetGamestate(gamestate *gs) {
 	// Restore / reset the fields we care about
 	gs->players = p;
 	gs->rand = 1;
+	gs->rootBox = velbox_getRoot();
 }
 
 rand_t random(gamestate *gs) {
@@ -756,11 +779,6 @@ static ent* cloneEnt(ent *in) {
 
 	entState *inState = &in->state;
 	entState *retState = &ret->state;
-#ifndef NODEBUG
-	if (inState->numRefs) {
-		fputs("Don't know how to copy over entState refs, I thought we weren't using those!\n", stderr);
-	}
-#endif
 	size_t size = sizeof(slider) * retState->numSliders;
 	retState->sliders = (slider*) malloc(size);
 	// Maybe iterate assignment instead of this?
@@ -770,6 +788,39 @@ static ent* cloneEnt(ent *in) {
 	ret->wires.init(in->wires);
 	ret->wiresAdd.init();
 	ret->wiresRm.init();
+
+	// Right now we're pointing to the same box, which is obviously wrong.
+	// Easier to fix the box heirarchy in one go, however.
+	return ret;
+}
+
+// I guess this could maybe live in the velbox files, but we'd have to have some way of handling the `data` cloning
+static box* cloneBox(box *b) {
+	box *ret = velbox_alloc();
+	// We don't actually need the intersects to be accurate -
+	// those are really only advisory outside of when actual collision resolution is happening.
+	// However, there is some logic that relies on a box being its own first intersect
+	// (or at least, requires it to be among its intersects, e.g. finding a home for a new box).
+	ret->intersects.add(ret);
+
+	range(d, 3) {
+		ret->p1[d] = b->p1[d];
+		ret->p2[d] = b->p2[d];
+		ret->r[d] = b->r[d];
+	}
+
+	if (b->data) {
+		ret->data = ((ent*)b->data)->clone.ref;
+	} else {
+		list<box*> &oldKids = b->kids;
+		list<box*> &newKids = ret->kids;
+		range(i, oldKids.num) {
+			box *clone = cloneBox(oldKids[i]);
+			newKids.add(clone);
+			clone->parent = ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -833,6 +884,9 @@ gamestate* dup(gamestate *in, list<player> *players) {
 		}
 	}
 	ret->players = players;
+
+	ret->rootBox = cloneBox(in->rootBox);
+	ret->rootBox->parent = NULL;
 
 	return ret;
 }

@@ -96,7 +96,7 @@ void createDebris(gamestate *gs) {
 
 			// Make the actual platform, starting with the basic entity physics stuff
 			ent *e = initEnt(
-				gs,
+				gs, NULL,
 				pos, vel, size,
 				0, 0,
 				T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN

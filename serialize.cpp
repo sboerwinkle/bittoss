@@ -6,7 +6,12 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const int32_t dummyArr[3] = {0, 0, 0};
+static const int32_t dummyPos[3] = {0, 0, 0};
+static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
+// I didn't make that number up I swear. It's a real number with real reasons.
+// Basically it's so when we're doing everything totally wrong at first
+// (before we fix it with hacks, because that's better than *totally* ignoring standard ent creation flow)
+// we don't waste too much energy on setting up a real deep box heirarchy.
 
 // Thought about doing this as a function that accepts function pointers
 // rather than as a big ol' whacky macro,
@@ -15,21 +20,16 @@ static const int32_t dummyArr[3] = {0, 0, 0};
 // along with a catalog<T>. With macros I can do that as a transformation rather than
 // a function pointer, and each instance will still be checked for type correctness.
 #define processEnt(e) \
+	/* We're not handling any of the fields related to pending changes, */\
+	/* so the serialization might not be totally faithful in the event */\
+	/* that something doesn't get flushed all the way (is that possible?)*/\
 	range(i, e->state.numSliders) { \
 		i32(e->state.sliders[i].v); \
 	} \
 	range(i, e->wires.num) { \
 		wire(e->wires[i]); \
 	} \
-	i32(e->typeMask); \
-	i32(e->collideMask); \
-	/* We're not handling any of the fields related to pending changes, */\
-	/* so the serialization might not be totally faithful in the event */\
-	/* that something doesn't get flushed all the way (is that possible?)*/\
-	range(i, 3) i32(e->center[i]); \
-	range(i, 3) i32(e->vel[i]); \
-	range(i, 3) i32(e->radius[i]); \
-	/* Don't remember right now if controls persist roll over between frames -*/\
+	/* Don't remember right now if controls roll over between frames -*/\
 	/* for now we're not going to bother.*/\
 	handler(e->whoMoves, whoMovesHandlers); \
 	handler(e->tick, tickHandlers); \
@@ -62,11 +62,16 @@ static int enumerateSiblings(ent *e, int ix) {
 }
 
 static void serializeEnt(ent *e, list<char> *data) {
-	write32(data, e->state.numSliders);
-	write32(data, e->wires.num);
 #define i32(x) write32(data, x)
 #define handler(x, y) write32(data, y.reverseLookup(x))
 #define wire(w) write32(data, w->clone.ix)
+	range(i, 3) i32(e->center[i]);
+	range(i, 3) i32(e->vel[i]);
+	range(i, 3) i32(e->radius[i]);
+	i32(e->state.numSliders);
+	i32(e->typeMask);
+	i32(e->collideMask);
+	i32(e->wires.num);
 	processEnt(e);
 #undef wire
 #undef handler
@@ -110,16 +115,21 @@ static int32_t read32(const list<char> *data, int *ix) {
 }
 
 static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix) {
-	int32_t numSliders = read32(data, ix);
-	freeEntState(&e->state);
-	setupEntState(&e->state, numSliders, 0);
-	int32_t numWires = read32(data, ix);
-	e->wires.setMaxUp(numWires);
-	e->wires.num = numWires;
+	int32_t c[3], v[3], r[3];
 
 #define i32(x) x = read32(data, ix)
 #define handler(x, y) x = y.get(read32(data, ix))
 #define wire(x) x = ents[read32(data, ix)]
+	range(i, 3) i32(c[i]);
+	range(i, 3) i32(v[i]);
+	range(i, 3) i32(r[i]);
+	initEnt(e, gs, NULL, c, v, r, read32(data, ix), read32(data, ix), read32(data, ix));
+
+	int32_t numWires;
+	i32(numWires);
+	e->wires.setMaxUp(numWires);
+	e->wires.num = numWires;
+
 	processEnt(e);
 #undef wire
 #undef i32
@@ -136,8 +146,10 @@ void deserialize(gamestate *gs, const list<char> *data) {
 	int32_t numEnts = read32(data, ix);
 	ent** ents = new ent*[numEnts];
 	range(i, numEnts) {
-		// A bunch of empty ents
-		ents[i] = initEnt(gs, dummyArr, dummyArr, dummyArr, 0, 0, 0, 0);
+		// A bunch of ent-sized spaces in memory.
+		// We fill them in later, but it's helpful to have a valid pointer
+		// so we can set stuff up to point to the ent before it's initialized.
+		ents[i] = (ent*) calloc(1, sizeof(ent));
 	}
 	range(i, numEnts) {
 		deserializeEnt(gs, ents, ents[i], data, ix);

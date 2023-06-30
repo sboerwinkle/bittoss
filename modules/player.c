@@ -150,7 +150,7 @@ int32_t playerSize[3] = {512, 512, 512};
 ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
-		gs,
+		gs, NULL,
 		pos, vel, playerSize,
 		7, 0,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN

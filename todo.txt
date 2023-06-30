@@ -23,7 +23,16 @@ TODO:
 - Flags explode on contact <3
 - User platforms expire?
 	- fade to grey near end of life
-	- Particles on death
+- Particles on death
+	This would be nice for user platforms, but it's actually kinda weird.
+	We can't really make them "next tick" since the parent object won't exist
+	We could add them in the middle of the tick, but we'd need to properly initialize `old` which could be hard
+	Maybe the thing to do is add them to some list to be added at the end of this tick,
+		so they aren't used in collisions but they still appear where they are expected to
+	The only tricky bit becomes that the parent velbox will probably be removed by that point
+		Best solution I can see to this is to just keep it around (until the deads are cleaned)
+		and just add a check to ignore dead things in collisions.
+		Kinda rough but oh well?
 - User platforms less prone to jank
 	- Magic expanding pellet magic
 	- Should also refund player resources if they have to abort

@@ -12,7 +12,7 @@ const int32_t groundSize[3] = {3200, 3200, 512};
 ent* mkGround(gamestate *gs, int32_t *pos, draw_t d) {
 	int32_t vel[3] = {0, 0, 0};
 	ent *ret = initEnt(
-		gs,
+		gs, NULL,
 		pos, vel, groundSize,
 		0, 0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
