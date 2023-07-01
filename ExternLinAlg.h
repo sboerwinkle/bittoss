@@ -4,7 +4,9 @@
 
 #ifndef EXTERNLINALG_H
 #define EXTERNLINALG_H
+/* Unused for now
 #include <string.h>
+
 static float distv3f(float* v){
 	float d = 0;
 	for(int idx = 0; idx < 3; idx++){
@@ -12,6 +14,7 @@ static float distv3f(float* v){
 	}
 	return sqrt(d);
 }
+
 static void norm3f(float* v){
 	float d = distv3f(v);
 	v[0] /= d;
@@ -24,6 +27,7 @@ static void cross(float* res, float* a, float* b){
 	res[1]=a[2]*b[0]-a[0]*b[2];
 	res[2]=a[0]*b[1]-a[1]*b[0];
 }
+
 static void quatMult(float* a, float* b, float* r){
 	float ret[4];
 	ret[0]=(b[0] * a[0] - b[1] * a[1] - b[2] * a[2] - b[3] * a[3]);
@@ -40,6 +44,7 @@ static void rotateVec(float* t, float* r, float* ret){
 	quatMult(p, revRot, p);
 	memcpy(ret, &(p[1]), 3*sizeof(float));
 }
+*/
 static void mat4x4Multf(float* res, float* m1, float* m2){
 	for(int x = 0; x < 4; x++){
 		for(int y = 0; y < 4; y++){
@@ -51,6 +56,7 @@ static void mat4x4Multf(float* res, float* m1, float* m2){
 		}
 	}
 }
+/* Unused for now
 static void mat4x4By4x1Multf(float* res, float* m1, float* m2){
 	for(int y = 0; y < 4; y++){
 		float v = 0;
@@ -60,6 +66,7 @@ static void mat4x4By4x1Multf(float* res, float* m1, float* m2){
 		res[y] = v;
 	}
 }
+*/
 static void mat4x4fromQuat(float* M, float *rot){
 	M[0] = 1-2*rot[2]*rot[2]-2*rot[3]*rot[3];
 	M[1] = 2*rot[1]*rot[2]+2*rot[0]*rot[3];
@@ -78,16 +85,19 @@ static void mat4x4fromQuat(float* M, float *rot){
 	M[14] = 0;
 	M[15] = 1;
 }
+/* Unused for now
 static void mat4x4Scalef(float* res, float xs, float ys, float zs){
 	res[0] *= xs;
 	res[5] *= ys;
 	res[9] *= zs;
 }
+*/
 static void mat4x4Transf(float* res, float x, float y, float z){
 	res[12] += x;
 	res[13] += y;
 	res[14] += z;
 }
+/* Unused for now
 static void mat4x4idenf(float* res){
 	for(int i = 0; i < 16; i++) res[i] = 0.0;
 	res[0] = 1.0;
@@ -95,6 +105,7 @@ static void mat4x4idenf(float* res){
 	res[10] = 1.0;
 	res[15] = 1.0;
 }
+*/
 
 //https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/gluPerspective.xml
 static void perspective(float* m, float invSlopeX, float invSlopeY, float zNear, float zFar){
@@ -134,6 +145,7 @@ static void glOrthoEquiv(float* m, float left, float right, float bottom, float 
 	m[14] = -((farval+nearval)/(farval-nearval));
 	m[15] = 1;
 }
+/* Unused for now
 //https://www.khronos.org/opengl/wiki/GluLookAt_code
 static void glhLookAtf2( float *matrix, float *eyePosition3D, float *center3D, float *upVector3D ){
 	float forward[3], side[3], up[3];
@@ -173,4 +185,5 @@ static void glhLookAtf2( float *matrix, float *eyePosition3D, float *center3D, f
 	// --------------------
 	memcpy(matrix, resultMatrix, 16*sizeof(float));
 }
+*/
 #endif
