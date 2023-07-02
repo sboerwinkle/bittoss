@@ -98,7 +98,7 @@ void createDebris(gamestate *gs) {
 			ent *e = initEnt(
 				gs, NULL,
 				pos, vel, size,
-				0, 0,
+				0,
 				T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 			);
 			// Make it more platform-y

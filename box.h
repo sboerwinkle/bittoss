@@ -1,4 +1,7 @@
 #pragma once
+#include <stdint.h>
+#include "list.h"
+#include "util.h"
 
 // This was designed so it could take #define'd parameters (e.g. bitwitdh)
 // While we're just using the defaults,

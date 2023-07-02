@@ -22,6 +22,7 @@
 #include "effects.h"
 #include "map.h"
 #include "serialize.h"
+#include "box.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -923,6 +924,7 @@ int main(int argc, char **argv) {
 		fputs("No mouse support.\n", stderr);
 	}
 	initGraphics(); // OpenGL Setup (calls initFont())
+	velbox_init();
 	ent_init();
 	initMods(); //Set up modules
 	frameData.init();
@@ -1036,6 +1038,7 @@ int main(int argc, char **argv) {
 	destroyFont();
 	destroy_registrar();
 	ent_destroy();
+	velbox_destroy();
 	puts("Done.");
 	puts("Cleaning up game objects...");
 	doCleanup(rootState);

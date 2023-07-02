@@ -14,7 +14,7 @@ ent* mkGround(gamestate *gs, int32_t *pos, draw_t d) {
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, groundSize,
-		0, 0,
+		0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
 	);
 	ret->draw = d;

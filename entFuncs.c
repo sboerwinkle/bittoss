@@ -35,21 +35,6 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 
 static push_t defaultPush;
 
-ent *initEnt(
-	gamestate *gs,
-	ent *relative,
-	const int32_t *c,
-	const int32_t *v,
-	const int32_t *r,
-	int numSliders,
-	int32_t typeMask,
-	int32_t collideMask
-) {
-	ent *ret = (ent*) calloc(1, sizeof(ent));
-	initEnt(ret, gs, relative, c, v, r, numSliders, typeMask, collideMask);
-	return ret;
-}
-
 void initEnt(
 	ent *e,
 	gamestate *gs,
@@ -94,6 +79,21 @@ void initEnt(
 	e->okayFumble = okayFumbleDefault;
 	e->okayFumbleHim = okayFumbleHimDefault;
 	addEnt(gs, e, relative);
+}
+
+ent *initEnt(
+	gamestate *gs,
+	ent *relative,
+	const int32_t *c,
+	const int32_t *v,
+	const int32_t *r,
+	int numSliders,
+	int32_t typeMask,
+	int32_t collideMask
+) {
+	ent *ret = (ent*) calloc(1, sizeof(ent));
+	initEnt(ret, gs, relative, c, v, r, numSliders, typeMask, collideMask);
+	return ret;
 }
 
 void init_entFuncs() {

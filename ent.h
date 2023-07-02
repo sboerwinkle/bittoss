@@ -99,6 +99,8 @@ typedef struct ent {
 	int32_t vel[3], d_vel[3];
 	int32_t vel2[3];
 	int32_t radius[3];
+	// Thing for custom R Tree impl
+	box *myBox;
 
 #define axisMaxis 32
 	struct {
@@ -206,7 +208,7 @@ extern void flushMisc(ent *e);
 
 extern byte getAxis(ent *a, ent *b);
 
-extern void addEnt(gamestate *gs, ent *e);
+extern void addEnt(gamestate *gs, ent *e, ent *relative);
 extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y);
 
 extern void drawEnt(ent *e, float r, float g, float b);

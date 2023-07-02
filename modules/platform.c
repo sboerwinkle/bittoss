@@ -20,7 +20,7 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
 	ent *e = initEnt(
 		gs, owner,
 		pos, owner->vel, platformSize,
-		0, 0,
+		0,
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 	);
 	e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");

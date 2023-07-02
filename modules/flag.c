@@ -15,7 +15,7 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	ent *e = initEnt(
 		gs, owner,
 		owner->center, owner->vel, flagSize,
-		2, 0,
+		2,
 		T_FLAG + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
 	);
 	// TODO Unsatisfied with how "modules" share stuff at the moment,
@@ -52,7 +52,7 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, spawnerSize,
-		2, 0,
+		2,
 		T_WEIGHTLESS, 0
 	);
 	uStateSlider(&ret->state, 1, team);

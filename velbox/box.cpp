@@ -2,10 +2,26 @@
 // Don't forget to include the reified header wherever you plunk this down, please!
 
 static char isWhale(box *b) {
-	return !!box->data;
+	return !!b->data;
 }
 
-static list<box*> *globalOptionsDest, *globalOptionsSrc, *globalOptionsXor;
+// Todo This is definitely messy stuff, but it's where I am for now.
+//      The only other option I can think of is allocating a box,
+//      and then completely abusing `kids` and `intersects` to mean something
+//      completely different.
+//      What I'm trying to avoid is re-allocating the list memory each time
+//      one of the functions that needs a local list is entered,
+//      and this achieves that, just at the cost that I have to be careful
+//      about which methods might potentially be on the callstack when the
+//      method which needs global lists is in use.
+static list<box*> *globalOptionsDest, *globalOptionsSrc;
+static list<box*> *lookDownSrc, *lookDownDest;
+
+static inline void swap(list<box*> *&a, list<box*> *&b) {
+	list<box*> *tmp = a;
+	a = b;
+	b = tmp;
+}
 
 // Things that are just touching should not count as intersecting,
 // since that's the logic we've got in place for the individual `ent`s in bittoss
@@ -68,22 +84,22 @@ static void setIntersects(box *n) {
 static void setIntersects_refresh(box *b) {
 	b->refreshed = 1;
 	// Pretty similar to `setIntersects`, but we can take some shortcuts since we know everyone's being re-evaluated
-	list<box*> &aunts = n->parent->intersects;
+	list<box*> &aunts = b->parent->intersects;
 	range(i, aunts.num) {
 		box *aunt = aunts[i];
-		if (!intersects(aunt, n)) continue;
+		if (!intersects(aunt, b)) continue;
 		if (isWhale(aunt)) {
-			aunt->intersects.add(n);
-			n->intersects.add(aunt);
+			aunt->intersects.add(b);
+			b->intersects.add(aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
 			range(j, cousins.num) {
 				box *test = cousins[j];
 				// We can't rule out the whole aunt just because this `test` has been refreshed;
 				// the family structure might have been messed with after the iteration order was determined.
-				if (!test->refreshed && intersects(test, n)) {
-					test->intersects.add(n);
-					n->intersects.add(test);
+				if (!test->refreshed && intersects(test, b)) {
+					test->intersects.add(b);
+					b->intersects.add(test);
 				}
 			}
 		}
@@ -101,7 +117,7 @@ box* velbox_alloc() {
 		range(i, ALLOC_SIZE) {
 			newAlloc[i].kids.init();
 			newAlloc[i].intersects.init();
-			freeBoxes.add(newAlloc[i]);
+			freeBoxes.add(&newAlloc[i]);
 		}
 	}
 	box *ret = freeBoxes[--freeBoxes.num];
@@ -114,8 +130,9 @@ box* velbox_alloc() {
 static box* mkContainer(box *parent, box *n) {
 	box *ret = velbox_alloc();
 	parent->kids.add(ret);
-	ret->r = parent->r / SCALE;
+	INT r = parent->r[0] / SCALE;
 	range(d, DIMS) {
+		ret->r[d] = r;
 		ret->p1[d] = n->p1[d];
 		ret->p2[d] = n->p2[d];
 	}
@@ -164,31 +181,8 @@ static void addWhale(box *w, const list<box*> *opts) {
 			w->intersects.add(b);
 			globalOptionsDest->addAll(b->kids);
 		}
-		opts = globalOptionsSrc = globalOptionsDest;
-		globalOptionsDest = globalOptionsXor ^ globalOptionsDest;
-	}
-}
-
-void velbox_insert(box *guess, box *n) {
-	// It is IMPORTANT to note that `n` must be small enough to have at least one nested level
-	// below the apex. The apex is weird enough as it is, this condition reduces the number of
-	// edge cases we have to consider.
-	// (Note I'm not sure that's true any more, but why would you want boxes that apocalyptically big?)
-
-	// Todo Maybe provide a faster path in the case where it fits fine in `guess->parent`,
-	//      i.e. when it hasn't changed much from last time?
-	INT minParentR;
-	{
-		INT max = 0;
-		range(d, DIMS) {
-			if (n->r[d] > max) max = n->r[d];
-		}
-		minParentR = max * FIT;
-	}
-	box *mergeBase = getMergeBase(guess, n, minParentR);
-	if (!tryLookDown(mergeBase, n, minParentR)) {
-		// Please, mergeBase->parent was my father
-		lookUp(mergeBase->parent ? mergeBase->parent : mergeBase, n, minParentR);
+		swap(globalOptionsSrc, globalOptionsDest);
+		opts = globalOptionsSrc;
 	}
 }
 
@@ -231,7 +225,7 @@ void velbox_update(box *b) {
 
 static void addToAncestor(box *level, box *n, INT minParentR) {
 	INT minGrandparentR = SCALE*minParentR;
-	while (level->r >= minGrandparentR) {
+	while (level->r[0] >= minGrandparentR) {
 		level = mkContainer(level, n);
 	}
 	level->kids.add(n);
@@ -253,19 +247,15 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 		return 0;
 	}
 
-	// Todo global lists aren't friendly to multithreading,
-	//      but I don't really want to reallocate two each time we come in here
-	list<box*> *optionsDest = globalOptionsDest;
-
 	box* fosterParent = NULL;
-	char fosterStale;
+	char fosterStale, finalLevel;
 
 	do {
-		optionsDest->num = 0;
+		lookDownDest->num = 0;
 		fosterStale = 1;
 
-		INT nextR = optionsR / SCALE
-		char finalLevel = nextR < minParentR;
+		INT nextR = optionsR / SCALE;
+		finalLevel = nextR < minParentR;
 		INT fosterR = optionsR - nextR;
 		range(i, optionsSrc->num) {
 			box *test = (*optionsSrc)[i];
@@ -283,14 +273,14 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 			if (finalLevel || (foster && fosterStale)) {
 				fosterParent = test;
 				if (finalLevel) break;
-				fostersStale = 0;
+				fosterStale = 0;
 			}
-			optionsDest->addAll(test->kids);
+			lookDownDest->addAll(test->kids);
 
 			fail:;
 		}
-		optionsSrc = optionsDest;
-		optionsDest = globalOptionsXor ^ optionsSrc;
+		swap(lookDownSrc, lookDownDest);
+		optionsSrc = lookDownSrc;
 		optionsR = nextR;
 	} while(!finalLevel);
 
@@ -327,6 +317,29 @@ static void lookUp(box *level, box *n, INT minParentR) {
 	addToAncestor(level, n, minParentR);
 }
 
+void velbox_insert(box *guess, box *n) {
+	// It is IMPORTANT to note that `n` must be small enough to have at least one nested level
+	// below the apex. The apex is weird enough as it is, this condition reduces the number of
+	// edge cases we have to consider.
+	// (Note I'm not sure that's true any more, but why would you want boxes that apocalyptically big?)
+
+	// Todo Maybe provide a faster path in the case where it fits fine in `guess->parent`,
+	//      i.e. when it hasn't changed much from last time?
+	INT minParentR;
+	{
+		INT max = 0;
+		range(d, DIMS) {
+			if (n->r[d] > max) max = n->r[d];
+		}
+		minParentR = max * FIT;
+	}
+	box *mergeBase = getMergeBase(guess, n, minParentR);
+	if (!tryLookDown(mergeBase, n, minParentR)) {
+		// Please, mergeBase->parent was my father
+		lookUp(mergeBase->parent ? mergeBase->parent : mergeBase, n, minParentR);
+	}
+}
+
 void velbox_refresh(box *root) {
 	// The root obviously never needs revalidation.
 	// The direct children of the root need their intersects re-evaluated,
@@ -339,9 +352,10 @@ void velbox_refresh(box *root) {
 		// Clear intersects of all guys in the list.
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
+			b->refreshed = 0;
+			// Todo optimize to just `num = 1`?
 			b->intersects.num = 0;
 			b->intersects.add(b);
-			b->refreshed = 0;
 		}
 
 		// Set the intersects (we take some shortcuts in this version),
@@ -355,8 +369,7 @@ void velbox_refresh(box *root) {
 
 		// Go to next level down, if there is one.
 		if (!globalOptionsDest->num) return;
-		globalOptionsSrc = globalOptionsDest;
-		globalOptionsDest = globalOptionsXor ^ globalOptionsDest;
+		swap(globalOptionsSrc, globalOptionsDest);
 
 		// Make sure they have valid parentage, and put them in the right place in the tree if not.
 		range(i, globalOptionsSrc->num) {
@@ -371,14 +384,15 @@ box* velbox_getRoot() {
 	// `kids` can just stay empty for now
 	ret->intersects.add(ret);
 	ret->parent = NULL;
-	ret->r = MAX/2 + 1;
 	range(d, DIMS) {
+		ret->r[d] = MAX/2 + 1;
 		// This *shouldn't* matter, but uninitialized data is never a *good* thing.
-		ret.p1[d] = ret.p2[d] = 0;
+		ret->p1[d] = ret->p2[d] = 0;
 	}
+	return ret;
 }
 
-box* velbox_freeRoot(box *r) {
+void velbox_freeRoot(box *r) {
 	if (r->kids.num) {
 		fputs("Tried to return a root box with children! Someone isn't cleaning up properly!\n", stderr);
 		exit(1);
@@ -390,11 +404,14 @@ void velbox_init() {
 	boxAllocs.init();
 	freeBoxes.init();
 
-	globalOptionsDest = new list<box*>();
-	globalOptionsDest->init();
 	globalOptionsSrc = new list<box*>();
 	globalOptionsSrc->init();
-	globalOptionsXor = globalOptionsDest ^ globalOptionsSrc;
+	globalOptionsDest = new list<box*>();
+	globalOptionsDest->init();
+	lookDownSrc = new list<box*>();
+	lookDownSrc->init();
+	lookDownDest = new list<box*>();
+	lookDownDest->init();
 }
 
 void velbox_destroy() {
@@ -412,4 +429,8 @@ void velbox_destroy() {
 	delete globalOptionsSrc;
 	globalOptionsDest->destroy();
 	delete globalOptionsDest;
+	lookDownSrc->destroy();
+	delete lookDownSrc;
+	lookDownDest->destroy();
+	delete lookDownDest;
 }

@@ -70,15 +70,15 @@ static void addRootEnt(gamestate *gs, ent *e) {
 
 void addEnt(gamestate *gs, ent *e, ent *relative) {
 	box *b = velbox_alloc();
-	e->box = b;
+	e->myBox = b;
 	b->data = e;
 	range(d, 3) {
 		b->p1[d] = e->center[d];
 		b->p2[d] = e->center[d] + e->vel[d];
-		int r = e->r[d];
+		int r = e->radius[d];
 		b->r[d] = r ? r : 1; // velbox doesn't like radii of 0, and frankly neither do I
 	}
-	box *relBox = relative ? relative->box : gs->rootBox;
+	box *relBox = relative ? relative->myBox : gs->rootBox;
 	velbox_insert(relBox, b);
 
 	if (gs->ents) gs->ents->ll.p = e;
@@ -177,7 +177,7 @@ static void crushEnt(gamestate *gs, ent *e) {
 		fputs("I don't think we should ever try to re-crush!\n", stderr);
 		return;
 	}
-	// TODO invoke `crush` (should actually exist, with a default no-op handler)
+	// TODO remove this completely, `crush` handler invocation should happen later (outside physics loop)
 	killEntNoHandlers(gs, e);
 }
 
@@ -339,6 +339,10 @@ static byte checkCollision(ent *a, ent *b) {
 	char BonA = 0 != (a->typeMask & b->collideMask);
 	if (!AonB && !BonA) return 0;
 	if (a->holdRoot == b->holdRoot) return 0;
+	// `getAxisAndDir` is a little heavy - lots of branching, lots of 64-bit math.
+	// For the first iteration where we're checking all against all,
+	// my gut is that adding this check will be a net optimization, but that's untested.
+	if (a->collisionBuddy == b || b->collisionBuddy == a) return 0; // We already checked them!
 	int dir = getAxisAndDir(a, b);
 	if (dir == 0) return 0;
 	byte axis;
@@ -379,16 +383,19 @@ static byte checkCollision(ent *a, ent *b) {
 }
 
 static char doIteration(gamestate *gs) {
-	//TODO: velbox (quadtree stuff)
 	char ret = 0;
-	ent *i, *j;
-	for (i = gs->ents; i; i = i->ll.n) {
-		for (j = i->ll.n; j; j = j->ll.n) {
-			if (i->needsCollision || j->needsCollision) {
-				ret |= checkCollision(i, j);
-			}
+	for (ent *e = gs->ents; e; e = e->ll.n) {
+		if (!e->needsCollision) continue;
+
+		list<box*> &intersects = e->myBox->intersects;
+		int n = intersects.num; // Small optimization (I hope)
+		// Skip i=0, first intersect is always ourselves
+		for (int i = 1; i < n; i++) {
+			ent *o = (ent*) intersects[i]->data;
+			if (!o || o->dead) continue;
+			ret |= checkCollision(e, o);
 		}
-		i->needsCollision = 0;
+		e->needsCollision = 0;
 	}
 	return ret;
 }
@@ -397,7 +404,7 @@ static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
-		velbox_remove(d->box);
+		velbox_remove(d->myBox);
 		freeEntState(&d->state);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
@@ -656,17 +663,19 @@ void doPhysics(gamestate *gs) {
 	flush(gs);
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
+		box *b = i->myBox;
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
 		for (j = 0; j < 3; j++) {
 			i->center[j] += i->vel[j];
+			b->p1[j] = i->old[j];
+			b->p2[j] = i->center[j];
 			i->forced[j] = 0;
 		}
 		i->needsCollision = 1;
 	}
 
-	// TODO This will be where we reset the velbox boxes to "from `old` to `center`"
-	//      and then revalidate the box heirarchy
+	velbox_refresh(gs->rootBox);
 
 	//Note that deaths, drops get flushed in here periodically.
 	//TODO: This means handlers called in here (onPush[ed], onFumble[d], onCrush)
@@ -683,11 +692,15 @@ void doPhysics(gamestate *gs) {
 		}
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
+				i->needsPhysUpdate = 0;
+				// Todo I'm not sure if `memcpy` or an easily-optimized loop is faster here,
+				//      and as of right now I haven't bothered to figure it out and don't use
+				//      either consistently
 				memcpy(i->center, i->center2, sizeof(i->center));
 				memcpy(i->vel, i->vel2, sizeof(i->vel));
-				i->needsPhysUpdate = 0;
-				// TODO Update velbox with our new "to" destination for this tick
-				//      (I think we decided against doing velocity separately, for simplicity's sake)
+				range(j, 3) {
+					i->myBox->p2[j] = i->center[j];
+				}
 			}
 		}
 	}
@@ -810,7 +823,9 @@ static box* cloneBox(box *b) {
 	}
 
 	if (b->data) {
-		ret->data = ((ent*)b->data)->clone.ref;
+		ent *e = ((ent*)b->data)->clone.ref;
+		ret->data = e;
+		e->myBox = ret;
 	} else {
 		list<box*> &oldKids = b->kids;
 		list<box*> &newKids = ret->kids;

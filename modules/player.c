@@ -152,7 +152,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, playerSize,
-		7, 0,
+		7,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
 	ret->whoMoves = whoMovesHandlers.getByName("player-whomoves");
