@@ -54,6 +54,14 @@ void catalog<T>::reg(const char* name, T handler) {
 
 template <typename T>
 T catalog<T>::get(int ix) {
+	if (ix < 0 || ix >= items.num) {
+		fprintf(stderr, "ERROR - Invalid catalog index %d, there are only %d\n", ix, items.num);
+		if (items.num) {
+			return items[0];
+		}
+		fputs("ERROR - Also no fallback available, so I gotta crash, sorry\n", stderr);
+		exit(1);
+	}
 	return items[ix];
 }
 

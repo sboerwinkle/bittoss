@@ -26,9 +26,11 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	range(i, e->state.numSliders) { \
 		i32(e->state.sliders[i].v); \
 	} \
+	check(131); \
 	range(i, e->wires.num) { \
 		wire(e->wires[i]); \
 	} \
+	check(132); \
 	/* Don't remember right now if controls roll over between frames -*/\
 	/* for now we're not going to bother.*/\
 	handler(e->whoMoves, whoMovesHandlers); \
@@ -36,7 +38,8 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	handler(e->tickHeld, tickHandlers); \
 	handler(e->draw, drawHandlers); \
 	handler(e->push, pushHandlers); \
-	handler(e->pushed, pushedHandlers)
+	handler(e->pushed, pushedHandlers); \
+	check(133)
 
 static void write32Raw(list<char> *data, int offset, int32_t v) {
 	*(int32_t*)(data->items + offset) = htonl(v);
@@ -62,20 +65,25 @@ static int enumerateSiblings(ent *e, int ix) {
 }
 
 static void serializeEnt(ent *e, list<char> *data) {
+#define check(x) data->add(x)
 #define i32(x) write32(data, x)
 #define handler(x, y) write32(data, y.reverseLookup(x))
 #define wire(w) write32(data, w->clone.ix)
+	check(128);
 	range(i, 3) i32(e->center[i]);
 	range(i, 3) i32(e->vel[i]);
 	range(i, 3) i32(e->radius[i]);
+	check(129);
 	i32(e->state.numSliders);
 	i32(e->typeMask);
 	i32(e->collideMask);
 	i32(e->wires.num);
+	check(130);
 	processEnt(e);
 #undef wire
 #undef handler
 #undef i32
+#undef check
 	writeEntRef(data, e->holder);
 }
 
@@ -114,26 +122,43 @@ static int32_t read32(const list<char> *data, int *ix) {
 	return ntohl(*(int32_t*)(data->items + i));
 }
 
+static void checksum(const list<char> *data, int *ix, int expected) {
+	char x = (*data)[(*ix)++];
+	if (x != (char) expected) {
+		fprintf(stderr, "Expected %d, got %hhu\n", expected, x);
+	}
+}
+
 static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix) {
 	int32_t c[3], v[3], r[3];
 
+#define check(x) checksum(data, ix, x)
 #define i32(x) x = read32(data, ix)
 #define handler(x, y) x = y.get(read32(data, ix))
 #define wire(x) x = ents[read32(data, ix)]
+	check(128);
 	range(i, 3) i32(c[i]);
 	range(i, 3) i32(v[i]);
 	range(i, 3) i32(r[i]);
-	initEnt(e, gs, NULL, c, v, r, read32(data, ix), read32(data, ix), read32(data, ix));
+	check(129);
+	// Order in which arguments are evaluated isn't defined, so this has to be explicitly ordered
+	// I bet you can guess that I learned that the hard way
+	int32_t numSliders = read32(data, ix);
+	int32_t typeMask = read32(data, ix);
+	int32_t collideMask = read32(data, ix);
+	initEnt(e, gs, NULL, c, v, r, numSliders, typeMask, collideMask);
 
 	int32_t numWires;
 	i32(numWires);
 	e->wires.setMaxUp(numWires);
 	e->wires.num = numWires;
 
+	check(130);
 	processEnt(e);
 #undef wire
 #undef i32
 #undef handler
+#undef check
 	int holder = read32(data, ix);
 	if (holder != -1) {
 		pickupNoHandlers(gs, ents[holder], e);

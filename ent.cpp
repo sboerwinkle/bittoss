@@ -701,6 +701,7 @@ void doPhysics(gamestate *gs) {
 				range(j, 3) {
 					i->myBox->p2[j] = i->center[j];
 				}
+				velbox_update(i->myBox);
 			}
 		}
 	}

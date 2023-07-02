@@ -1031,6 +1031,12 @@ int main(int argc, char **argv) {
 		if (ret) printf("Error while joining input thread: %d\n", ret);
 	}
 	puts("Done.");
+	puts("Cleaning up game objects...");
+	doCleanup(rootState);
+	free(rootState);
+	doCleanup(phantomState);
+	free(phantomState);
+	puts("Done.");
 	puts("Cleaning up simple interal components...");
 	syncData.destroy();
 	frameData.destroy();
@@ -1039,12 +1045,6 @@ int main(int argc, char **argv) {
 	destroy_registrar();
 	ent_destroy();
 	velbox_destroy();
-	puts("Done.");
-	puts("Cleaning up game objects...");
-	doCleanup(rootState);
-	free(rootState);
-	doCleanup(phantomState);
-	free(phantomState);
 	puts("Done.");
 	puts("Cleaning up Allegro...");
 	al_unregister_event_source(evntQueue, &customSrc);
