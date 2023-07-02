@@ -193,7 +193,7 @@ static void saveGame(const char *name) {
 	list<char> data;
 	data.init();
 	serialize(rootState, &data);
-	int fd = open(name, O_WRONLY | O_CREAT);
+	int fd = open(name, O_WRONLY | O_CREAT, 0664); // perms: rw-rw-r--
 	if (fd == -1) {
 		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
 		return;
