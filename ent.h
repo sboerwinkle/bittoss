@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include "list.h"
 #include "random.h"
@@ -265,7 +267,8 @@ enum retCodes {
 #define T_HEAVY 1
 #define T_TERRAIN 2
 #define T_OBSTACLE 4
-#define T_WEIGHTLESS 8
-#define T_FLAG 16
-#define TEAM_BIT 32
+#define T_DEBRIS 8
+#define T_WEIGHTLESS 16
+#define T_FLAG 32
+#define TEAM_BIT 64
 #define TEAM_MASK (7*TEAM_BIT)

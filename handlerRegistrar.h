@@ -1,6 +1,9 @@
+#pragma once
+
 #include <string.h>
 #include "util.h"
 #include "list.h"
+#include "ent.h"
 
 extern void init_registrar();
 extern void destroy_registrar();

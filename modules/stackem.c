@@ -38,8 +38,8 @@ static int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 		uStateSlider(&me->state, 0, bound(vel[0], 4));
 		uStateSlider(&me->state, 1, bound(vel[1], 4));
 	}
-	// I'm using this more in the flag, which can actually be picked up.
-	// Maybe I should change this?
+	// Todo: I'm using this more in the flag, which can actually be picked up.
+	//       Maybe I should change this?
 	return r_move;
 }
 

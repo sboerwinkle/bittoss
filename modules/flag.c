@@ -5,10 +5,6 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
-static int flag_whoMoves(ent *a, ent *b, int axis, int dir) {
-	return MOVE_ME;
-}
-
 static const int32_t flagSize[3] = {350, 350, 350};
 
 static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
@@ -23,7 +19,7 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	//      all our handlers are registered, however.
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
-	e->whoMoves = whoMovesHandlers.getByName("flag-whomoves");
+	e->whoMoves = whoMovesHandlers.getByName("move-me");
 	e->draw = drawHandlers.getByName("team-draw");
 	e->pushed = pushedHandlers.getByName("stackem-pushed");
 	e->tick = tickHandlers.getByName("stackem-tick");
@@ -61,6 +57,5 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 }
 
 void flag_init() {
-	whoMovesHandlers.reg("flag-whomoves", flag_whoMoves);
 	tickHandlers.reg("flag-spawner-tick", flagSpawner_tick);
 }

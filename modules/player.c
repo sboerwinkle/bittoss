@@ -10,6 +10,9 @@
 
 #include "stackem.h"
 #include "platform.h"
+#include "edittool.h"
+
+static tick_t bauble_tick;
 
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
@@ -83,11 +86,41 @@ static void player_tick(gamestate *gs, ent *me) {
 
 	int charge = getSlider(s, 3);
 	int cooldown = getSlider(s, 4);
+	char fire = getTrigger(me, 0);
+
+	// edittool stuff (WIP)
+	if (cooldown >= 10 && fire) {
+		cooldown = 0;
+		mkThumbtack(gs, me);
+	}
+	list<ent*> &wires = me->wires;
+	range(i, wires.num) {
+		ent *e = wires[i];
+		uUnwire(me, e);
+		char found = 0;
+		holdeesAnyOrder(h, me) {
+			// TODO I think the idea was not to identify what "type" things are, except for by their type flags.
+			//      I'm beginning to think this is an impractical idea, and maybe should be tossed out.
+			//      So I'm doing this this way, and we'll see how it feels.
+			if (h->tick == bauble_tick) {
+				range(j, h->wires.num) {
+					if (h->wires[j] == e) {
+						uDrop(gs, h);
+						found = 1;
+						break;
+					}
+				}
+			}
+		}
+		if (!found) mkBauble(gs, me, e);
+	}
+
+
+	/* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
 	int numHoldees = 0;
 	holdeesAnyOrder(h, me) {
 		if (++numHoldees > 1) break; // Don't care about counting any higher than 2
 	}
-	char fire = getTrigger(me, 0);
 	// We don't always need this but sometimes we do
 	int32_t look[3];
 	if (numHoldees) {
@@ -141,6 +174,7 @@ static void player_tick(gamestate *gs, ent *me) {
 			mkPlatform(gs, me, look, d);
 		}
 	}
+	*/
 	if (charge < 180) uStateSlider(s, 3, charge + 1);
 	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
 }
@@ -169,4 +203,6 @@ void player_init() {
 	drawHandlers.reg("player-draw", player_draw);
 	pushedHandlers.reg("player-pushed", player_pushed);
 	pushHandlers.reg("player-push", player_push);
+
+	bauble_tick = tickHandlers.getByName("bauble-tick");
 }

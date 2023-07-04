@@ -12,18 +12,22 @@
 // gets propertly initialized, and for that I think
 // it's okay to have a laundry-list file
 
+#include "modules/common.h"
 #include "modules/colors.h"
 #include "modules/flag.h"
 #include "modules/ground.h"
 #include "modules/platform.h"
+#include "modules/edittool.h"
 #include "modules/player.h"
 #include "modules/stackem.h"
 
 void initMods() {
+	common_init();
 	colors_init();
 	flag_init();
 	ground_init();
 	platform_init();
+	edittool_init();
 	player_init();
 	stackem_init();
 }
