@@ -9,6 +9,8 @@
 #include "main.h"
 #include "graphics.h"
 
+const int32_t zeroVec[3] = {0, 0, 0};
+
 static void flushEntState(entState *s) {
 	range(i, s->numSliders) {
 		//sliders are "sticky", i.e. don't reset if left alone
@@ -147,6 +149,15 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y) {
 	x->holdee = y;
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
+	// In the future, the actual behavior on pickup might be more flexible.
+	// Might also do away with the return value of `onPushed`, and have it
+	// be a property of the connection (actually, stored on the holdee)
+	// so whoever initiates it dictates the behavior.
+	// For now, this makes plenty of sense.
+	range(i, 3) {
+		y->vel[i] = x->vel[i];
+		y->d_vel[i] = 0;
+	}
 }
 
 static void pickup(gamestate *gs, ent *x, ent *y) {
@@ -538,7 +549,7 @@ static void doTick(gamestate *gs, ent *e, int type) {
 	}
 }
 
-void flushMisc(ent *e) {
+void flushMisc(ent *e, const int32_t *parent_d_vel) {
 	//Negate "min" so it shows the bits we're allowed to keep
 	e->d_typeMask_min = ~e->d_typeMask_min;
 	e->typeMask |= e->d_typeMask_max & e->d_typeMask_min;
@@ -552,8 +563,10 @@ void flushMisc(ent *e) {
 
 	range(i, 3) {
 		e->center[i] += (e->d_center_min[i] + e->d_center_max[i]) / 2;
+		e->d_vel[i] += parent_d_vel[i];
 		e->vel[i] += e->d_vel[i];
-		e->d_center_min[i] = e->d_center_max[i] = e->d_vel[i] = 0;
+		e->d_center_min[i] = e->d_center_max[i] = 0;
+		// d_vel we reset later, we need to pass it on to the children
 	}
 
 	// We have a "rule" that the order of wires doesn't matter;
@@ -574,6 +587,12 @@ void flushMisc(ent *e) {
 		if (!e->wires.has(w)) e->wires.add(w);
 	}
 	e->wiresAdd.num = 0;
+
+	ent *c;
+	for (c = e->holdee; c; c = c->LL.n) {
+		flushMisc(c, e->d_vel);
+	}
+	range(i, 3) e->d_vel[i] = 0;
 }
 
 //TODO: If this was ordered, onCrush could have access to its whole tree (but not those of others!)
@@ -614,7 +633,6 @@ static void flushPickups(gamestate *gs) {
 		ent *x = i->holder_max[ff];
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;
-		// TODO this ruins i->LL.n for the next iteration of the loop
 		if (x != i && !x->dead) pickup(gs, x, i);
 		i->holder_max[ff] = NULL;
 	}
@@ -635,8 +653,8 @@ static void flush(gamestate *gs) {
 	gs->flipFlop_pickup ^= 1;
 	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
-	for (i = gs->ents; i; i = i->ll.n) {
-		flushMisc(i);
+	for (i = gs->rootEnts; i; i = i->LL.n) {
+		flushMisc(i, zeroVec);
 		flushEntState(&i->state);
 	}
 }
@@ -811,6 +829,8 @@ static ent* cloneEnt(ent *in) {
 // I guess this could maybe live in the velbox files, but we'd have to have some way of handling the `data` cloning
 static box* cloneBox(box *b) {
 	box *ret = velbox_alloc();
+
+	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
 	// We don't actually need the intersects to be accurate -
 	// those are really only advisory outside of when actual collision resolution is happening.
 	// However, there is some logic that relies on a box being its own first intersect

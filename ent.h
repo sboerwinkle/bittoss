@@ -25,6 +25,8 @@ We allow a special "holding" relation between objects that allows them to aglome
 
 typedef unsigned char byte;
 
+extern const int32_t zeroVec[3];
+
 /*
 Anatomy of a tick
 tasks run
@@ -202,7 +204,7 @@ struct gamestate {
 };
 
 extern void flushCtrls(ent *e);
-extern void flushMisc(ent *e);
+extern void flushMisc(ent *e, const int32_t *parent_d_vel);
 
 //extern void moveRecursive(ent *who, int32_t *vel);
 

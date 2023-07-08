@@ -38,8 +38,7 @@ static int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 		uStateSlider(&me->state, 0, bound(vel[0], 4));
 		uStateSlider(&me->state, 1, bound(vel[1], 4));
 	}
-	// Todo: I'm using this more in the flag, which can actually be picked up.
-	//       Maybe I should change this?
+	// Todo: Should probably do away with this entirely in favor of specifying the behavior on pickup
 	return r_move;
 }
 

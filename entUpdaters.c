@@ -48,6 +48,9 @@ void pushEyes(ent *who, int *x) {
 	}
 }
 
+// TODO if this is ever used I'll have to figure out how to work it in a way that actually makes
+//      sense with anything it's holding. Simplest solution would probably be to have teleports be
+//      additive offsets rather than the median of the positions, and then work it like `uVel`
 void uCenter(ent *e, int32_t *p) {
 	for (int i = 0; i < 3; i++) {
 		if (p[i] > e->d_center_max[i]) {
@@ -62,10 +65,6 @@ void uCenter(ent *e, int32_t *p) {
 void uVel(ent *e, int32_t *a) {
 	for (int i = 0; i < 3; i++) {
 		e->d_vel[i] += a[i];
-	}
-	ent *child;
-	for (child = e->holdee; child; child = child->LL.n) {
-		uVel(child, a);
 	}
 }
 

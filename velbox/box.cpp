@@ -50,6 +50,11 @@ static char contains(box *p, box *b) {
 }
 
 static void setIntersects(box *n) {
+#ifndef NODEBUG
+	if (n->intersects.num) { fputs("Intersect assertion 2 failed\n", stderr); exit(1); }
+#endif
+	n->intersects.add(n);
+
 	list<box*> &aunts = n->parent->intersects;
 	range(i, aunts.num) {
 		box *aunt = aunts[i];
@@ -59,22 +64,15 @@ static void setIntersects(box *n) {
 			n->intersects.add(aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
-			// Reverse iteration here is to make sure `n` is its own first intersect.
-			// The first aunt will be its parent, and since it was just added it should be
-			// the last child of its parent.
-			// In general this results in a bias towards more recent boxes, which probably is a good thing.
+			// Not sure if this really matters, but we reverse the iteration order here.
+			// This should mean that more recently moved boxes (end of `kids`) wind up
+			// considered first for placement of new children. Maybe this is good?
+			// Hopefully it's not bad.
 			for (int j = cousins.num - 1; j >= 0; j--) {
 				box *test = cousins[j];
-				if (intersects(test, n)) {
-					// This looks a little clumsy, but it's so that if `test == n`
-					// we don't add itself to its intersects twice.
-					// It saves a branch most of the time compared to doing this the naive way,
-					// but it's very possible I overengineered this.
-					int num = n->intersects.num;
-					n->intersects.setMaxUp(num+1);
-					n->intersects[num] = test;
+				if (intersects(test, n) && test != n) {
 					test->intersects.add(n);
-					n->intersects.num = num+1;
+					n->intersects.add(test);
 				}
 			}
 		}
@@ -188,6 +186,10 @@ static void addWhale(box *w, const list<box*> *opts) {
 
 static void clearIntersects(box *b) {
 	list<box*> &intersects = b->intersects;
+#ifndef NODEBUG
+	if (!intersects.num) { fputs("Intersect assertion 0 failed\n", stderr); exit(1); }
+	if (intersects[0] != b) { fputs("Intersect assertion 1 failed\n", stderr); exit(1); }
+#endif
 	// We skip the first one because it's going to be ourselves
 	for (int i = 1; i < intersects.num; i++) {
 		// Todo should this be a quickRm (which would be a new function)?
@@ -218,7 +220,8 @@ void velbox_update(box *b) {
 	reposition(b);
 	clearIntersects(b);
 	setIntersects(b);
-	for (int i = 1; i < b->intersects.num; i++) {
+	int x = b->intersects.num;
+	for (int i = 1; i < x; i++) {
 		addWhale(b, &b->intersects[i]->kids);
 	}
 }

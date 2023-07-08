@@ -88,6 +88,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	int cooldown = getSlider(s, 4);
 	char fire = getTrigger(me, 0);
 
+	//*
 	// edittool stuff (WIP)
 	if (cooldown >= 10 && fire) {
 		cooldown = 0;
@@ -114,6 +115,7 @@ static void player_tick(gamestate *gs, ent *me) {
 		}
 		if (!found) mkBauble(gs, me, e);
 	}
+	// */
 
 
 	/* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
@@ -174,7 +176,7 @@ static void player_tick(gamestate *gs, ent *me) {
 			mkPlatform(gs, me, look, d);
 		}
 	}
-	*/
+	// */
 	if (charge < 180) uStateSlider(s, 3, charge + 1);
 	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
 }
