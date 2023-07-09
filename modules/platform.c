@@ -28,6 +28,6 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
 	return e;
 }
 
-void platform_init() {
+void module_platform() {
 	whoMovesHandlers.reg("platform-whomoves", platform_whoMoves);
 }

@@ -22,9 +22,9 @@ static void player_draw(ent *e) {
 	int32_t color = getSlider(&e->state, 6);
 	drawEnt(
 		e,
-		(color&3) / 3.0,
-		(color&12) / 12.0,
-		(color&48) / 48.0
+		(color&0xFF0000) / 16777216.0,
+		(color&0xFF00) / 65536.0,
+		(color&0xFF) / 256.0
 	);
 }
 
@@ -202,7 +202,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	return ret;
 }
 
-void player_init() {
+void module_player() {
 	whoMovesHandlers.reg("player-whomoves", player_whoMoves);
 	tickHandlers.reg("player-tick", player_tick);
 	drawHandlers.reg("player-draw", player_draw);

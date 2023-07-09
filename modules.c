@@ -23,13 +23,13 @@
 #include "modules/stackem.h"
 
 void initMods() {
-	common_init();
-	colors_init();
-	explosion_init();
-	flag_init();
-	ground_init();
-	platform_init();
-	edittool_init();
-	player_init();
-	stackem_init();
+	module_common();
+	module_colors();
+	module_explosion();
+	module_flag();
+	module_ground();
+	module_platform();
+	module_edittool();
+	module_player();
+	module_stackem();
 }

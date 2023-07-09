@@ -69,7 +69,7 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	ret->draw = drawHandlers.getByName("no-draw");
 }
 
-void flag_init() {
+void module_flag() {
 	tickHandlers.reg("flag-spawner-tick", flagSpawner_tick);
 	crushHandlers.reg("flag-crush", flag_crush);
 	pushedHandlers.reg("flag-pushed", flag_pushed);

@@ -82,7 +82,7 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	return e;
 }
 
-void stackem_init() {
+void module_stackem() {
 	whoMovesHandlers.reg("stackem-whomoves", stackem_whoMoves);
 	drawHandlers.reg("stackem-draw", stackem_draw);
 	pushedHandlers.reg("stackem-pushed", stackem_pushed);

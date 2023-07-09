@@ -109,7 +109,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 	return ret;
 }
 
-void edittool_init() {
+void module_edittool() {
 	tickHandlers.reg("bauble-tick", bauble_tick);
 	tickHandlers.reg("bauble-tick-held", bauble_tick_held);
 	drawHandlers.reg("bauble-draw", bauble_draw);

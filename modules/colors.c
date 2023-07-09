@@ -22,7 +22,7 @@ static void team_draw(ent *e) {
 	);
 }
 
-void colors_init() {
+void module_colors() {
 	drawHandlers.reg("no-draw", no_draw);
 	drawHandlers.reg("clr-white", colors_white);
 	drawHandlers.reg("clr-blue", colors_blue);

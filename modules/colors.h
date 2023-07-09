@@ -1,1 +1,1 @@
-extern void colors_init();
+extern void module_colors();

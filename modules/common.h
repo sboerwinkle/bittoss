@@ -1,1 +1,1 @@
-extern void common_init();
+extern void module_common();

@@ -21,5 +21,5 @@ ent* mkGround(gamestate *gs, int32_t *pos, draw_t d) {
 	return ret;
 }
 
-void ground_init() {
+void module_ground() {
 }

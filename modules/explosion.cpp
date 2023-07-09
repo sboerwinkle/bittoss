@@ -66,7 +66,7 @@ vel[ix] = parent->vel[ix] + 2 * force * counter/(count-1) - force
 #undef foo
 }
 
-void explosion_init() {
+void module_explosion() {
 	whoMovesHandlers.reg("explosion-whoMoves", explosion_whoMoves);
 	drawHandlers.reg("explosion-draw", explosion_draw);
 	pushedHandlers.reg("explosion-pushed", explosion_pushed);

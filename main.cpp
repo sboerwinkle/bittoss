@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <regex.h>
 
 #include "util.h"
 #include "list.h"
@@ -23,6 +24,7 @@
 #include "map.h"
 #include "serialize.h"
 #include "box.h"
+#include "colors.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -41,7 +43,9 @@ static char globalRunning = 1;
 static list<player> players, phantomPlayers;
 static int myPlayer;
 
-static int32_t defaultColors[8] = {11, 8, 19, 15, 2, 44, 23, 29};
+static int32_t defaultColors[8] = {0xFFAA00, 0x00AA00, 0xFF0055, 0xFFFF00, 0xAA0000, 0x00FFAA, 0xFF5555, 0x55FF55};
+static regex_t colorRegex;
+static regmatch_t regexMatches[3];
 
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
 char p1Keys[numKeys];
@@ -412,14 +416,6 @@ static void updateMedianTime() {
 }
 
 static void processCmd(player *p, char *data, int chars, char isMe, char isReal) {
-	// Probably should put this inside the "short message" case,
-	// but it's a very very simple one w/ minimal string processing so it works fine out here too
-	if (chars >= 6 && !strncmp(data, "/c ", 3)) {
-		int32_t color = (data[3] - '0') + 4 * (data[4] - '0') + 16 * (data[5] - '0');
-		p->color = color;
-		updateColor(p);
-		return;
-	}
 	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
 		if (!isReal) return;
 		doCleanup(rootState);
@@ -455,6 +451,24 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 				serialize(rootState, &syncData);
 				syncReady = 1;
 			}
+			chatBuffer[0] = '\0';
+		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
+			int32_t color;
+			// First, check for 6-digit hex color representation
+			if (!regexec(&colorRegex, chatBuffer+3, 3, regexMatches, 0)) {
+				color = strtol(chatBuffer + 3 + regexMatches[2].rm_so, NULL, 16);
+			} else {
+				// Next, check named CSS colors, as an easter egg for Paul
+				color = findColor(chatBuffer + 3);
+				if (color == -1) {
+					// Finally, fall back to the old, weird, 6-bit color representation
+					color = (chatBuffer[3] - '0') + 4 * (chatBuffer[4] - '0') + 16 * (chatBuffer[5] - '0');
+					// Convert from weird 6-bit repr (with all its quirks) to regular 32-bit color
+					color = (color&3)*255/3*0x10000 + (color&12)/4*255/3*0x100 + (color&48)/16*255/3;
+				}
+			}
+			p->color = color;
+			updateColor(p);
 			chatBuffer[0] = '\0';
 		}
 	} else {
@@ -732,6 +746,12 @@ static void* inputThreadFunc(void *arg) {
 					if (evnt.keyboard.keycode == ALLEGRO_KEY_T) {
 						if (textInputMode == 0) setupTyping();
 						textInputMode |= 1;
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_SLASH && !textInputMode) {
+						inputTextBuffer[0] = '/';
+						inputTextBuffer[1] = '_';
+						inputTextBuffer[2] = '\0';
+						bufferedTextLen = 1;
+						textInputMode = 1;
 					}
 				}
 				break;
@@ -885,6 +905,7 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
+	regcomp(&colorRegex, "^ *(#|0x)?([0-9a-f]{6}) *$", REG_EXTENDED|REG_ICASE);
 	players.init();
 	phantomPlayers.init();
 
@@ -924,6 +945,7 @@ int main(int argc, char **argv) {
 		fputs("No mouse support.\n", stderr);
 	}
 	initGraphics(); // OpenGL Setup (calls initFont())
+	colors_init();
 	velbox_init();
 	ent_init();
 	initMods(); //Set up modules
@@ -1045,6 +1067,7 @@ int main(int argc, char **argv) {
 	destroy_registrar();
 	ent_destroy();
 	velbox_destroy();
+	colors_destroy();
 	puts("Done.");
 	puts("Cleaning up Allegro...");
 	al_unregister_event_source(evntQueue, &customSrc);
@@ -1056,6 +1079,7 @@ int main(int argc, char **argv) {
 	puts("Final misc cleanup...");
 	players.destroy();
 	phantomPlayers.destroy();
+	regfree(&colorRegex);
 	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;
