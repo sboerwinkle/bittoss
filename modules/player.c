@@ -88,7 +88,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	int cooldown = getSlider(s, 4);
 	char fire = getTrigger(me, 0);
 
-	//*
+	/*
 	// edittool stuff (WIP)
 	if (cooldown >= 10 && fire) {
 		cooldown = 0;
@@ -118,7 +118,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	// */
 
 
-	/* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
+	//* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
 	int numHoldees = 0;
 	holdeesAnyOrder(h, me) {
 		if (++numHoldees > 1) break; // Don't care about counting any higher than 2
