@@ -8,6 +8,7 @@
 
 catalog<whoMoves_t> whoMovesHandlers;
 catalog<tick_t> tickHandlers;
+catalog<crush_t> crushHandlers;
 catalog<draw_t> drawHandlers;
 catalog<pushed_t> pushedHandlers;
 catalog<push_t> pushHandlers;
@@ -17,12 +18,14 @@ static void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, 
 void init_registrar() {
 	whoMovesHandlers.init();
 	tickHandlers.init();
+	crushHandlers.init();
 	drawHandlers.init();
 	pushedHandlers.init();
 	pushHandlers.init();
 
 	whoMovesHandlers.reg("nil", NULL);
 	tickHandlers.reg("nil", NULL);
+	crushHandlers.reg("nil", NULL);
 	drawHandlers.reg("nil", NULL);
 	pushedHandlers.reg("nil", NULL);
 	pushHandlers.reg("nil", onPushDefault);
@@ -31,6 +34,7 @@ void init_registrar() {
 void destroy_registrar() {
 	whoMovesHandlers.destroy();
 	tickHandlers.destroy();
+	crushHandlers.destroy();
 	drawHandlers.destroy();
 	pushedHandlers.destroy();
 	pushHandlers.destroy();

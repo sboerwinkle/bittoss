@@ -14,6 +14,7 @@
 
 #include "modules/common.h"
 #include "modules/colors.h"
+#include "modules/explosion.h"
 #include "modules/flag.h"
 #include "modules/ground.h"
 #include "modules/platform.h"
@@ -24,6 +25,7 @@
 void initMods() {
 	common_init();
 	colors_init();
+	explosion_init();
 	flag_init();
 	ground_init();
 	platform_init();

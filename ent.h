@@ -52,6 +52,7 @@ struct gamestate;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
 typedef void (*tick_t)(struct gamestate *gs, struct ent*);
+typedef void (*crush_t)(struct gamestate *gs, struct ent*);
 typedef void (*draw_t)(struct ent*);
 typedef int (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
@@ -161,8 +162,7 @@ typedef struct ent {
 	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
 	draw_t draw;
-	// Why was this commented out??
-	//void (*onCrush)(struct ent *me);
+	crush_t crush;
 	push_t push;
 	pushed_t pushed;
 

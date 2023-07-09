@@ -72,13 +72,16 @@ static void player_tick(gamestate *gs, ent *me) {
 	sliders[0] = getSlider(s, 0);
 	sliders[1] = getSlider(s, 1);
 
-	int divisor = grounded ? 1 : 2;
 	int vel[3];
 	vel[2] = (grounded && getButton(me, 0)) ? -192 : 0;
 	range(i, 2) {
-		int dx = bound(4*axis[i] - sliders[i], 10);
-		uStateSlider(s, i, dx + sliders[i]);
-		vel[i] = dx / divisor;
+		vel[i] = 4*axis[i] - sliders[i];
+	}
+	boundVec(vel, 10, 2);
+	int divisor = grounded ? 1 : 2;
+	range(i, 2) {
+		uStateSlider(s, i, sliders[i] + vel[i]);
+		vel[i] /= divisor;
 	}
 	uVel(me, vel);
 

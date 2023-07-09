@@ -187,7 +187,10 @@ static void addWhale(box *w, const list<box*> *opts) {
 static void clearIntersects(box *b) {
 	list<box*> &intersects = b->intersects;
 #ifndef NODEBUG
-	if (!intersects.num) { fputs("Intersect assertion 0 failed\n", stderr); exit(1); }
+	if (!intersects.num) {
+		fputs("Intersect assertion 0 failed\n", stderr);
+		exit(1);
+	}
 	if (intersects[0] != b) { fputs("Intersect assertion 1 failed\n", stderr); exit(1); }
 #endif
 	// We skip the first one because it's going to be ourselves
@@ -206,24 +209,6 @@ void velbox_remove(box *o) {
 		freeBoxes.add(o);
 		o = parent;
 	} while (!o->kids.num && o->parent);
-}
-
-static void reposition(box *b) {
-	box *p = b->parent;
-	if (contains(p, b)) return;
-	p->kids.rm(b);
-	velbox_insert(p, b); // the first arg here is just a starting point, we're not adding it right back to `p` lol
-	if (!p->kids.num) velbox_remove(p);
-}
-
-void velbox_update(box *b) {
-	reposition(b);
-	clearIntersects(b);
-	setIntersects(b);
-	int x = b->intersects.num;
-	for (int i = 1; i < x; i++) {
-		addWhale(b, &b->intersects[i]->kids);
-	}
 }
 
 static void addToAncestor(box *level, box *n, INT minParentR) {
@@ -320,7 +305,7 @@ static void lookUp(box *level, box *n, INT minParentR) {
 	addToAncestor(level, n, minParentR);
 }
 
-void velbox_insert(box *guess, box *n) {
+static void insert(box *guess, box *n) {
 	// It is IMPORTANT to note that `n` must be small enough to have at least one nested level
 	// below the apex. The apex is weird enough as it is, this condition reduces the number of
 	// edge cases we have to consider.
@@ -340,6 +325,35 @@ void velbox_insert(box *guess, box *n) {
 	if (!tryLookDown(mergeBase, n, minParentR)) {
 		// Please, mergeBase->parent was my father
 		lookUp(mergeBase->parent ? mergeBase->parent : mergeBase, n, minParentR);
+	}
+}
+
+void velbox_insert(box *guess, box *n) {
+	insert(guess, n);
+#ifndef NODEBUG
+	if (n->intersects.num) {
+		fputs("Intersect assertion 3 failed\n", stderr);
+		exit(1);
+	}
+#endif
+	n->intersects.add(n);
+}
+
+static void reposition(box *b) {
+	box *p = b->parent;
+	if (contains(p, b)) return;
+	p->kids.rm(b);
+	insert(p, b); // the first arg here is just a starting point, we're not adding it right back to `p` lol
+	if (!p->kids.num) velbox_remove(p);
+}
+
+void velbox_update(box *b) {
+	reposition(b);
+	clearIntersects(b);
+	setIntersects(b);
+	int x = b->intersects.num;
+	for (int i = 1; i < x; i++) {
+		addWhale(b, &b->intersects[i]->kids);
 	}
 }
 

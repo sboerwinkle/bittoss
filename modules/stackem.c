@@ -31,12 +31,13 @@ static void stackem_draw(ent *e) {
 	);
 }
 
-static int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	if (axis == 2 && dir == -1) {
 		int vel[3];
 		getVel(vel, me, him);
-		uStateSlider(&me->state, 0, bound(vel[0], 4));
-		uStateSlider(&me->state, 1, bound(vel[1], 4));
+		boundVec(vel, 4, 2);
+		uStateSlider(&me->state, 0, vel[0]);
+		uStateSlider(&me->state, 1, vel[1]);
 	}
 	// Todo: Should probably do away with this entirely in favor of specifying the behavior on pickup
 	return r_move;

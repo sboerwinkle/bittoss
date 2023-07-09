@@ -411,6 +411,12 @@ static char doIteration(gamestate *gs) {
 	return ret;
 }
 
+static void invokeOnCrush(gamestate *gs) {
+	for (ent *e = gs->deadTail; e; e = e->ll.p) {
+		if (e->crush) (*e->crush)(gs, e);
+	}
+}
+
 static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
@@ -515,7 +521,6 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 		prev = e;
 		e = e->holder;
 		if (ret == r_die) {
-			puts("Chose to die!");
 			crushEnt(gs, prev);
 			break;
 		}
@@ -731,8 +736,7 @@ void doPhysics(gamestate *gs) {
 		level 2 - Like level 1, but if there are no unpushed pushers we next check for circular pushers.
 	*/
 
-	// TODO Assuming new things get added as "my box goes from `center` by `vel" (maybe a flawed assumption!),
-	//      at this point we need to advance all the parent boxes one step (since they're "from `old` to `center`" during collisions)
+	invokeOnCrush(gs);
 
 	flush(gs);
 }

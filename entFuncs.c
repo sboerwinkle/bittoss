@@ -69,7 +69,7 @@ void initEnt(
 	e->tickType = tickTypeDefault;
 	//e->onDraw = onDrawDefault;
 	e->draw = NULL;
-	//e->onCrush = onCrushDefault;
+	e->crush = NULL;
 	e->push = defaultPush;
 	e->pushed = NULL;
 	e->onFumble = onFumbleDefault;

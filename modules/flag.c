@@ -5,7 +5,19 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "stackem.h"
+#include "explosion.h"
+
 static const int32_t flagSize[3] = {350, 350, 350};
+
+static int flag_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	if (type(him) & T_FLAG) return r_die;
+	return stackem_pushed(gs, me, him, axis, dir, dx, dv);
+}
+
+static void flag_crush(gamestate *gs, ent *me) {
+	explode(gs, me, 4, 400);
+}
 
 static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	ent *e = initEnt(
@@ -21,8 +33,9 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.getByName("move-me");
 	e->draw = drawHandlers.getByName("team-draw");
-	e->pushed = pushedHandlers.getByName("stackem-pushed");
+	e->pushed = pushedHandlers.getByName("flag-pushed");
 	e->tick = tickHandlers.getByName("stackem-tick");
+	e->crush = crushHandlers.getByName("flag-crush");
 
 	return e;
 }
@@ -58,4 +71,6 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 
 void flag_init() {
 	tickHandlers.reg("flag-spawner-tick", flagSpawner_tick);
+	crushHandlers.reg("flag-crush", flag_crush);
+	pushedHandlers.reg("flag-pushed", flag_pushed);
 }

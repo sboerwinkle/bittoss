@@ -36,6 +36,7 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	handler(e->whoMoves, whoMovesHandlers); \
 	handler(e->tick, tickHandlers); \
 	handler(e->tickHeld, tickHandlers); \
+	handler(e->crush, crushHandlers); \
 	handler(e->draw, drawHandlers); \
 	handler(e->push, pushHandlers); \
 	handler(e->pushed, pushedHandlers); \
