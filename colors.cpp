@@ -168,6 +168,7 @@ void colors_init() {
 	colors.add({.name="tan", .value=0xd2b48c});
 	colors.add({.name="teal", .value=0x008080});
 	colors.add({.name="thistle", .value=0xd8bfd8});
+	colors.add({.name="timberwolf", .value=0xd9d6cf}); // Add Crayola Timberwolf, specifically for Paul
 	colors.add({.name="tomato", .value=0xff6347});
 	colors.add({.name="turquoise", .value=0x40e0d0});
 	colors.add({.name="violet", .value=0xee82ee});

@@ -471,8 +471,11 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 					color = (color&3)*255/3*0x10000 + (color&12)/4*255/3*0x100 + (color&48)/16*255/3;
 				}
 			}
-			p->color = color;
-			updateColor(p);
+			// Timberwolf is a cursed color, you can only leave with a _silver_ bullet
+			if (p->color != 0xd9d6cf || color == 0xc0c0c0) {
+				p->color = color;
+				updateColor(p);
+			}
 		} else {
 			wasCommand = 0;
 		}
