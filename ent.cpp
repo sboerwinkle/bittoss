@@ -259,7 +259,7 @@ int getAxisAndDir(ent *a, ent *b) {
 		// In this case we've always been inside! The scandal! Time to decide if we're actively leaving
 		// Here we define 'best' as 'closest to the surface', regardless of velocities.
 		int depth = INT32_MAX;
-		int ret;
+		int ret = 0;
 		for (i = 0; i < 3; i++) {
 			int d = d1[i] + w[i];
 			int new_depth;

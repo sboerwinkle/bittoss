@@ -68,7 +68,10 @@ static char* readFileContents(const char* path){
 	long fsize = ftell(fp);
 	rewind(fp);  /* same as rewind(f); */
 	char *ret = (char*) malloc(fsize + 1);
-	fread(ret, 1, fsize, fp);
+	long numRead = fread(ret, 1, fsize, fp);
+	if (numRead != fsize) {
+		fprintf(stderr, "File allegedly has size %ld, but only read %ld bytes\n", fsize, numRead);
+	}
 	fclose(fp);
 	ret[fsize] = 0;
 	return ret;
