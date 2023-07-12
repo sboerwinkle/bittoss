@@ -25,6 +25,7 @@
 #include "serialize.h"
 #include "box.h"
 #include "colors.h"
+#include "debugTree.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -415,7 +416,7 @@ static void updateMedianTime() {
 	}
 }
 
-static void processCmd(player *p, char *data, int chars, char isMe, char isReal) {
+static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
 	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
 		if (!isReal) return;
 		doCleanup(rootState);
@@ -437,6 +438,7 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 	if (chars < TEXT_BUF_LEN) {
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
+		char wasCommand = 1;
 		if (!strncmp(chatBuffer, "/save", 5)) {
 			if (isMe && isReal) {
 				const char *name = "savegame";
@@ -444,14 +446,16 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 				printf("Saving game to %s\n", name);
 				saveGame(name);
 			}
-			chatBuffer[0] = '\0';
 		} else if (!strncmp(chatBuffer, "/sync", 5)) {
 			if (isMe && isReal && !syncReady) {
 				syncData.num = 0;
 				serialize(rootState, &syncData);
 				syncReady = 1;
 			}
-			chatBuffer[0] = '\0';
+		} else if (!strncmp(chatBuffer, "/tree", 5)) {
+			if (isMe && isReal) {
+				printTree(gs);
+			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color;
 			// First, check for 6-digit hex color representation
@@ -469,8 +473,10 @@ static void processCmd(player *p, char *data, int chars, char isMe, char isReal)
 			}
 			p->color = color;
 			updateColor(p);
-			chatBuffer[0] = '\0';
+		} else {
+			wasCommand = 0;
 		}
+		if (wasCommand) chatBuffer[0] = '\0';
 	} else {
 		fputs("Incoming \"chat\" buffer was too long, ignoring\n", stderr);
 	}
@@ -510,7 +516,7 @@ static void doWholeStep(gamestate *state, char *inputData, char *data2) {
 		} else {
 			data = toProcess + 4;
 			if (size > 6 && (isMe || !data2)) {
-				processCmd(&players[i], toProcess + 10, size - 6, isMe, !data2);
+				processCmd(state, &players[i], toProcess + 10, size - 6, isMe, !data2);
 			}
 		}
 		if (players[i].entity != NULL) {

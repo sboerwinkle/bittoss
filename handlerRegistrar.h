@@ -25,6 +25,7 @@ template <typename T> struct catalog {
 	T get(int ix);
 	T getByName(const char* name);
 	int reverseLookup(T handler);
+	const char* itemToName(T handler);
 
 private:
 	int findCard(const char* name);
@@ -88,6 +89,17 @@ int catalog<T>::reverseLookup(T handler) {
 	}
 	fputs("WARN - Was asked to lookup nonexistent handler\n", stderr);
 	return 0;
+}
+
+template <typename T>
+const char* catalog<T>::itemToName(T handler) {
+	int ix = reverseLookup(handler);
+	range(i, cards.num) {
+		if (cards[i].ix == ix) {
+			return cards[i].name;
+		}
+	}
+	return "-UNKNOWN-";
 }
 
 template <typename T>
