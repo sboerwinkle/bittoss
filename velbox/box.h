@@ -26,7 +26,7 @@
 #endif
 
 #ifndef FIT
-#define FIT 2
+#define FIT 3
 #endif
 
 struct box {

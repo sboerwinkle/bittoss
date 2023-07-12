@@ -29,12 +29,19 @@ static char intersects(box *o, box *n) {
 	range(d, DIMS) {
 		INT d1 = o->p1[d] - n->p1[d];
 		INT d2 = o->p2[d] - n->p2[d];
-		if (d1 < 0) {
-			d1 *= -1;
-			d2 *= -1;
-		}
 		INT r = o->r[d] + n->r[d];
-		if (d1 >= r && d2 >= r) return 0;
+		if ((d1 >= r && d2 >= r) || (d1 <= -r && d2 <= -r)) return 0;
+		// Technically this will also register a potential collision on this axis
+		// on the frame when their offset switches sign. This is a weird quirk,
+		// but it's fine since we're relying on the "actual" collision processing
+		// to weed out the occasional false positive
+		// (such as diagonal near-misses inside a single frame)
+		// Update:
+		// I'm very tired, but I think this handles the sign-switch case as well (though not the near-miss case).
+		// The cost is that there are some `abs` thrown in (are those expensive?),
+		// and I'm not totally sure how it handles relative velocity of INT_MIN (which is a weird case anyway).
+		// And also it makes much less sense at first glance.
+		// if (abs(d1) >= r && abs(d2) >= r && (d2-d1 > 0) == (d2-INT_MIN > d1-INT_MIN)) return 0;
 	}
 	return 1;
 }
