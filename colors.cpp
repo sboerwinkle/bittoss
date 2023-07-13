@@ -41,6 +41,7 @@ void colors_init() {
 	colors.add({.name="blueviolet", .value=0x8a2be2});
 	colors.add({.name="brown", .value=0xa52a2a});
 	colors.add({.name="burlywood", .value=0xdeb887});
+	colors.add({.name="cactus", .value=0x53713d});
 	colors.add({.name="cadetblue", .value=0x5f9ea0});
 	colors.add({.name="chartreuse", .value=0x7fff00});
 	colors.add({.name="chocolate", .value=0xd2691e});
