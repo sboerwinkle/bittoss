@@ -22,16 +22,16 @@ ent* mkHero(gamestate *gs, int n, int total) {
 	return mkPlayer(gs, pos, team);
 }
 
-static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
+static void mkBase(gamestate *gs, int32_t xOffset, int32_t team, int size) {
 	int32_t width = groundSize[0] * 2;
 	draw_t white = drawHandlers.getByName("clr-white");
 	draw_t blue = drawHandlers.getByName("clr-blue");
 	int32_t pos[3];
 	pos[2] = 0; // Ground is at "sea level"
-	range(x, 3) {
-		pos[0] = xOffset + width * (x-1);
-		range(y, 3) {
-			pos[1] = width * (y-1);
+	range(x, size) {
+		pos[0] = xOffset + width * (x-(size/2));
+		range(y, size) {
+			pos[1] = width * (y-(size/2));
 			mkGround(gs, pos, ((x+y)%2) ? blue : white);
 		}
 	}
@@ -43,6 +43,6 @@ static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 }
 
 void mkMap(gamestate *gs) {
-	mkBase(gs, 64000, 1);
-	mkBase(gs, -64000, 2);
+	mkBase(gs, 64000, 1, 3);
+	mkBase(gs, -64000, 2, 17);
 }

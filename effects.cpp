@@ -38,6 +38,7 @@ void doCrushtainer(gamestate *gs) {
 }
 
 void createDebris(gamestate *gs) {
+	return;
 	// We're going to create incoming platforms at the edges of the crushtainer boundary.
 	// Assumptions are that all of infinite space is populated with some density of platforms,
 	// and each velocity has independent components,
