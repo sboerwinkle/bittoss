@@ -162,6 +162,7 @@ typedef struct ent {
 	//void (*onTickHeld)(struct ent *me);
 	int (*tickType)(struct ent *me, struct ent *him);
 	draw_t draw;
+	int32_t color;
 	crush_t crush;
 	push_t push;
 	pushed_t pushed;

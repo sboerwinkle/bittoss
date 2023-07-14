@@ -69,6 +69,7 @@ void initEnt(
 	e->tickType = tickTypeDefault;
 	//e->onDraw = onDrawDefault;
 	e->draw = NULL;
+	e->color = -2;
 	e->crush = NULL;
 	e->push = defaultPush;
 	e->pushed = NULL;
