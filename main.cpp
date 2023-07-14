@@ -85,17 +85,27 @@ static int historical_flip_micros[micro_hist_num];
 static int micro_hist_ix = micro_hist_num-1;
 static struct timespec t1, t2, t3, t4;
 
-#define frame_time_num 120
-#define median_window 59
 #define frame_nanos 33333333
+// TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
+#define micros_per_frame (1000000 / FRAMERATE)
+// How many frames of data are kept to help guess the server clock
+#define frame_time_num 90
+// How many frames have to agree that we're early (or late) before we start adjusting our clock
+#define frame_time_majority 60
+// If serverLead becomes negative, the server is late with its batch of frame data.
+// It also means we'll send our data before we got the request for it, since it's probably just network lag.
+// However, if the server gets far enough behind, we'll wait until we hear from it again
+// ("far enough" = missing_server_factor * latency)
+#define missing_server_factor -1
 pthread_mutex_t timingMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t timingCond = PTHREAD_COND_INITIALIZER;
 static time_t startSec;
 static long frameTimes[frame_time_num];
-static int frameTimeIx;
+static int frameTimeIx = 0;
 static long medianTime;
 static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
 static int latency;
+static char startFrame;
 #define FRAME_ID_MAX 128
 
 #define BIN_CMD_LOAD 128
@@ -131,8 +141,6 @@ static void outerSetupFrame(list<player> *ps) {
 		frameOffset[2] = 500*PTS_PER_PX;
 	}
 }
-
-#define micros_per_frame (1000000 / FRAMERATE)
 
 static float hudColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
@@ -253,11 +261,11 @@ static void sendControls(int frame) {
 	// thread that ever calls `add`.
 	list<char> &out = outboundData.items[outboundData.end];
 
-	out.setMaxUp(11); // 1 frame + 4 size + 6 input data
+	out.setMaxUp(11); // 4 size + 1 frame + 6 input data
 	out.num = 11;
 
-	out[0] = (char) frame;
-	// Size will go in 1-4, we populate it in a minute
+	// Size will go in 0-3, we populate it in a minute
+	out[4] = (char) frame;
 	// Other buttons also go here, once they exist; bitfield
 	out[5] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
 
@@ -312,7 +320,7 @@ static void sendControls(int frame) {
 		textInputMode -= 2;
 		if (textInputMode == 1) setupTyping();
 	}
-	*(int32_t*)(out.items + 1) = htonl(out.num - 5);
+	*(int32_t*)out.items = htonl(out.num - 4);
 	sendData(out.items, out.num);
 
 	lock(outboundMutex);
@@ -382,30 +390,24 @@ static void handleMouseMove(int dx, int dy) {
 }
 
 static void updateMedianTime() {
-	int ixStart = (frameTimeIx - serverLead - median_window + frame_time_num) % frame_time_num;
-	int ixEnd = serverLead <= 0 ? frameTimeIx : (ixStart + median_window) % frame_time_num;
 	int lt = 0;
-	int le = 0;
+	int gt = 0;
 	long stepDown = 0;
 	long stepUp = INT64_MAX;
-	for (int ix = ixStart; ix != ixEnd; ix = (ix+1) % frame_time_num) {
+	range(ix, frame_time_num) {
 		long t = frameTimes[ix];
-		// TODO Should we pull `medianTime` ahead of time??
-		//      (What does this mean? Was I thinking about threading? Surely it doesn't matter, right?)
 		if (t < medianTime) {
 			lt++;
-			le++;
 			if (t > stepDown) stepDown = t;
 		} else if (t > medianTime) {
+			gt++;
 			if (t < stepUp) stepUp = t;
-		} else {
-			le++;
 		}
 	}
 	long old = medianTime;
-	if (le <= median_window/2) {
+	if (gt >= frame_time_majority) {
 		medianTime = stepUp;
-	} else if (lt > median_window/2) {
+	} else if (lt >= frame_time_majority) {
 		medianTime = stepDown;
 	} else {
 		return;
@@ -485,7 +487,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 	}
 }
 
-static void doWholeStep(gamestate *state, char *inputData, char *data2) {
+static char doWholeStep(gamestate *state, char *inputData, char *data2, char expectedFrame) {
 	// TODO: If view direction ever matters, that should carry over rather than have a constant default
 	// (buttons, move_x, move_y, look_x, look_y, look_z)
 	static char defaultData[6] = {0, 0, 0, 0, 0, 0};
@@ -501,14 +503,17 @@ static void doWholeStep(gamestate *state, char *inputData, char *data2) {
 	createDebris(state);
 	mkHeroes(state);
 
+	char clientLate = 0;
+
 	range(i, numPlayers) {
 		char isMe = i == myPlayer;
 		char *toProcess;
 		if (data2 && isMe) {
-			toProcess = data2 + 1;
+			toProcess = data2;
 		} else {
 			toProcess = inputData;
 		}
+		// regardless of what `toProcess` is, we need to know how much to advance `inputData`
 		int32_t size = ntohl(*(int32_t*)inputData);
 		inputData += 4 + size;
 
@@ -516,10 +521,12 @@ static void doWholeStep(gamestate *state, char *inputData, char *data2) {
 		char *data;
 		if (size == 0) {
 			data = defaultData;
+			if (isMe) clientLate = 1;
 		} else {
-			data = toProcess + 4;
-			if (size > 6 && (isMe || !data2)) {
-				processCmd(state, &players[i], toProcess + 10, size - 6, isMe, !data2);
+			data = toProcess + 5;
+			if (isMe && expectedFrame != toProcess[4]) clientLate = 1;
+			if (size > 7 && (isMe || !data2)) {
+				processCmd(state, &players[i], toProcess + 11, size - 7, isMe, !data2);
 			}
 		}
 		if (players[i].entity != NULL) {
@@ -539,6 +546,8 @@ static void doWholeStep(gamestate *state, char *inputData, char *data2) {
 	// This happens just before finishing the step so we can be 100% sure whether the player's entity is dead or not
 	cleanupDeadHeroes(state);
 	finishStep(state);
+
+	return clientLate;
 }
 
 static void cloneToPhantom() {
@@ -567,17 +576,33 @@ static void* pacedThreadFunc(void *_arg) {
 		// since we didn't have the chance to send anything there.
 		list<char> &tmp = outboundData.add();
 		tmp.num = 0;
-		range(j, 5) tmp.add(0); // 1 byte frame number (doesn't matter), 4 bytes size (all zero)
+		range(j, 4) tmp.add(0); // 4 bytes size (all zero)
 	}
 	unlock(outboundMutex);
 
+	// Lower values (> 0) are better at handling long network latency,
+	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us).
+	// This does get adjusted dynamically.
+	float padding = 0.4;
+	// This means it takes about 25 late events in the same direction to move the padding by 10%, which seems reasonable
+	static const float paddingAdj = 1.0 / 256;
+	int serverLateCount = 0;
+
+	// The first few frames, it's impossible for the server to have any data for us.
+	// Set expectations accordingly. There's probably a more elegant way to do this...
+	int clientLateCount = -latency;
+	padding += paddingAdj * latency;
+
+#define printLateStats() printf("%.4f pad; %d vs %d (server late vs client late)\n", padding, serverLateCount, clientLateCount)
+	int expectedFrame = (FRAME_ID_MAX + startFrame - latency) % FRAME_ID_MAX;
+
 	while (1) {
 		lock(timingMutex);
-		while (medianTime == INT64_MAX && globalRunning) {
+		while (serverLead <= latency * missing_server_factor && globalRunning) {
 			puts("Server isn't responding, pausing pacing thread...");
 			wait(timingCond, timingMutex);
 		}
-		destNanos = medianTime;
+		destNanos = medianTime + (long)(frame_nanos * latency * padding);
 		unlock(timingMutex);
 		if (!globalRunning) break;
 
@@ -630,7 +655,12 @@ static void* pacedThreadFunc(void *_arg) {
 			char *data = frameData.items[frameData.start].items;
 			unlock(timingMutex);
 			framesProcessed++;
-			doWholeStep(rootState, data, NULL);
+			if (doWholeStep(rootState, data, NULL, expectedFrame)) {
+				clientLateCount++;
+				padding -= paddingAdj;
+				printLateStats();
+			}
+			expectedFrame = (expectedFrame+1)%FRAME_ID_MAX;
 		}
 
 		lock(outboundMutex);
@@ -661,7 +691,7 @@ static void* pacedThreadFunc(void *_arg) {
 			lock(outboundMutex);
 			char *myData = outboundData.peek(outboundStart++).items;
 			unlock(outboundMutex);
-			doWholeStep(phantomState, latestFrameData.items, myData);
+			doWholeStep(phantomState, latestFrameData.items, myData, 0);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
@@ -677,22 +707,27 @@ static void* pacedThreadFunc(void *_arg) {
 
 		// if `serverLead == 0` here, I *think* that means the server has sent us the packet for this frame, but nothing extra yet
 		lock(timingMutex);
+		if (serverLead < 0) {
+			serverLateCount++;
+			padding += paddingAdj;
+			printLateStats();
+		}
 		serverLead--;
 		range(i, frame_time_num) frameTimes[i] += frame_nanos;
 		medianTime += frame_nanos;
-		updateMedianTime();
 		unlock(timingMutex);
 	}
+#undef printLateStats
 
 	paced_exit:;
 	latestFrameData.destroy();
 	return NULL;
 }
 
-static void* inputThreadFunc(void *arg) {
+static void* inputThreadFunc(void *_arg) {
 	char mouse_grabbed = 0;
 	char running = 1;
-	int frame = *(char*)arg;
+	int frame = startFrame;
 	// Could use an Allegro timer here, but we expect the delay to be updated moment-to-moment so this is easier
 	//ALLEGRO_TIMEOUT timeout;
 	ALLEGRO_EVENT evnt;
@@ -835,13 +870,8 @@ static void setupPlayers(gamestate *gs, int numPlayers) {
 	resetPlayers(gs);
 }
 
-static void* netThreadFunc(void *arg) {
-	// The 0.3 here is pretty arbitrary;
-	// lower values (> 0) are better at handling long network latency,
-	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us)
-	long serverDelay = frame_nanos * latency * 0.4;
-
-	char expectedFrame = *(char*)arg;
+static void* netThreadFunc(void *_arg) {
+	char expectedFrame = startFrame;
 	while (1) {
 		char frame;
 		if (readData(&frame, 1)) break;
@@ -854,7 +884,7 @@ static void* netThreadFunc(void *arg) {
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
-		nanos = nanos - frame_nanos * serverLead + serverDelay;
+		nanos = nanos - frame_nanos * serverLead;
 
 		// This is a cheap trick which I need to codify as a method.
 		// It's a threadsafe way to get what the next `add` will be, assuming we're the only
@@ -868,7 +898,7 @@ static void* netThreadFunc(void *arg) {
 			int32_t netSize;
 			if (readData(&netSize, 4)) goto done;
 			int32_t size = ntohl(netSize);
-			if (size && size < 6) {
+			if (size && size < 7) {
 				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
 				goto done;
 			}
@@ -881,15 +911,13 @@ static void* netThreadFunc(void *arg) {
 
 		lock(timingMutex);
 		frameData.add();
+		char asleep = (serverLead <= latency * missing_server_factor);
 		serverLead++;
 		frameTimes[frameTimeIx] = nanos;
 		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
-		if (serverLead <= 0) {
-			char asleep = (medianTime == INT64_MAX);
-			updateMedianTime();
-			if (asleep && medianTime != INT64_MAX) {
-				signal(timingCond);
-			}
+		updateMedianTime();
+		if (asleep) {
+			signal(timingCond);
 		}
 		unlock(timingMutex);
 	}
@@ -978,7 +1006,7 @@ int main(int argc, char **argv) {
 	}
 	myPlayer = clientCounts[1];
 	latency = clientCounts[2];
-	char startFrame = clientCounts[3];
+	startFrame = clientCounts[3];
 	printf("Done, I am client #%d\n", myPlayer);
 
 	// `myPlayer + 1` is the minimum number where our index makes sense,
@@ -1019,7 +1047,7 @@ int main(int argc, char **argv) {
 		range(i, frame_time_num) {
 			frameTimes[i] = firstFrame;
 		}
-		updateMedianTime();
+		medianTime = firstFrame;
 	}
 	customEvent.user.type = CUSTOM_EVT_TYPE;
 	customEvent.user.data1 = 0;
@@ -1029,12 +1057,12 @@ int main(int argc, char **argv) {
 	pthread_t inputThread;
 	pthread_t netThread;
 	{
-		int ret = pthread_create(&inputThread, NULL, &inputThreadFunc, &startFrame);
+		int ret = pthread_create(&inputThread, NULL, inputThreadFunc, NULL);
 		if (ret) {
 			printf("pthread_create returned %d for inputThread\n", ret);
 			return 1;
 		}
-		ret = pthread_create(&netThread, NULL, netThreadFunc, &startFrame);
+		ret = pthread_create(&netThread, NULL, netThreadFunc, NULL);
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
 			pthread_cancel(inputThread); // No idea if this works, this is a failure case anyway

@@ -73,11 +73,11 @@ async def handle_client(host, ix):
                 l = len(recvd)
                 if l < 5:
                     break
-                end = 5 + int.from_bytes(recvd[1:5], 'big')
+                end = 4 + int.from_bytes(recvd[:4], 'big')
                 if l < end:
                     break
-                src_frame = recvd[0]
-                payload = recvd[1:end]
+                src_frame = recvd[4]
+                payload = recvd[:end]
                 recvd = recvd[end:]
 
                 if src_frame >= FRAME_ID_MAX:
@@ -90,6 +90,8 @@ async def handle_client(host, ix):
                     # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
                     dest_frame = host.frame
                 else:
+                    if delt <= 0:
+                        print(f"client {ix} delivered packet {1-delt} frames _early_?")
                     dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
                 host.buf[dest_frame][ix] = payload
     except:
