@@ -14,7 +14,7 @@ static int platform_whoMoves(ent *a, ent *b, int axis, int dir) {
 
 const int32_t platformSize[3] = {3200, 3200, 512};
 
-ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
+ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, int32_t color) {
 	int32_t pos[3];
 	range(i, 3) pos[i] = offset[i] + owner->center[i];
 	ent *e = initEnt(
@@ -24,7 +24,7 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, draw_t d) {
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 	);
 	e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
-	e->draw = d;
+	e->color = color;
 	return e;
 }
 

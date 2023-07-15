@@ -117,7 +117,6 @@ int catalog<T>::findCard(const char* name) {
 extern catalog<whoMoves_t> whoMovesHandlers;
 extern catalog<tick_t> tickHandlers;
 extern catalog<crush_t> crushHandlers;
-extern catalog<draw_t> drawHandlers;
 extern catalog<pushed_t> pushedHandlers;
 extern catalog<push_t> pushHandlers;
 

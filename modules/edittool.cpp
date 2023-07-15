@@ -5,18 +5,6 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
-static void bauble_draw(ent *e) {
-	if (getSlider(&e->state, 1)) {
-		drawEnt(e, 1.0, 0.0, 0.0);
-	} else {
-		drawEnt(e, 0.0, 0.0, 1.0);
-	}
-}
-
-static void thumbtack_draw(ent *e) {
-	drawEnt(e, 0.0, 1.0, 0.2);
-}
-
 static int bauble_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	return r_drop;
 }
@@ -70,7 +58,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target) {
 		2,
 		T_DEBRIS, T_TERRAIN + T_OBSTACLE);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
-	ret->draw = drawHandlers.getByName("bauble-draw");
+	ret->color = 0x0000FF;
 	ret->pushed = pushedHandlers.getByName("bauble-pushed");
 	ret->tick = tickHandlers.getByName("bauble-tick");
 	ret->tickHeld = tickHandlers.getByName("bauble-tick-held");
@@ -99,7 +87,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 		T_WEIGHTLESS, T_TERRAIN + T_OBSTACLE + T_DEBRIS
 	);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
-	ret->draw = drawHandlers.getByName("thumbtack-draw");
+	ret->color = 0x00FF33;
 	ret->pushed = pushedHandlers.getByName("thumbtack-pushed");
 	// TODO: This is not how wires are supposed to be updated!
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
@@ -112,9 +100,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 void module_edittool() {
 	tickHandlers.reg("bauble-tick", bauble_tick);
 	tickHandlers.reg("bauble-tick-held", bauble_tick_held);
-	drawHandlers.reg("bauble-draw", bauble_draw);
 	pushedHandlers.reg("bauble-pushed", bauble_pushed);
 
-	drawHandlers.reg("thumbtack-draw", thumbtack_draw);
 	pushedHandlers.reg("thumbtack-pushed", thumbtack_pushed);
 }

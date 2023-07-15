@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../colors.h"
 
 #include "stackem.h"
 #include "platform.h"
@@ -16,16 +17,6 @@ static tick_t bauble_tick;
 
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
-}
-
-static void player_draw(ent *e) {
-	int32_t color = getSlider(&e->state, 6);
-	drawEnt(
-		e,
-		(color&0xFF0000) / 16777216.0,
-		(color&0xFF00) / 65536.0,
-		(color&0xFF) / 256.0
-	);
 }
 
 static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
@@ -171,12 +162,12 @@ static void player_tick(gamestate *gs, ent *me) {
 			getLook(look, me);
 			int colorToggle = getSlider(s, 5);
 			uStateSlider(s, 5, !colorToggle);
-			draw_t d = drawHandlers.getByName(colorToggle ? "clr-white" : "clr-blue");
+			int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
 			range(i, 3) {
 				// 0.040635 == 1.3 / axisMaxis
 				look[i] *= 0.040625 * (512 + platformSize[i]);
 			}
-			mkPlatform(gs, me, look, d);
+			mkPlatform(gs, me, look, color);
 		}
 	}
 	// */
@@ -191,11 +182,11 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, playerSize,
-		7,
+		6,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
 	ret->whoMoves = whoMovesHandlers.getByName("player-whomoves");
-	ret->draw = drawHandlers.getByName("player-draw");
+	ret->color = 0xFFFFFF;
 	ret->pushed = pushedHandlers.getByName("player-pushed");
 	ret->push = pushHandlers.getByName("player-push");
 	ret->tick = tickHandlers.getByName("player-tick");
@@ -205,7 +196,6 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 void module_player() {
 	whoMovesHandlers.reg("player-whomoves", player_whoMoves);
 	tickHandlers.reg("player-tick", player_tick);
-	drawHandlers.reg("player-draw", player_draw);
 	pushedHandlers.reg("player-pushed", player_pushed);
 	pushHandlers.reg("player-push", player_push);
 

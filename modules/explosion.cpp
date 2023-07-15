@@ -9,10 +9,6 @@ static int explosion_whoMoves(ent *me, ent *him, int axis, int dir) {
 	return (type(him) & T_TERRAIN) ? MOVE_ME : MOVE_HIM;
 }
 
-static void explosion_draw(ent *me) {
-	drawEnt(me, 1.0, 0.7, 0.2);
-}
-
 static int explosion_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	return r_die;
 }
@@ -35,7 +31,7 @@ static void mkExplosion(gamestate *gs, ent *parent, int32_t *pos, int32_t *vel) 
 		1,
 		T_OBSTACLE + T_HEAVY, T_TERRAIN + T_OBSTACLE);
 	ret->whoMoves = whoMovesHandlers.getByName("explosion-whoMoves");
-	ret->draw = drawHandlers.getByName("explosion-draw");
+	ret->color = 0xFFB233;
 	ret->pushed = pushedHandlers.getByName("explosion-pushed");
 	ret->tick = tickHandlers.getByName("explosion-tick");
 }
@@ -68,7 +64,6 @@ vel[ix] = parent->vel[ix] + 2 * force * counter/(count-1) - force
 
 void module_explosion() {
 	whoMovesHandlers.reg("explosion-whoMoves", explosion_whoMoves);
-	drawHandlers.reg("explosion-draw", explosion_draw);
 	pushedHandlers.reg("explosion-pushed", explosion_pushed);
 	tickHandlers.reg("explosion-tick", explosion_tick);
 }

@@ -751,25 +751,18 @@ void finishStep(gamestate *gs) {
 }
 
 static void drawEnt(ent *e) {
-	if (e->color != -2) {
-		int32_t color = e->color;
-		if (color == -1) return;
-		drawEnt(
-			e,
-			(color&0xFF0000) / 16777216.0,
-			(color&0xFF00) / 65536.0,
-			(color&0xFF) / 256.0
-		);
-	} else if (e->draw != NULL) {
-		(*e->draw)(e);
-	} else {
-		fputs("Entity draw info unset\n", stderr);
-	}
+	int32_t color = e->color;
+	if (color == -1) return;
+	drawEnt(
+		e,
+		(color&0xFF0000) / 16777216.0,
+		(color&0xFF00) / 65536.0,
+		(color&0xFF) / 256.0
+	);
 }
 
 void doDrawing(gamestate *gs) {
 	ent *i;
-	//for (i = rootEnts; i; i = i->LL.n) {
 	for (i = gs->ents; i; i = i->ll.n) {
 		drawEnt(i);
 	}

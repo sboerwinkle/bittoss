@@ -22,7 +22,8 @@ static void f(box *b, list<char> *i) {
 	if (b->data) {
 		ent *e = (ent*)b->data;
 		putchar(' ');
-		fputs(drawHandlers.itemToName(e->draw), stdout);
+		fputs(tickHandlers.itemToName(e->tick), stdout);
+		printf(" %6X", e->color);
 	}
 	putchar('\n');
 	indent(i);

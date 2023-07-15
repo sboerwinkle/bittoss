@@ -32,7 +32,7 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.getByName("move-me");
-	e->draw = drawHandlers.getByName("team-draw");
+	e->color = (e->typeMask & TEAM_BIT) ? 0xFF8080 : 0x80FF80;
 	e->pushed = pushedHandlers.getByName("flag-pushed");
 	e->tick = tickHandlers.getByName("stackem-tick");
 	e->crush = crushHandlers.getByName("flag-crush");
@@ -66,7 +66,7 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	);
 	uStateSlider(&ret->state, 1, team);
 	ret->tick = tickHandlers.getByName("flag-spawner-tick");
-	ret->draw = drawHandlers.getByName("no-draw");
+	ret->color = -1;
 }
 
 void module_flag() {

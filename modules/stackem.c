@@ -21,16 +21,6 @@ static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return MOVE_HIM;
 }
 
-static void stackem_draw(ent *e) {
-	int typ = type(e);
-	drawEnt(
-		e,
-		(typ & TEAM_BIT) ? 0.5 : 0.3,
-		(typ & (2*TEAM_BIT)) ? 0.5 : 0.3,
-		(typ & (4*TEAM_BIT)) ? 0.5 : 0.3
-	);
-}
-
 int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	if (axis == 2 && dir == -1) {
 		int vel[3];
@@ -75,7 +65,7 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.getByName("stackem-whomoves");
-	e->draw = drawHandlers.getByName("stackem-draw");
+	e->color = (e->typeMask & TEAM_BIT) ? 0x805555 : 0x558055;
 	e->pushed = pushedHandlers.getByName("stackem-pushed");
 	e->tick = tickHandlers.getByName("stackem-tick");
 
@@ -84,7 +74,6 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 
 void module_stackem() {
 	whoMovesHandlers.reg("stackem-whomoves", stackem_whoMoves);
-	drawHandlers.reg("stackem-draw", stackem_draw);
 	pushedHandlers.reg("stackem-pushed", stackem_pushed);
 	tickHandlers.reg("stackem-tick", stackem_tick);
 }

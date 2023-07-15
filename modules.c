@@ -13,7 +13,6 @@
 // it's okay to have a laundry-list file
 
 #include "modules/common.h"
-#include "modules/colors.h"
 #include "modules/explosion.h"
 #include "modules/flag.h"
 #include "modules/ground.h"
@@ -24,7 +23,6 @@
 
 void initMods() {
 	module_common();
-	module_colors();
 	module_explosion();
 	module_flag();
 	module_ground();

@@ -333,7 +333,7 @@ static void sendControls(int frame) {
 
 static void updateColor(player *p) {
 	if (p->entity) {
-		uStateSlider(&p->entity->state, 6, p->color);
+		p->entity->color = p->color;
 	}
 }
 

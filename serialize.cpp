@@ -6,6 +6,8 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
+static const char* version_string = "gam0";
+
 static const int32_t dummyPos[3] = {0, 0, 0};
 static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 // I didn't make that number up I swear. It's a real number with real reasons.
@@ -23,6 +25,7 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	/* We're not handling any of the fields related to pending changes, */\
 	/* so the serialization might not be totally faithful in the event */\
 	/* that something doesn't get flushed all the way (is that possible?)*/\
+	i32(e->color); \
 	range(i, e->state.numSliders) { \
 		i32(e->state.sliders[i].v); \
 	} \
@@ -37,7 +40,6 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	handler(e->tick, tickHandlers); \
 	handler(e->tickHeld, tickHandlers); \
 	handler(e->crush, crushHandlers); \
-	handler(e->draw, drawHandlers); \
 	handler(e->push, pushHandlers); \
 	handler(e->pushed, pushedHandlers); \
 	check(133)
@@ -96,13 +98,15 @@ static void serializeSiblings(ent *e, list<char> *data) {
 }
 
 void serialize(gamestate *gs, list<char> *data) {
-	int countIx = data->num;
-	// This space intentionally left blank; we populate the first 4 bytes (which is
-	// the number of entities) after we've iterated through them.
-	data->num += 4;
+	// First 8 bytes are 'gam0', followed by the count of entities (which we'll populate later)
+	data->setMaxUp(data->num + 8);
+	memcpy(&(*data)[data->num], version_string, 4);
+	int countIx = data->num + 4;
+	data->num += 8;
+
 	int num = enumerateSiblings(gs->rootEnts, 0);
-	serializeSiblings(gs->rootEnts, data);
 	write32Raw(data, countIx, num);
+	serializeSiblings(gs->rootEnts, data);
 
 	int numPlayers = gs->players->num;
 	write32(data, numPlayers);
@@ -167,9 +171,28 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 }
 
 void deserialize(gamestate *gs, const list<char> *data) {
-	int _ix = 0; // Used to step through the inbound data
+	if (data->num < 4) {
+		fputs("Only got %d bytes of data, can't deserialize\n", stderr);
+		return;
+	}
+	if (strncmp(data->items, version_string, 4)) {
+		fprintf(
+			stderr,
+			"Beginning of serialized data should read \"%s\", actually reads \"%c%c%c%c\"\n",
+			version_string,
+			(*data)[0], (*data)[1], (*data)[2], (*data)[3]
+		);
+		return;
+	}
+	int _ix = 4; // Used to step through the inbound data
 	int *ix = &_ix;
 	int32_t numEnts = read32(data, ix);
+	if (data->num < numEnts * 80) {
+		// 80 isn't exact, and it doesn't have to be since we're careful when reading data out of that list.
+		// We just want a sanity check so we don't allocate 0x80808080 entities...
+		fputs("Not enough data in file to deserialize!\n", stderr);
+		return;
+	}
 	ent** ents = new ent*[numEnts];
 	range(i, numEnts) {
 		// A bunch of ent-sized spaces in memory.

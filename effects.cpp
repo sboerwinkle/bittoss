@@ -6,6 +6,7 @@
 #include "entFuncs.h"
 #include "main.h"
 #include "handlerRegistrar.h"
+#include "colors.h"
 
 /*
 This file is intended to be world-level effects that are applied every tick.
@@ -91,8 +92,12 @@ void createDebris(gamestate *gs) {
 			// This actually doesn't correlate with any of the previous
 			// checks we've done against `encounter` assuming RAND_MAX
 			// is reasonably big. I am going to assume that.
-			int color = encounter % 3;
-			const char *colors[3] = {"clr-mag-1", "clr-mag-2", "clr-mag-3"};
+			int32_t color = encounter % 3;
+			switch (color) {
+				case 0: color = CLR_MAG_1; break;
+				case 1: color = CLR_MAG_2; break;
+				case 2: color = CLR_MAG_3;
+			}
 
 			// Make the actual platform, starting with the basic entity physics stuff
 			ent *e = initEnt(
@@ -103,7 +108,7 @@ void createDebris(gamestate *gs) {
 			);
 			// Make it more platform-y
 			e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
-			e->draw = drawHandlers.getByName(colors[color]);
+			e->color = color;
 		}
 	}
 }

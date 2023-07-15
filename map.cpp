@@ -6,6 +6,7 @@
 #include "util.h"
 #include "ent.h"
 #include "handlerRegistrar.h"
+#include "colors.h"
 
 #include "modules/player.h"
 #include "modules/ground.h"
@@ -24,8 +25,8 @@ ent* mkHero(gamestate *gs, int n, int total) {
 
 static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 	int32_t width = groundSize[0] * 2;
-	draw_t white = drawHandlers.getByName("clr-white");
-	draw_t blue = drawHandlers.getByName("clr-blue");
+	const int32_t white = CLR_WHITE;
+	const int32_t blue = CLR_BLUE;
 	int32_t pos[3];
 	pos[2] = 0; // Ground is at "sea level"
 	range(x, 3) {
