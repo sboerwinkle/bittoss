@@ -40,8 +40,10 @@ static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, in
 
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (getButton(me, 1) && (type(him) & T_FLAG)) {
-		// Skip if already any holdees
-		holdeesAnyOrder(h, me) { return; }
+		// Skip if already any (non-decor) holdees
+		holdeesAnyOrder(h, me) {
+			if (!(h->typeMask & T_DECOR)) return;
+		}
 		uPickup(gs, me, him);
 	}
 }
@@ -66,11 +68,11 @@ static void player_tick(gamestate *gs, ent *me) {
 	range(i, 2) {
 		vel[i] = 4*axis[i] - sliders[i];
 	}
-	boundVec(vel, 10, 2);
+	// In the air, our efforts only yield half the impulse
 	int divisor = grounded ? 1 : 2;
+	boundVec(vel, 10 / divisor, 2);
 	range(i, 2) {
-		uStateSlider(s, i, sliders[i] + vel[i]);
-		vel[i] /= divisor;
+		uStateSlider(s, i, sliders[i] + vel[i]*divisor);
 	}
 	uVel(me, vel);
 

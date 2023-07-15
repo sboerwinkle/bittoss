@@ -114,20 +114,12 @@ void uUnwire(ent *e, ent *w) {
 	e->wiresRm.add(w);
 }
 
-void uTypeMask(ent *e, uint32_t mask, char turnOn) {
-	if (turnOn) {
-		e->d_typeMask_max |= mask;
-	} else {
-		e->d_typeMask_min |= mask;
-	}
+void uMyTypeMask(ent *e, uint32_t mask) {
+	e->newTypeMask = mask;
 }
 
-void uCollideMask(ent *e, uint32_t mask, char turnOn) {
-	if (turnOn) {
-		e->d_collideMask_max |= mask;
-	} else {
-		e->d_collideMask_min |= mask;
-	}
+void uMyCollideMask(ent *e, uint32_t mask) {
+	e->newCollideMask = mask;
 }
 
 //TODO: Requests to update orientation

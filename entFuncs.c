@@ -54,12 +54,12 @@ void initEnt(
 	e->wiresRm.init();
 	e->wiresAdd.init();
 	flushCtrls(e);
+	e->newTypeMask = typeMask;
+	e->newCollideMask = collideMask;
 	flushMisc(e, zeroVec, zeroVec);
 	memcpy(e->center, c, sizeof(e->center));
 	memcpy(e->vel, v, sizeof(e->vel));
 	memcpy(e->radius, r, sizeof(e->radius));
-	e->typeMask = typeMask;
-	e->collideMask = collideMask;
 
 	setupEntState(&e->state, numSliders);
 

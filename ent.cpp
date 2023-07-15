@@ -183,12 +183,12 @@ static void killEntNoHandlers(gamestate *gs, ent *e) {
 	e->dead = 1;
 }
 
+// TODO remove this completely? `crush` handler invocation should happen later (outside physics loop)
 static void crushEnt(gamestate *gs, ent *e) {
 	if (e->dead) {
 		fputs("I don't think we should ever try to re-crush!\n", stderr);
 		return;
 	}
-	// TODO remove this completely, `crush` handler invocation should happen later (outside physics loop)
 	killEntNoHandlers(gs, e);
 }
 
@@ -555,16 +555,8 @@ static void doTick(gamestate *gs, ent *e, int type) {
 }
 
 void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
-	//Negate "min" so it shows the bits we're allowed to keep
-	e->d_typeMask_min = ~e->d_typeMask_min;
-	e->typeMask |= e->d_typeMask_max & e->d_typeMask_min;
-	e->typeMask &= e->d_typeMask_max | e->d_typeMask_min;
-	e->d_typeMask_max = e->d_typeMask_min = 0;
-
-	e->d_collideMask_min = ~e->d_collideMask_min;
-	e->collideMask |= e->d_collideMask_max & e->d_collideMask_min;
-	e->collideMask &= e->d_collideMask_max | e->d_collideMask_min;
-	e->d_collideMask_max = e->d_collideMask_min = 0;
+	e->typeMask = e->newTypeMask;
+	e->collideMask = e->newCollideMask;
 
 	range(i, 3) {
 		e->d_center[i] += parent_d_center[i];

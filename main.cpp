@@ -313,7 +313,26 @@ static void sendControls(int frame) {
 		out.add((char)BIN_CMD_LOAD);
 		out.addAll(syncData);
 	} else if (textInputMode >= 2) {
-		if (isCmd(inputTextBuffer, "/load")) {
+		if (isCmd(inputTextBuffer, "/help")) {
+			puts(
+				"Available commands:\n"
+				"/save [FILE] - save to file, default file is \"savegame\"\n"
+				"/load [FILE] - load from file, as above\n" // This one is magic, and handled somewhere else
+				"/sync - send current state over network - also Ctrl+S\n"
+				"/syncme - displays message to other clients requesting sync\n"
+				"/tree - prints debug info about collision detection tree\n"
+				"/rule [RULE] - list available gamerules, or toggle one\n"
+				"/c COLOR - Sets the player color to COLOR, a 6-digit hex code or a CSS4 color name\n"
+				"/help - display this help\n"
+			);
+		} else if (isCmd(inputTextBuffer, "/secret")) {
+			puts("Congratulations, you found the one command that isn't listed in /help. This is all it does.");
+		} else if (isCmd(inputTextBuffer, "/secret2")) {
+			puts("You think you're *SO* clever");
+		} else if (isCmd(inputTextBuffer, "/b82dtZZ")) {
+			puts("I hate you");
+			globalRunning = 0;
+		} else if (isCmd(inputTextBuffer, "/load")) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
 			out.add((char)BIN_CMD_LOAD);
@@ -468,8 +487,9 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) {
 				printTree(gs);
 			}
-		} else if (chars >= 7 && isCmd(chatBuffer, "/rule")) {
-			gs->gamerules ^= 1 << atoi(chatBuffer+6);
+		} else if (isCmd(chatBuffer, "/rule")) {
+			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
+			else if (isMe && isReal) puts(RULE_HELP_STR);
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color;
 			// First, check for 6-digit hex color representation

@@ -8,6 +8,16 @@
 static const int32_t eyeSize[3] = {100, 100, 100};
 static const int32_t eyeInset = 50;
 
+static void eye_tick(gamestate *gs, ent *me) {
+	// First time we have a tick while *not* held, set to actually collide
+	// and then clear the tick handler as we have no further work
+	uMyTypeMask(me, me->typeMask | T_DEBRIS);
+	uMyCollideMask(me, me->collideMask | T_TERRAIN | T_OBSTACLE | T_DEBRIS);
+	// It's fine to set this directly in a tick handler,
+	// handlers are considered internal state that no other ent should be looking at anyway
+	me->tick = tickHandlers.getByName("nil");
+}
+
 static void eye_tick_held(gamestate *gs, ent *me) {
 	ent *parent = me->holder;
 	int32_t vec[3];
@@ -22,10 +32,6 @@ static void eye_tick_held(gamestate *gs, ent *me) {
 	uCenter(me, vec);
 }
 
-static void eye_tick(gamestate *gs, ent *me) {
-	uDead(gs, me);
-}
-
 ent* mkEye(gamestate *gs, ent *parent) {
 	ent *ret = initEnt(
 		gs, parent,
@@ -35,8 +41,8 @@ ent* mkEye(gamestate *gs, ent *parent) {
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
 	ret->color = 0xFFFFFF;
 	ret->pushed = pushedHandlers.getByName("drop-on-pushed");
-	ret->tick = tickHandlers.getByName("eye-tick");
 	ret->tickHeld = tickHandlers.getByName("eye-tick-held");
+	ret->tick = tickHandlers.getByName("eye-tick");
 
 	uPickup(gs, parent, ret);
 

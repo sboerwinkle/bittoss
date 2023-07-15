@@ -92,8 +92,7 @@ typedef struct ent {
 	struct ent *forcedHoldees[3];
 
 	uint32_t typeMask, collideMask;
-	uint32_t d_typeMask_min, d_typeMask_max;
-	uint32_t d_collideMask_min, d_collideMask_max;
+	uint32_t newTypeMask, newCollideMask;
 	// Relative to the world even when held.
 	int32_t center[3], d_center[3];
 	// Where the center will be at the end of this iteration
