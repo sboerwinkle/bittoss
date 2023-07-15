@@ -13,8 +13,6 @@
 #include "platform.h"
 #include "edittool.h"
 
-static tick_t bauble_tick;
-
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
 }
@@ -97,11 +95,13 @@ static void player_tick(gamestate *gs, ent *me) {
 			// TODO I think the idea was not to identify what "type" things are, except for by their type flags.
 			//      I'm beginning to think this is an impractical idea, and maybe should be tossed out.
 			//      So I'm doing this this way, and we'll see how it feels.
-			if (h->tick == bauble_tick) {
+			if (h->typeMask & T_DECOR) {
 				range(j, h->wires.num) {
 					if (h->wires[j] == e) {
 						uDrop(gs, h);
 						found = 1;
+						// We're just exiting the wire looping here,
+						// still need to finish looking through the holdees
 						break;
 					}
 				}
@@ -115,6 +115,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	//* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
 	int numHoldees = 0;
 	holdeesAnyOrder(h, me) {
+		if (h->typeMask & T_DECOR) continue;
 		if (++numHoldees > 1) break; // Don't care about counting any higher than 2
 	}
 	// We don't always need this but sometimes we do
@@ -122,14 +123,15 @@ static void player_tick(gamestate *gs, ent *me) {
 	if (numHoldees) {
 		if (numHoldees > 1 || (cooldown >= 10 && fire)) {
 			holdeesAnyOrder(h, me) {
+				if (h->typeMask & T_DECOR) continue;
 				uDrop(gs, h);
 			}
 			cooldown = 0;
 		} else {
 			getLook(look, me);
 			int32_t pos[3], vel[3], r[3], a[3];
-			// TODO define
 			holdeesAnyOrder(h, me) {
+				if (h->typeMask & T_DECOR) continue;
 				getPos(pos, me, h);
 				getVel(vel, me, h);
 				getSize(r, h);
@@ -198,6 +200,4 @@ void module_player() {
 	tickHandlers.reg("player-tick", player_tick);
 	pushedHandlers.reg("player-pushed", player_pushed);
 	pushHandlers.reg("player-push", player_push);
-
-	bauble_tick = tickHandlers.getByName("bauble-tick");
 }

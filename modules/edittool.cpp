@@ -5,10 +5,6 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
-static int bauble_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	return r_drop;
-}
-
 static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
@@ -23,15 +19,11 @@ static void bauble_tick_held(gamestate *gs, ent *me) {
 	if (me->wires.num != 1) {
 		uDrop(gs, me);
 	}
+	// TODO Position self to align with target
 }
 
 static void bauble_tick(gamestate *gs, ent *me) {
-	int timer = getSlider(&me->state, 0);
-	if (timer < 100) {
-		uStateSlider(&me->state, 0, timer+1);
-	} else {
-		uDead(gs, me);
-	}
+	uDead(gs, me);
 }
 
 static const int32_t thumbtackSize[3] = {100, 100, 100};
@@ -55,11 +47,11 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target) {
 	ent *ret = initEnt(
 		gs, parent,
 		center, parent->vel, baubleSize,
-		2,
-		T_DEBRIS, T_TERRAIN + T_OBSTACLE);
+		0,
+		T_DECOR | T_NO_DRAW_FP, 0);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
 	ret->color = 0x0000FF;
-	ret->pushed = pushedHandlers.getByName("bauble-pushed");
+	ret->pushed = pushedHandlers.getByName("drop-on-pushed");
 	ret->tick = tickHandlers.getByName("bauble-tick");
 	ret->tickHeld = tickHandlers.getByName("bauble-tick-held");
 	// TODO: This is not how wires are supposed to be updated!
@@ -100,7 +92,6 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 void module_edittool() {
 	tickHandlers.reg("bauble-tick", bauble_tick);
 	tickHandlers.reg("bauble-tick-held", bauble_tick_held);
-	pushedHandlers.reg("bauble-pushed", bauble_pushed);
 
 	pushedHandlers.reg("thumbtack-pushed", thumbtack_pushed);
 }

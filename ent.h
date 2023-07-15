@@ -95,7 +95,7 @@ typedef struct ent {
 	uint32_t d_typeMask_min, d_typeMask_max;
 	uint32_t d_collideMask_min, d_collideMask_max;
 	// Relative to the world even when held.
-	int32_t center[3], d_center_min[3], d_center_max[3];
+	int32_t center[3], d_center[3];
 	// Where the center will be at the end of this iteration
 	int32_t center2[3];
 	// Center at the beginning of this tick
@@ -203,7 +203,7 @@ struct gamestate {
 };
 
 extern void flushCtrls(ent *e);
-extern void flushMisc(ent *e, const int32_t *parent_d_vel);
+extern void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel);
 
 //extern void moveRecursive(ent *who, int32_t *vel);
 
@@ -219,7 +219,7 @@ extern void drawEnt(ent *e, float r, float g, float b);
 extern void doUpdates(gamestate *gs);
 extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
-extern void doDrawing(gamestate *gs);
+extern void doDrawing(gamestate *gs, ent *inhabit);
 extern void doCleanup(gamestate *gs);
 extern gamestate* mkGamestate(list<player> *players);
 extern void resetGamestate(gamestate *gs);
@@ -263,7 +263,6 @@ enum retCodes {
 
 //When crushing, our first preference is to force a drop if that has a chance to resolve the conflict. So we locate the two leaf objects responsible, and working back up the tree in synchrony, look for an okay fumble.
 //If none are found, well too bad, both leaf nodes are fumbled.
-//If both halves of the crushing force are applied to the same object, we call onCrush, which had better get rid of said object. We'll want a helper "remove" function which does the appropriate destruction queueing (xkcd.com/853) and onFumble[d] calls (for kids and me)
 
 #define T_HEAVY 1
 #define T_TERRAIN 2
@@ -271,5 +270,7 @@ enum retCodes {
 #define T_DEBRIS 8
 #define T_WEIGHTLESS 16
 #define T_FLAG 32
-#define TEAM_BIT 64
+#define T_DECOR 64
+#define T_NO_DRAW_FP 128
+#define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)

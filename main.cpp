@@ -73,8 +73,8 @@ static char thirdPerson = 1;
 
 // At the moment we use a byte to give the network message length, so this has to be fairly small
 #define TEXT_BUF_LEN 200
-static char inputTextBuffer[TEXT_BUF_LEN];
 static char chatBuffer[TEXT_BUF_LEN];
+static char inputTextBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
@@ -113,6 +113,7 @@ queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
 char syncReady;
+char syncNeeded = 0;
 pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
 
@@ -148,7 +149,8 @@ static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
 static void drawHud(list<player> *ps) {
 	setupText();
-	drawHudText(chatBuffer, 1, 1, 1, hudColor);
+	const char* drawMe = syncNeeded ? "CTRL+S TO SYNC" : chatBuffer;
+	drawHudText(drawMe, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
 
 	float f1 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
@@ -255,6 +257,11 @@ static void setupTyping() {
 	bufferedTextLen = 0;
 }
 
+static char isCmd(const char* input, const char *cmd) {
+	int l = strlen(cmd);
+	return !strncmp(input, cmd, l) && (input[l] == ' ' || input[l] == '\0');
+}
+
 static void sendControls(int frame) {
 	// This is a cheap trick which I need to codify as a method.
 	// It's a threadsafe way to get what the next `add` will be, assuming we're the only
@@ -306,7 +313,7 @@ static void sendControls(int frame) {
 		out.add((char)BIN_CMD_LOAD);
 		out.addAll(syncData);
 	} else if (textInputMode >= 2) {
-		if (!strncmp(inputTextBuffer, "/load", 5)) {
+		if (isCmd(inputTextBuffer, "/load")) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
 			out.add((char)BIN_CMD_LOAD);
@@ -421,6 +428,7 @@ static void updateMedianTime() {
 static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
 	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
 		if (!isReal) return;
+		syncNeeded = 0;
 		doCleanup(rootState);
 		// Can't make a new gamestate here (as we might be tempted to),
 		// since stuff further up the call stack (like `doUpdate`) has a reference
@@ -435,26 +443,28 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		deserialize(rootState, &fakeList);
 		return;
 	}
-	// Default case, just display it. Message could get lost here if multiple people send on the same frame,
+	// Message could get lost here if multiple people send on the same frame,
 	// but it will at least be consistent? Maybe fixing this is a TODO
 	if (chars < TEXT_BUF_LEN) {
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
 		char wasCommand = 1;
-		if (!strncmp(chatBuffer, "/save", 5)) {
+		if (isCmd(chatBuffer, "/save")) {
 			if (isMe && isReal) {
 				const char *name = "savegame";
 				if (chars > 6) name = chatBuffer + 6;
 				printf("Saving game to %s\n", name);
 				saveGame(name);
 			}
-		} else if (!strncmp(chatBuffer, "/sync", 5)) {
+		} else if (isCmd(chatBuffer, "/sync")) {
 			if (isMe && isReal && !syncReady) {
 				syncData.num = 0;
 				serialize(rootState, &syncData);
 				syncReady = 1;
 			}
-		} else if (!strncmp(chatBuffer, "/tree", 5)) {
+		} else if (isCmd(chatBuffer, "/syncme")) {
+			if (isReal && !isMe) syncNeeded = 1;
+		} else if (isCmd(chatBuffer, "/tree")) {
 			if (isMe && isReal) {
 				printTree(gs);
 			}
@@ -501,7 +511,6 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 
 	doCrushtainer(state);
 	createDebris(state);
-	mkHeroes(state);
 
 	char clientLate = 0;
 
@@ -535,6 +544,7 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	}
 
 	doUpdates(state);
+	mkHeroes(state);
 
 	// Gravity should be applied right before physics;
 	// `doPhysics` has a flush at the beginning, so we're sure it hits every single entity (nothing new is created that we miss), 
@@ -625,7 +635,8 @@ static void* pacedThreadFunc(void *_arg) {
 		// Begin setting up the tick, including some hard-coded things like gravity / lava
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		outerSetupFrame(&phantomPlayers);
-		doDrawing(phantomState);
+		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity;
+		doDrawing(phantomState, inhabit);
 		drawHud(&phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
@@ -769,7 +780,11 @@ static void* inputThreadFunc(void *_arg) {
 				handleKey(evnt.keyboard.keycode, 1);
 				break;
 			case ALLEGRO_EVENT_KEY_CHAR:
-				if (textInputMode == 1) {
+				if (evnt.keyboard.keycode == ALLEGRO_KEY_S && (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL)) {
+					strcpy(inputTextBuffer, "/sync");
+					bufferedTextLen = 5;
+					textInputMode |= 2;
+				} else if (textInputMode == 1) {
 					int c = evnt.keyboard.unichar;
 					if (c >= 0x20 && c <= 0xFE && bufferedTextLen+2 < TEXT_BUF_LEN) {
 						inputTextBuffer[bufferedTextLen+2] = '\0';
@@ -1035,7 +1050,13 @@ int main(int argc, char **argv) {
 		// For now, don't capture mouse on startup. Might prevent mouse warpiness in first frame, idk, feel free to mess around
 	}
 
-	inputTextBuffer[0] = inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
+	// Setup text buffers.
+	// We make it so the player automatically sends the "syncme" command on their first frame,
+	// which is how we're eventually get "sync on join" to work
+	inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
+	strcpy(inputTextBuffer, "/syncme");
+	bufferedTextLen = strlen(inputTextBuffer);
+	textInputMode = 2;
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 
 	// Pre-populate timing buffer, set `startSec`

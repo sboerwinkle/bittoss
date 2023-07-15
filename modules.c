@@ -19,6 +19,7 @@
 #include "modules/platform.h"
 #include "modules/edittool.h"
 #include "modules/player.h"
+#include "modules/eyes.h"
 #include "modules/stackem.h"
 
 void initMods() {
@@ -29,5 +30,6 @@ void initMods() {
 	module_platform();
 	module_edittool();
 	module_player();
+	module_eyes();
 	module_stackem();
 }

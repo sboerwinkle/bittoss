@@ -9,6 +9,7 @@
 #include "colors.h"
 
 #include "modules/player.h"
+#include "modules/eyes.h"
 #include "modules/ground.h"
 #include "modules/flag.h"
 
@@ -20,7 +21,9 @@ ent* mkHero(gamestate *gs, int n, int total) {
 	pos[1] = n/2 * 1000; // Multiples of 1K, based on index within team
 	pos[2] = -8000;
 
-	return mkPlayer(gs, pos, team);
+	ent *p = mkPlayer(gs, pos, team);
+	mkEye(gs, p);
+	return p;
 }
 
 static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {

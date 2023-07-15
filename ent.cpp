@@ -554,7 +554,7 @@ static void doTick(gamestate *gs, ent *e, int type) {
 	}
 }
 
-void flushMisc(ent *e, const int32_t *parent_d_vel) {
+void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
 	//Negate "min" so it shows the bits we're allowed to keep
 	e->d_typeMask_min = ~e->d_typeMask_min;
 	e->typeMask |= e->d_typeMask_max & e->d_typeMask_min;
@@ -567,11 +567,11 @@ void flushMisc(ent *e, const int32_t *parent_d_vel) {
 	e->d_collideMask_max = e->d_collideMask_min = 0;
 
 	range(i, 3) {
-		e->center[i] += (e->d_center_min[i] + e->d_center_max[i]) / 2;
+		e->d_center[i] += parent_d_center[i];
+		e->center[i] += e->d_center[i];
+
 		e->d_vel[i] += parent_d_vel[i];
 		e->vel[i] += e->d_vel[i];
-		e->d_center_min[i] = e->d_center_max[i] = 0;
-		// d_vel we reset later, we need to pass it on to the children
 	}
 
 	// We have a "rule" that the order of wires doesn't matter;
@@ -595,9 +595,12 @@ void flushMisc(ent *e, const int32_t *parent_d_vel) {
 
 	ent *c;
 	for (c = e->holdee; c; c = c->LL.n) {
-		flushMisc(c, e->d_vel);
+		flushMisc(c, e->d_center, e->d_vel);
 	}
-	range(i, 3) e->d_vel[i] = 0;
+	range(i, 3) {
+		e->d_center[i] = 0;
+		e->d_vel[i] = 0;
+	}
 }
 
 //TODO: If this was ordered, onCrush could have access to its whole tree (but not those of others!)
@@ -659,7 +662,7 @@ static void flush(gamestate *gs) {
 	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
-		flushMisc(i, zeroVec);
+		flushMisc(i, zeroVec, zeroVec);
 		flushEntState(&i->state);
 	}
 }
@@ -750,7 +753,8 @@ void finishStep(gamestate *gs) {
 	clearDeads(gs);
 }
 
-static void drawEnt(ent *e) {
+static void drawEnt(ent *e, ent *inhabit) {
+	if (e->holdRoot == inhabit && (e->typeMask & T_NO_DRAW_FP)) return;
 	int32_t color = e->color;
 	if (color == -1) return;
 	drawEnt(
@@ -761,10 +765,10 @@ static void drawEnt(ent *e) {
 	);
 }
 
-void doDrawing(gamestate *gs) {
+void doDrawing(gamestate *gs, ent *inhabit) {
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
-		drawEnt(i);
+		drawEnt(i, inhabit);
 	}
 }
 

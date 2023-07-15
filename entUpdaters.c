@@ -48,17 +48,9 @@ void pushEyes(ent *who, int *x) {
 	}
 }
 
-// TODO if this is ever used I'll have to figure out how to work it in a way that actually makes
-//      sense with anything it's holding. Simplest solution would probably be to have teleports be
-//      additive offsets rather than the median of the positions, and then work it like `uVel`
-void uCenter(ent *e, int32_t *p) {
-	for (int i = 0; i < 3; i++) {
-		if (p[i] > e->d_center_max[i]) {
-			e->d_center_max[i] = p[i];
-		}
-		if (p[i] < e->d_center_min[i]) {
-			e->d_center_min[i] = p[i];
-		}
+void uCenter(ent *e, int32_t *d) {
+	range(i, 3) {
+		e->d_center[i] += d[i];
 	}
 }
 
