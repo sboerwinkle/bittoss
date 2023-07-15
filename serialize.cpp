@@ -118,6 +118,7 @@ void serialize(gamestate *gs, list<char> *data) {
 	}
 
 	write32(data, gs->rand);
+	write32(data, gs->gamerules);
 }
 
 static int32_t read32(const list<char> *data, int *ix) {
@@ -220,6 +221,7 @@ void deserialize(gamestate *gs, const list<char> *data) {
 	}
 
 	gs->rand = read32(data, ix);
+	gs->gamerules = read32(data, ix);
 
 	delete[] ents;
 }

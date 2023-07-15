@@ -7,6 +7,7 @@
 #include "ent.h"
 #include "handlerRegistrar.h"
 #include "colors.h"
+#include "effects.h"
 
 #include "modules/player.h"
 #include "modules/eyes.h"
@@ -47,6 +48,7 @@ static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 }
 
 void mkMap(gamestate *gs) {
+	gs->gamerules = EFFECT_CRUSH + EFFECT_BLOCKS + EFFECT_GRAV;
 	mkBase(gs, 64000, 1);
 	mkBase(gs, -64000, 2);
 }

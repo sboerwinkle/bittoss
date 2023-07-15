@@ -197,6 +197,7 @@ struct gamestate {
 	// TODO Maybe with luck we can do away with these???
 	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
 	int32_t rand;
+	int32_t gamerules;
 	box *rootBox;
 
 	list<player> *players;

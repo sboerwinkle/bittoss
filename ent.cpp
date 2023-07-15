@@ -874,6 +874,7 @@ gamestate* dup(gamestate *in, list<player> *players) {
 	gamestate *ret = (gamestate*) malloc(sizeof(gamestate));
 
 	ret->rand = in->rand;
+	ret->gamerules = in->gamerules;
 
 	// Need to copy several linked lists as well...
 	// Note that they may not be in the same order as stuff gets dropped etc,

@@ -29,13 +29,25 @@ void doLava(gamestate *gs) {
         }
 }
 
-void doCrushtainer(gamestate *gs) {
+static void crush(gamestate *gs, int32_t radius) {
 	// This is small enough corner-to-corner (< 444K even with 128K radius per side) that the vision range (480K) encloses it safely
 	for (ent *e = gs->ents; e; e = e->ll.n) {
-		if (abs(e->center[0]) > 128000) uDead(gs, e);
-		else if (abs(e->center[1]) > 64000) uDead(gs, e);
-		else if (abs(e->center[2]) > 64000) uDead(gs, e);
+		if (
+			abs(e->center[0]) > radius * 2
+			|| abs(e->center[1]) > radius
+			|| abs(e->center[2]) > radius
+		) {
+			uDead(gs, e);
+		}
 	}
+}
+
+void doCrushtainer(gamestate *gs) {
+	crush(gs, 64000);
+}
+
+void doBigCrushtainer(gamestate *gs) {
+	crush(gs, 128000);
 }
 
 void createDebris(gamestate *gs) {

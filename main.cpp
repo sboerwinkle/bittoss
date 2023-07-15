@@ -468,6 +468,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) {
 				printTree(gs);
 			}
+		} else if (chars >= 7 && isCmd(chatBuffer, "/rule")) {
+			gs->gamerules ^= 1 << atoi(chatBuffer+6);
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color;
 			// First, check for 6-digit hex color representation
@@ -509,8 +511,12 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		resetPlayer(state, players.num++);
 	}
 
-	doCrushtainer(state);
-	createDebris(state);
+	// As much as I'd like rules and such to reside in ents,
+	// there'll probably always be a need for some global gamerules
+	if (state->gamerules & EFFECT_CRUSH) doCrushtainer(state);
+	if (state->gamerules & EFFECT_CRUSH_BIG) doBigCrushtainer(state);
+	if (state->gamerules & EFFECT_LAVA) doLava(state);
+	if (state->gamerules & EFFECT_BLOCKS) createDebris(state);
 
 	char clientLate = 0;
 
@@ -549,7 +555,7 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	// Gravity should be applied right before physics;
 	// `doPhysics` has a flush at the beginning, so we're sure it hits every single entity (nothing new is created that we miss), 
 	// and also things that are "at rest" on a surface will see a "stationary" vertical velocity (except during collisions)
-	doGravity(state);
+	if (state->gamerules & EFFECT_GRAV) doGravity(state);
 
 	doPhysics(state); 
 
