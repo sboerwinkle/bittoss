@@ -33,7 +33,7 @@ ent* mkEye(gamestate *gs, ent *parent) {
 		0,
 		T_DECOR | T_NO_DRAW_FP, 0);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
-	ret->color = 0x0000FF;
+	ret->color = 0xFFFFFF;
 	ret->pushed = pushedHandlers.getByName("drop-on-pushed");
 	ret->tick = tickHandlers.getByName("eye-tick");
 	ret->tickHeld = tickHandlers.getByName("eye-tick-held");
