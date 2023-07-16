@@ -147,7 +147,7 @@ static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
 static void drawHud(list<player> *ps) {
 	setupText();
-	const char* drawMe = syncNeeded ? "CTRL+S TO SYNC" : chatBuffer;
+	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
 	drawHudText(drawMe, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
 
@@ -316,7 +316,7 @@ static void sendControls(int frame) {
 				"Available commands:\n"
 				"/save [FILE] - save to file, default file is \"savegame\"\n"
 				"/load [FILE] - load from file, as above\n" // This one is magic, and handled somewhere else
-				"/sync - send current state over network - also Ctrl+S\n"
+				"/sync - send current state over network - also Ctrl+R\n"
 				"/syncme - displays message to other clients requesting sync\n"
 				"/tree - prints debug info about collision detection tree\n"
 				"/rule [RULE] - list available gamerules, or toggle one\n"
@@ -499,6 +499,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			edit_wireNearby(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/b")) {
 			edit_create(gs, p->entity, chatBuffer + 2);
+		} else if (isCmd(chatBuffer, "/p")) {
+			edit_push(gs, p->entity, chatBuffer + 2);
 		} else if (isCmd(chatBuffer, "/d")) {
 			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
@@ -564,12 +566,15 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		} else {
 			data = toProcess + 5;
 			if (isMe && expectedFrame != toProcess[4]) clientLate = 1;
-			if (size > 7 && (isMe || !data2)) {
-				processCmd(state, &players[i], toProcess + 11, size - 7, isMe, !data2);
-			}
 		}
 		if (players[i].entity != NULL) {
 			doInputs(players[i].entity, data);
+		}
+		// Some edit commands depend on the player's view direction,
+		// so especially if they missed last frame we really want to
+		// process the command *after* we process their inputs.
+		if (size > 7 && (isMe || !data2)) {
+			processCmd(state, &players[i], toProcess + 11, size - 7, isMe, !data2);
 		}
 	}
 
@@ -810,9 +815,15 @@ static void* inputThreadFunc(void *_arg) {
 				handleKey(evnt.keyboard.keycode, 1);
 				break;
 			case ALLEGRO_EVENT_KEY_CHAR:
-				if (evnt.keyboard.keycode == ALLEGRO_KEY_S && (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL)) {
-					strcpy(inputTextBuffer, "/sync");
-					bufferedTextLen = 5;
+				if (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL) {
+					if (evnt.keyboard.keycode == ALLEGRO_KEY_R) {
+						strcpy(inputTextBuffer, "/sync");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_W) {
+						strcpy(inputTextBuffer, "/p");
+					} else {
+						break;
+					}
+					bufferedTextLen = strlen(inputTextBuffer);
 					textInputMode |= 2;
 				} else if (textInputMode == 1) {
 					int c = evnt.keyboard.unichar;
