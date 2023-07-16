@@ -555,6 +555,8 @@ static void doTick(gamestate *gs, ent *e, int type) {
 }
 
 void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
+	flushEntState(&e->state);
+
 	e->typeMask = e->newTypeMask;
 	e->collideMask = e->newCollideMask;
 
@@ -655,7 +657,6 @@ static void flush(gamestate *gs) {
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
 		flushMisc(i, zeroVec, zeroVec);
-		flushEntState(&i->state);
 	}
 }
 

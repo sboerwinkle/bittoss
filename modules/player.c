@@ -82,99 +82,118 @@ static void player_tick(gamestate *gs, ent *me) {
 	int cooldown = getSlider(s, 4);
 	char fire = getTrigger(me, 0);
 
-	/*
-	// edittool stuff (WIP)
-	if (cooldown >= 10 && fire) {
-		cooldown = 0;
-		mkThumbtack(gs, me);
-	}
-	list<ent*> &wires = me->wires;
-	range(i, wires.num) {
-		ent *e = wires[i];
-		uUnwire(me, e);
-		char found = 0;
+	// Controls edittool on/off, only manipulated externally by game commands
+	if (getSlider(s, 6)) {
+		// edittool stuff (WIP)
+		if (cooldown >= 10 && fire) {
+			cooldown = 0;
+			mkThumbtack(gs, me);
+		}
+		// Toggle baubles?
+		if (getTrigger(me, 1) && cooldown >= 5) {
+			cooldown = 0;
+			holdeesAnyOrder(h, me) {
+				if ((h->typeMask & T_DECOR) && h->wires.num == 1) {
+					// Right now I've got my buttons and triggers all mixed up;
+					// trigger 1 is just button 3 by another name.
+					// (TODO)
+					pushBtn(h, 2);
+				}
+			}
+		}
+		// Drop baubles?
+		if (getButton(me, 1)) {
+			holdeesAnyOrder(h, me) {
+				if ((h->typeMask & T_DECOR) && h->wires.num == 1 && !getSlider(&h->state, 0)) {
+					uDrop(gs, h);
+				}
+			}
+		}
+		// Turn wires on me into baubles
+		// this is kinda weird and I might change it but honestly whatever
+		list<ent*> &wires = me->wires;
+		range(i, wires.num) {
+			ent *e = wires[i];
+			uUnwire(me, e);
+			char found = 0;
+			holdeesAnyOrder(h, me) {
+				if ((h->typeMask & T_DECOR) && h->wires.num == 1 && !getSlider(&h->state, 0)) {
+					range(j, h->wires.num) {
+						if (h->wires[j] == e) {
+							uDrop(gs, h);
+							found = 1;
+							// We're just exiting the wire looping here,
+							// still need to finish looking through the holdees
+							break;
+						}
+					}
+				}
+			}
+			if (!found) mkBauble(gs, me, e);
+		}
+	} else {
+		// This is fun block making stuff, i.e. not edittool
+		int numHoldees = 0;
 		holdeesAnyOrder(h, me) {
-			// TODO I think the idea was not to identify what "type" things are, except for by their type flags.
-			//      I'm beginning to think this is an impractical idea, and maybe should be tossed out.
-			//      So I'm doing this this way, and we'll see how it feels.
-			if (h->typeMask & T_DECOR) {
-				range(j, h->wires.num) {
-					if (h->wires[j] == e) {
-						uDrop(gs, h);
-						found = 1;
-						// We're just exiting the wire looping here,
-						// still need to finish looking through the holdees
-						break;
+			if (h->typeMask & T_DECOR) continue;
+			if (++numHoldees > 1) break; // Don't care about counting any higher than 2
+		}
+		// We don't always need this but sometimes we do
+		int32_t look[3];
+		if (numHoldees) {
+			if (numHoldees > 1 || (cooldown >= 10 && fire)) {
+				holdeesAnyOrder(h, me) {
+					if (h->typeMask & T_DECOR) continue;
+					uDrop(gs, h);
+				}
+				cooldown = 0;
+			} else {
+				getLook(look, me);
+				int32_t pos[3], vel[3], r[3], a[3];
+				holdeesAnyOrder(h, me) {
+					if (h->typeMask & T_DECOR) continue;
+					getPos(pos, me, h);
+					getVel(vel, me, h);
+					getSize(r, h);
+					range(i, 3) {
+						int32_t surface = 1024 + r[i];
+						if (abs(pos[i]) > surface + 1024) {
+							uDrop(gs, h);
+							a[i] = 0;
+						} else {
+							// 0.03125 == 1 / axisMaxis
+							int32_t offset = (int)(look[i] * surface * 0.03125) - pos[i];
+							int32_t goalVel = bound(offset / 5, 64);
+							a[i] = bound(goalVel - vel[i], 12);
+						}
 					}
+					uVel(h, a);
 				}
 			}
-		}
-		if (!found) mkBauble(gs, me, e);
-	}
-	// */
-
-
-	//* This is fun block making stuff that we're turning off for now while I play with getting edittool functional
-	int numHoldees = 0;
-	holdeesAnyOrder(h, me) {
-		if (h->typeMask & T_DECOR) continue;
-		if (++numHoldees > 1) break; // Don't care about counting any higher than 2
-	}
-	// We don't always need this but sometimes we do
-	int32_t look[3];
-	if (numHoldees) {
-		if (numHoldees > 1 || (cooldown >= 10 && fire)) {
-			holdeesAnyOrder(h, me) {
-				if (h->typeMask & T_DECOR) continue;
-				uDrop(gs, h);
-			}
-			cooldown = 0;
-		} else {
-			getLook(look, me);
-			int32_t pos[3], vel[3], r[3], a[3];
-			holdeesAnyOrder(h, me) {
-				if (h->typeMask & T_DECOR) continue;
-				getPos(pos, me, h);
-				getVel(vel, me, h);
-				getSize(r, h);
+		} else if (cooldown >= 10 && charge >= 60) {
+			if (fire) {
+				charge -= 60;
+				cooldown = 0;
+				getLook(look, me);
+				ent* stackem = mkStackem(gs, me, look);
+				range(i, 3) { look[i] *= 7; }
+				uVel(stackem, look);
+			} else if (charge >= 180 && getTrigger(me, 1)) {
+				charge -= 180;
+				cooldown = 0;
+				getLook(look, me);
+				int colorToggle = getSlider(s, 5);
+				uStateSlider(s, 5, !colorToggle);
+				int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
-					int32_t surface = 1024 + r[i];
-					if (abs(pos[i]) > surface + 1024) {
-						uDrop(gs, h);
-						a[i] = 0;
-					} else {
-						// 0.03125 == 1 / axisMaxis
-						int32_t offset = (int)(look[i] * surface * 0.03125) - pos[i];
-						int32_t goalVel = bound(offset / 5, 64);
-						a[i] = bound(goalVel - vel[i], 12);
-					}
+					// 0.040635 == 1.3 / axisMaxis
+					look[i] *= 0.040625 * (512 + platformSize[i]);
 				}
-				uVel(h, a);
+				mkPlatform(gs, me, look, color);
 			}
-		}
-	} else if (cooldown >= 10 && charge >= 60) {
-		if (fire) {
-			charge -= 60;
-			cooldown = 0;
-			getLook(look, me);
-			ent* stackem = mkStackem(gs, me, look);
-			range(i, 3) { look[i] *= 7; }
-			uVel(stackem, look);
-		} else if (charge >= 180 && getTrigger(me, 1)) {
-			charge -= 180;
-			cooldown = 0;
-			getLook(look, me);
-			int colorToggle = getSlider(s, 5);
-			uStateSlider(s, 5, !colorToggle);
-			int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
-			range(i, 3) {
-				// 0.040635 == 1.3 / axisMaxis
-				look[i] *= 0.040625 * (512 + platformSize[i]);
-			}
-			mkPlatform(gs, me, look, color);
 		}
 	}
-	// */
+
 	if (charge < 180) uStateSlider(s, 3, charge + 1);
 	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
 }
@@ -186,7 +205,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, playerSize,
-		6,
+		7,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
 	ret->whoMoves = whoMovesHandlers.getByName("player-whomoves");

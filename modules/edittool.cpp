@@ -5,6 +5,10 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+static const int32_t thumbtackSize[3] = {100, 100, 100};
+static const int32_t baubleRadius = 100;
+static const int32_t baubleSize[3] = {baubleRadius, baubleRadius, baubleRadius};
+
 static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
@@ -19,35 +23,31 @@ static void bauble_tick_held(gamestate *gs, ent *me) {
 	if (me->wires.num != 1) {
 		uDrop(gs, me);
 	}
-	// TODO Position self to align with target
+	int32_t v[3];
+	ent *parent = me->holder;
+	getPos(v, parent, me->wires[0]);
+	boundVec(v, parent->radius[2] + baubleRadius*3/2, 3);
+	range(i, 3) {
+		v[i] = v[i] - me->center[i] + parent->center[i];
+	}
+	uCenter(me, v);
+
+	if (getTrigger(me, 0)) {
+		int s = !getSlider(&me->state, 0);
+		me->color = s ? 0xFF0000 : 0x0000FF;
+		uStateSlider(&me->state, 0, s);
+	}
 }
 
 static void bauble_tick(gamestate *gs, ent *me) {
 	uDead(gs, me);
 }
 
-static const int32_t thumbtackSize[3] = {100, 100, 100};
-static const int32_t baubleRadius = 100;
-static const int32_t baubleSize[3] = {baubleRadius, baubleRadius, baubleRadius};
-
 ent* mkBauble(gamestate *gs, ent *parent, ent *target) {
-	int32_t center[3];
-	int32_t max = 0;
-	range(i, 3) {
-		center[i] = target->center[i] - parent->center[i];
-		int32_t x = abs(center[i]);
-		if (x > max) max = x;
-	}
-	if (!max) max = 1;
-
-	center[0] = parent->center[0] + (int64_t)center[0] * (parent->radius[0] - baubleRadius) / max;
-	center[1] = parent->center[1] + (int64_t)center[1] * (parent->radius[1] - baubleRadius) / max;
-	center[2] = parent->center[2] - parent->radius[2] - baubleRadius*3/2;
-
 	ent *ret = initEnt(
 		gs, parent,
-		center, parent->vel, baubleSize,
-		0,
+		parent->center, parent->vel, baubleSize,
+		1,
 		T_DECOR | T_NO_DRAW_FP, 0);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
 	ret->color = 0x0000FF;

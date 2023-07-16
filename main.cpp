@@ -487,6 +487,12 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) {
 				printTree(gs);
 			}
+		} else if (isCmd(chatBuffer, "/edit")) {
+			ent *e = p->entity;
+			if (e) {
+				// Reach in and tweak internal state to toggle edit mode
+				uStateSlider(&e->state, 6, !getSlider(&e->state, 6));
+			}
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
 			else if (isMe && isReal) {
