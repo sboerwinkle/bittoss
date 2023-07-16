@@ -120,7 +120,7 @@ void edit_info(ent *e) {
 	);
 }
 
-int32_t edit_color(ent *e, const char *colorStr) {
+int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
 	int32_t color;
 	// First, check for 6-digit hex color representation
 	if (!regexec(&colorRegex, colorStr, 3, regexMatches, 0)) {
@@ -144,6 +144,13 @@ int32_t edit_color(ent *e, const char *colorStr) {
 	// Return value is used by the caller to set the persistent color for the active character.
 	// We only want that behavior if they don't have anything selected.
 	getLists(e);
+
+	// if not priviledged, you can only change yourself
+	if (!priviledged) {
+		a.num = 0;
+		a.add(e);
+	}
+
 	range(i, a.num) {
 		a[i]->color = color;
 	}

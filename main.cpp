@@ -490,30 +490,43 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;
 			if (e) {
+				int edit = !getSlider(&e->state, 6);
 				// Reach in and tweak internal state to toggle edit mode
-				uStateSlider(&e->state, 6, !getSlider(&e->state, 6));
+				if (!edit || (gs->gamerules & RULE_EDIT)) {
+					uStateSlider(&e->state, 6, edit);
+					if (isReal && isMe) {
+						printf("Your edit toolset is %s\n", edit ? "ON" : "OFF");
+					}
+				}
 			}
 		} else if (isCmd(chatBuffer, "/i")) {
 			if (isMe && isReal) edit_info(p->entity);
-		} else if (isCmd(chatBuffer, "/nearby")) {
+		} else if (isCmd(chatBuffer, "/nearby") && (gs->gamerules & RULE_EDIT)) {
 			edit_wireNearby(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/b")) {
+		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
 			edit_create(gs, p->entity, chatBuffer + 2);
-		} else if (isCmd(chatBuffer, "/p")) {
+		} else if (isCmd(chatBuffer, "/p") && (gs->gamerules & RULE_EDIT)) {
 			edit_push(gs, p->entity, chatBuffer + 2);
-		} else if (isCmd(chatBuffer, "/d")) {
+		} else if (isCmd(chatBuffer, "/d") && (gs->gamerules & RULE_EDIT)) {
 			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
-			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
-			else if (isMe && isReal) {
+			if (chars >= 7) {
+				int rule = atoi(chatBuffer+6);
+				int32_t mask = 1 << rule;
+				gs->gamerules ^= mask;
+				if (isReal) {
+					printf("Game rule %d is now %s\n", rule, (gs->gamerules & mask) ? "ON" : "OFF");
+				}
+			} else if (isMe && isReal) {
 				puts(RULE_HELP_STR);
 				range(i, 6) {
 					putchar((gs->gamerules & (1<<i)) ? 'X' : '.');
 				}
 				putchar('\n');
+				printf("Editing is %s\n", (gs->gamerules & RULE_EDIT) ? "ON" : "OFF");
 			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
-			int32_t color = edit_color(p->entity, chatBuffer + 3);
+			int32_t color = edit_color(p->entity, chatBuffer + 3, !!(gs->gamerules & RULE_EDIT));
 			if (color != -2) p->color = color;
 		} else {
 			wasCommand = 0;
