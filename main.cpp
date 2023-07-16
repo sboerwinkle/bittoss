@@ -497,6 +497,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/nearby")) {
 			edit_wireNearby(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/b")) {
+			edit_create(gs, p->entity, chatBuffer + 2);
 		} else if (isCmd(chatBuffer, "/d")) {
 			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
