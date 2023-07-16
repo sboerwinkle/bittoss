@@ -493,8 +493,12 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 				// Reach in and tweak internal state to toggle edit mode
 				uStateSlider(&e->state, 6, !getSlider(&e->state, 6));
 			}
-		} else if (isCmd(chatBuffer, "/d")) {
+		} else if (isCmd(chatBuffer, "/i")) {
 			if (isMe && isReal) edit_info(p->entity);
+		} else if (isCmd(chatBuffer, "/nearby")) {
+			edit_wireNearby(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/d")) {
+			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
 			else if (isMe && isReal) {

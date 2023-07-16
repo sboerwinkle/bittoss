@@ -13,7 +13,7 @@ static list<ent*> a, b;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
 
-static void getLists(ent *e) {
+static char getLists(ent *e) {
 	a.num = b.num = 0;
 	holdeesAnyOrder(h, e) {
 		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && h->state.numSliders == 1) {
@@ -21,17 +21,19 @@ static void getLists(ent *e) {
 			dest.add(h->wires[0]);
 		}
 	}
-}
 
-static ent* defaultPrimary(ent *e) {
-	if (!a.num) a.add(e);
-	return a[0];
+	if (!a.num) {
+		a.add(e);
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 void edit_info(ent *e) {
 	if (!e) return;
 	getLists(e);
-	e = defaultPrimary(e);
+	e = a[0];
 	printf(
 		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %6X\nSelected %d, %d\n",
 		e->center[0], e->center[1], e->center[2],
@@ -62,16 +64,35 @@ int32_t edit_color(ent *e, const char *colorStr) {
 
 	if (!e) return color;
 
-	getLists(e);
 	// Return value is used by the caller to set the persistent color for the active character.
 	// We only want that behavior if they don't have anything selected.
-	char shouldReturn = a.num == 0;
-	defaultPrimary(e);
+	char shouldReturn = getLists(e);
 	range(i, a.num) {
 		a[i]->color = color;
 	}
 
 	return shouldReturn ? color : -2;
+}
+
+void edit_wireNearby(gamestate *gs, ent *me) {
+	if (!me) return;
+	for (ent *e = gs->rootEnts; e; e = e->LL.n) {
+		if (e->holdRoot == me) continue;
+		range(i, 3) {
+			int32_t r = e->radius[i] + me->radius[i];
+			if (abs(e->center[i] - me->center[i]) > r) goto next;
+		}
+		uWire(me, e);
+		next:;
+	}
+}
+
+void edit_rm(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		uDead(gs, a[i]);
+	}
 }
 
 void edit_init() {
