@@ -15,18 +15,18 @@ so that they can be serialized.
 */
 
 void doGravity(gamestate *gs) {
-        int32_t grav[3] = {0, 0, 8};
-        ent *i;
-        for (i = gs->rootEnts; i; i = i->LL.n) {
-                if (!(i->typeMask & T_WEIGHTLESS)) uVel(i, grav);
-        }
+	int32_t grav[3] = {0, 0, 8};
+	ent *i;
+	for (i = gs->rootEnts; i; i = i->LL.n) {
+		if (!(i->typeMask & T_WEIGHTLESS)) uVel(i, grav);
+	}
 }
 
 void doLava(gamestate *gs) {
-        ent *e;
-        for (e = gs->ents; e; e = e->ll.n) {
-                if (e->center[2] > 64000) uDead(gs, e);
-        }
+	ent *e;
+	for (e = gs->ents; e; e = e->ll.n) {
+		if (e->center[2] > 64000) uDead(gs, e);
+	}
 }
 
 static void crush(gamestate *gs, int32_t radius) {
