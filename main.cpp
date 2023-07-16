@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <regex.h>
 
 #include "util.h"
 #include "list.h"
@@ -26,6 +25,7 @@
 #include "box.h"
 #include "colors.h"
 #include "debugTree.h"
+#include "edit.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -45,8 +45,6 @@ static list<player> players, phantomPlayers;
 static int myPlayer;
 
 static int32_t defaultColors[8] = {0xFFAA00, 0x00AA00, 0xFF0055, 0xFFFF00, 0xAA0000, 0x00FFAA, 0xFF5555, 0x55FF55};
-static regex_t colorRegex;
-static regmatch_t regexMatches[3];
 
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
 char p1Keys[numKeys];
@@ -487,12 +485,16 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) {
 				printTree(gs);
 			}
+		// TODO All the edit command need to be documented in /help
+		//      (maybe add /edithelp?)
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;
 			if (e) {
 				// Reach in and tweak internal state to toggle edit mode
 				uStateSlider(&e->state, 6, !getSlider(&e->state, 6));
 			}
+		} else if (isCmd(chatBuffer, "/d")) {
+			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
 			else if (isMe && isReal) {
@@ -503,25 +505,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 				putchar('\n');
 			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
-			int32_t color;
-			// First, check for 6-digit hex color representation
-			if (!regexec(&colorRegex, chatBuffer+3, 3, regexMatches, 0)) {
-				color = strtol(chatBuffer + 3 + regexMatches[2].rm_so, NULL, 16);
-			} else {
-				// Next, check named CSS colors, as an easter egg for Paul
-				color = findColor(chatBuffer + 3);
-				if (color == -1) {
-					// Finally, fall back to the old, weird, 6-bit color representation
-					color = (chatBuffer[3] - '0') + 4 * (chatBuffer[4] - '0') + 16 * (chatBuffer[5] - '0');
-					// Convert from weird 6-bit repr (with all its quirks) to regular 32-bit color
-					color = (color&3)*255/3*0x10000 + (color&12)/4*255/3*0x100 + (color&48)/16*255/3;
-				}
-			}
-			// Timberwolf is a cursed color, you can only leave with a _silver_ bullet
-			if (p->color != 0xd9d6cf || color == 0xc0c0c0) {
-				p->color = color;
-				updateColor(p);
-			}
+			int32_t color = edit_color(p->entity, chatBuffer + 3);
+			if (color != -2) p->color = color;
 		} else {
 			wasCommand = 0;
 		}
@@ -996,7 +981,6 @@ int main(int argc, char **argv) {
 		port = 15000;
 	}
 
-	regcomp(&colorRegex, "^ *(#|0x)?([0-9a-f]{6}) *$", REG_EXTENDED|REG_ICASE);
 	players.init();
 	phantomPlayers.init();
 
@@ -1039,6 +1023,7 @@ int main(int argc, char **argv) {
 	colors_init();
 	velbox_init();
 	ent_init();
+	edit_init();
 	initMods(); //Set up modules
 	frameData.init();
 	outboundData.init();
@@ -1162,6 +1147,7 @@ int main(int argc, char **argv) {
 	outboundData.destroy();
 	destroyFont();
 	destroy_registrar();
+	edit_destroy();
 	ent_destroy();
 	velbox_destroy();
 	colors_destroy();
@@ -1176,7 +1162,6 @@ int main(int argc, char **argv) {
 	puts("Final misc cleanup...");
 	players.destroy();
 	phantomPlayers.destroy();
-	regfree(&colorRegex);
 	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;

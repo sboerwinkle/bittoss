@@ -18,7 +18,7 @@ static list<namedColor> colors;
 
 int32_t findColor(const char* name) {
 	int ix = colors.s_find({.name=name});
-	if (ix < 0) return -1;
+	if (ix < 0) return -2;
 	return colors[ix].value;
 }
 
@@ -27,7 +27,7 @@ void colors_destroy() {
 }
 
 void colors_init() {
-	colors.init(148);
+	colors.init(151);
 	colors.add({.name="aliceblue", .value=0xf0f8ff});
 	colors.add({.name="antiquewhite", .value=0xfaebd7});
 	colors.add({.name="aqua", .value=0x00ffff});
@@ -45,6 +45,7 @@ void colors_init() {
 	colors.add({.name="cadetblue", .value=0x5f9ea0});
 	colors.add({.name="chartreuse", .value=0x7fff00});
 	colors.add({.name="chocolate", .value=0xd2691e});
+	colors.add({.name="clear", .value=-1});
 	colors.add({.name="coral", .value=0xff7f50});
 	colors.add({.name="cornflowerblue", .value=0x6495ed});
 	colors.add({.name="cornsilk", .value=0xfff8dc});
