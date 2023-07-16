@@ -489,7 +489,13 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			}
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) gs->gamerules ^= 1 << atoi(chatBuffer+6);
-			else if (isMe && isReal) puts(RULE_HELP_STR);
+			else if (isMe && isReal) {
+				puts(RULE_HELP_STR);
+				range(i, 6) {
+					putchar((gs->gamerules & (1<<i)) ? 'X' : '.');
+				}
+				putchar('\n');
+			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color;
 			// First, check for 6-digit hex color representation
@@ -537,6 +543,7 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	if (state->gamerules & EFFECT_CRUSH_BIG) doBigCrushtainer(state);
 	if (state->gamerules & EFFECT_LAVA) doLava(state);
 	if (state->gamerules & EFFECT_BLOCKS) createDebris(state);
+	if (state->gamerules & EFFECT_BOUNCE) doBouncetainer(state);
 
 	char clientLate = 0;
 

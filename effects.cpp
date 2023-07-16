@@ -50,6 +50,34 @@ void doBigCrushtainer(gamestate *gs) {
 	crush(gs, 128000);
 }
 
+static void bounce(gamestate *gs, int32_t radius) {
+	for (ent *e = gs->ents; e; e = e->ll.n) {
+		if (
+			abs(e->center[0]) > radius * 2
+			|| abs(e->center[1]) > radius
+			|| abs(e->center[2]) > radius
+		) {
+			if (e->typeMask & T_TERRAIN) {
+				range(i, 3) {
+					int32_t bound = i ? radius : radius*2;
+					if (
+						(e->center[i] > bound && e->vel[i] > 0) ||
+						(e->center[i] < -bound && e->vel[i] < 0)
+					) {
+						e->vel[i] *= -1;
+					}
+				}
+			} else {
+				uDead(gs, e);
+			}
+		}
+	}
+}
+
+void doBouncetainer(gamestate *gs) {
+	bounce(gs, 64000);
+}
+
 void createDebris(gamestate *gs) {
 	// We're going to create incoming platforms at the edges of the crushtainer boundary.
 	// Assumptions are that all of infinite space is populated with some density of platforms,
