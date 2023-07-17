@@ -4,5 +4,6 @@ extern void edit_wireNearby(gamestate *gs, ent *e);
 extern void edit_rm(gamestate *gs, ent *e);
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);
+extern void edit_copy(gamestate *gs, ent *me);
 extern void edit_init();
 extern void edit_destroy();

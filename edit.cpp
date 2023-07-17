@@ -61,6 +61,20 @@ static void getMedian(int32_t *dest) {
 	}
 }
 
+// Gets the maximal distance across of the contents of `b`, along the given axis
+static int32_t getWidth(int axis) {
+	int32_t min = INT32_MAX;
+	int32_t max = INT32_MIN;
+	range(i, b.num) {
+		ent *e = b[i];
+		int32_t x = e->center[axis];
+		int32_t r = e->radius[axis];
+		if (x+r > max) max = x+r;
+		if (x-r < min) min = x-r;
+	}
+	return max-min;
+}
+
 static void getAxis(ent *e, int *axis, int *dir) {
 	range(i, 3) {
 		// This is a little messy,
@@ -238,6 +252,32 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 	}
 	range(i, a.num) {
 		uCenter(a[i], offset);
+	}
+}
+
+void edit_copy(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	int axis, dir;
+	getAxis(me, &axis, &dir);
+	int32_t width = getWidth(axis) * dir;
+	range(i, b.num) {
+		ent *e = b[i];
+		// Push the existing ent around, just for a sec.
+		// We undo this later, but it spares us having
+		// to copy yet another vector
+		e->center[axis] -= width;
+
+		ent *created = initEnt(
+			gs, e,
+			e->center, zeroVec, e->radius,
+			0,
+			T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
+		);
+		created->color = e->color;
+		uWire(me, created);
+
+		e->center[axis] += width;
 	}
 }
 

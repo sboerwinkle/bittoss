@@ -505,6 +505,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			edit_wireNearby(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
 			edit_create(gs, p->entity, chatBuffer + 2);
+		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {
+			edit_copy(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/p") && (gs->gamerules & RULE_EDIT)) {
 			edit_push(gs, p->entity, chatBuffer + 2);
 		} else if (isCmd(chatBuffer, "/d") && (gs->gamerules & RULE_EDIT)) {
@@ -837,8 +839,8 @@ static void* inputThreadFunc(void *_arg) {
 						strcpy(inputTextBuffer, "/save");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_L) {
 						strcpy(inputTextBuffer, "/load");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_V) {
-						strcpy(inputTextBuffer, "/paste");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_C) {
+						strcpy(inputTextBuffer, "/copy");
 					} else {
 						break;
 					}
