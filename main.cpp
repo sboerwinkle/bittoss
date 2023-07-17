@@ -833,6 +833,12 @@ static void* inputThreadFunc(void *_arg) {
 						strcpy(inputTextBuffer, "/sync");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_W) {
 						strcpy(inputTextBuffer, "/p");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_S) {
+						strcpy(inputTextBuffer, "/save");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_L) {
+						strcpy(inputTextBuffer, "/load");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_V) {
+						strcpy(inputTextBuffer, "/paste");
 					} else {
 						break;
 					}
