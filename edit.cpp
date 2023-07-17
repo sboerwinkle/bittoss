@@ -39,8 +39,7 @@ static void parseArgs(const char *a) {
 	}
 }
 
-// Finds the median of the centerpoints (ignoring radius!) of the items in `a`.
-// Ignoring the radius is a little unintuitive, but this isn't commonly used anyway so I'm saying it's fine.
+// Finds the median of the items in `a`.
 static void getMedian(int32_t *dest) {
 	int32_t min[3], max[3];
 	range(i, 3) {
@@ -51,8 +50,9 @@ static void getMedian(int32_t *dest) {
 		ent *e = a[i];
 		range(j, 3) {
 			int32_t x = e->center[j];
-			if (x > max[j]) max[j] = x;
-			if (x < min[j]) min[j] = x;
+			int32_t r = e->radius[j];
+			if (x+r > max[j]) max[j] = x+r;
+			if (x-r < min[j]) min[j] = x-r;
 		}
 	}
 	range(i, 3) {
