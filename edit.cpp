@@ -15,7 +15,7 @@ static list<int32_t> args;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
 
-static void getLists(ent *e) {
+static char getLists(ent *e) {
 	a.num = b.num = 0;
 	holdeesAnyOrder(h, e) {
 		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && h->state.numSliders == 1) {
@@ -24,8 +24,16 @@ static void getLists(ent *e) {
 		}
 	}
 
-	if (!a.num) a.add(e);
-	if (!b.num) b.add(e);
+	char ret = 0;
+	if (!a.num) {
+		ret += 1;
+		a.add(e);
+	}
+	if (!b.num) {
+		ret += 2;
+		b.add(e);
+	}
+	return ret;
 }
 
 static void parseArgs(const char *a) {
@@ -39,40 +47,29 @@ static void parseArgs(const char *a) {
 	}
 }
 
-// Finds the median of the items in `a`.
-static void getMedian(int32_t *dest) {
-	int32_t min[3], max[3];
-	range(i, 3) {
-		min[i] = INT32_MAX;
-		max[i] = INT32_MIN;
+static void getExtents(list<ent*> *L, int axis, int32_t *min_out, int32_t *max_out) {
+	list<ent*> &l = *L;
+	ent *e = l[0];
+	int32_t min = e->center[axis] - e->radius[axis];
+	int32_t max = e->center[axis] + e->radius[axis];
+	for (int i = 1; i < l.num; i++) {
+		int32_t x = l[i]->center[axis];
+		int32_t r = l[i]->radius[axis];
+		if (x+r - max > 0) max = x+r;
+		if (x-r - min < 0) min = x-r;
 	}
-	range(i, a.num) {
-		ent *e = a[i];
-		range(j, 3) {
-			int32_t x = e->center[j];
-			int32_t r = e->radius[j];
-			if (x+r > max[j]) max[j] = x+r;
-			if (x-r < min[j]) min[j] = x-r;
-		}
-	}
-	range(i, 3) {
-		// Wacky average formula, works better when position is extreme
-		dest[i] = min[i] + (max[i] - min[i])/2;
-	}
+	*min_out = min;
+	*max_out = max;
 }
 
-// Gets the maximal distance across of the contents of `b`, along the given axis
-static int32_t getWidth(int axis) {
-	int32_t min = INT32_MAX;
-	int32_t max = INT32_MIN;
-	range(i, b.num) {
-		ent *e = b[i];
-		int32_t x = e->center[axis];
-		int32_t r = e->radius[axis];
-		if (x+r > max) max = x+r;
-		if (x-r < min) min = x-r;
+// Finds the median of the items in `a`, but it may be off by 0.5
+static void getMedian(int32_t *dest) {
+	range(i, 3) {
+		int32_t min, max;
+		getExtents(&a, i, &min, &max);
+		// Wacky average formula, works better when position is extreme
+		dest[i] = min + (max - min)/2;
 	}
-	return max-min;
 }
 
 static void getAxis(ent *e, int *axis, int *dir) {
@@ -116,13 +113,11 @@ static int32_t getNextOffset(int axis, int dir) {
 
 void edit_info(ent *e) {
 	if (!e) return;
-	getLists(e);
+	char defaulted = getLists(e);
 
 	// Counts of selected ents should include when we're the implicit selection
-	int aNum = a.num;
-	if (aNum == 1 && a[0] == e) aNum = 0;
-	int bNum = b.num;
-	if (bNum == 1 && b[0] == e) bNum = 0;
+	int aNum = a.num - (defaulted & 1);
+	int bNum = b.num - (defaulted & 2)/2;
 
 	e = a[0];
 	printf(
@@ -174,7 +169,7 @@ int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
 
 void edit_wireNearby(gamestate *gs, ent *me) {
 	if (!me) return;
-	for (ent *e = gs->rootEnts; e; e = e->LL.n) {
+	for (ent *e = gs->ents; e; e = e->ll.n) {
 		if (e->holdRoot == me) continue;
 		range(i, 3) {
 			int32_t r = e->radius[i] + me->radius[i];
@@ -182,6 +177,25 @@ void edit_wireNearby(gamestate *gs, ent *me) {
 		}
 		uWire(me, e);
 		next:;
+	}
+}
+
+void edit_wireInside(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	int32_t min[3], max[3];
+	range(i, 3) getExtents(&b, i, min+i, max+i);
+	for (ent *e = gs->ents; e; e = e->ll.n) {
+		range(i, 3) {
+			if (
+				e->center[i] + e->radius[i] - min[i] <= 0 ||
+				e->center[i] - e->radius[i] - max[i] >= 0
+			) {
+				goto skip;
+			}
+		}
+		uWire(me, e);
+		skip:;
 	}
 }
 
@@ -260,7 +274,9 @@ void edit_copy(gamestate *gs, ent *me) {
 	getLists(me);
 	int axis, dir;
 	getAxis(me, &axis, &dir);
-	int32_t width = getWidth(axis) * dir;
+	int32_t min, max;
+	getExtents(&b, axis, &min, &max);
+	int32_t width = (max-min) * dir;
 	range(i, b.num) {
 		ent *e = b[i];
 		// Push the existing ent around, just for a sec.
@@ -278,6 +294,87 @@ void edit_copy(gamestate *gs, ent *me) {
 		uWire(me, created);
 
 		e->center[axis] += width;
+	}
+}
+
+void edit_rotate(gamestate *gs, ent *me, char verbose) {
+	if (!me) return;
+	getLists(me);
+	int axis, dir;
+	getAxis(me, &axis, &dir);
+
+	axis = (axis + dir + 3) % 3;
+	int32_t min1, max1;
+	getExtents(&a, axis, &min1, &max1);
+	int32_t d1 = max1 - min1;
+	int32_t c1 = min1 + d1/2;
+
+	int axis2 = (axis + dir + 3) % 3;
+	int32_t min2, max2;
+	getExtents(&a, axis2, &min2, &max2);
+	int32_t d2 = max2 - min2;
+	int32_t c2 = min2 + d2/2;
+
+	char shift = d1%2;
+	if (shift != d2%2 && verbose) {
+		puts("Warning! Rotation between axes with even/odd widths necessarily introduces drift, make sure your items are aligned how you want");
+	}
+
+	range(i, a.num) {
+		ent *e = a[i];
+		// No need to redo velbox data, since it only cares about what the box's greatest width is.
+		int32_t tmp = e->radius[axis];
+		e->radius[axis] = e->radius[axis2];
+		e->radius[axis2] = tmp;
+
+		tmp = e->center[axis2] - c2;
+		e->center[axis2] = c2 + e->center[axis] - c1;
+		e->center[axis] = c1 - tmp + shift;
+	}
+}
+
+void edit_flip(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	int axis, dir;
+	getAxis(me, &axis, &dir);
+	int32_t min, max;
+	getExtents(&a, axis, &min, &max);
+	int32_t x = min + max; // Too tired to explain this eloquently, but yeah it works
+	range(i, a.num) {
+		ent *e = a[i];
+		e->center[axis] = x - e->center[axis];
+	}
+}
+
+void edit_highlight(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) a[i]->color ^= 0x808080;
+}
+
+void edit_measure(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	int axis, dir;
+	getAxis(me, &axis, &dir);
+	int32_t min, max;
+	getExtents(&a, axis, &min, &max);
+	int32_t d = max-min;
+
+	printf("Outer: %d", d);
+	if (d%2 == 0) {
+		printf(" (2*%d)", d/2);
+	}
+	putchar('\n');
+
+	if (a.num == 2) {
+		d -= 2*(a[0]->radius[axis] + a[1]->radius[axis]);
+		printf("Inner: %d", d);
+		if (d%2 == 0) {
+			printf(" (2*%d)", d/2);
+		}
+		putchar('\n');
 	}
 }
 

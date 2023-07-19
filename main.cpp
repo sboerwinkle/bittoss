@@ -503,6 +503,16 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/nearby") && (gs->gamerules & RULE_EDIT)) {
 			edit_wireNearby(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/inside") && (gs->gamerules & RULE_EDIT)) {
+			edit_wireInside(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/hl") && (gs->gamerules & RULE_EDIT)) {
+			edit_highlight(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/m") && (gs->gamerules & RULE_EDIT)) {
+			if (isMe && isReal) edit_measure(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/flip") && (gs->gamerules & RULE_EDIT)) {
+			edit_flip(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/turn") && (gs->gamerules & RULE_EDIT)) {
+			edit_rotate(gs, p->entity, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
 			edit_create(gs, p->entity, chatBuffer + 2);
 		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {
@@ -841,6 +851,8 @@ static void* inputThreadFunc(void *_arg) {
 						strcpy(inputTextBuffer, "/load");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_C) {
 						strcpy(inputTextBuffer, "/copy");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_F) {
+						strcpy(inputTextBuffer, "/hl");
 					} else {
 						break;
 					}
