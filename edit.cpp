@@ -207,26 +207,29 @@ void edit_rm(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_create(gamestate *gs, ent *me, const char *argsStr) {
+static int32_t adjustRadius(int32_t input, char verbose) {
+	if (input <= 0 || input > 10000000) {
+		int32_t n;
+		if (input <= 0) n = 1;
+		else n = 10000000;
+		if (verbose) fprintf(stderr, "Input radius %d was replaced with %d\n", input, n);
+		return n;
+	}
+	return input;
+}
+
+void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	if (!me) return;
 	parseArgs(argsStr);
 	if (args.num != 3) {
-		fprintf(stderr, "Requires exactly 3 numerical args, but received: %s\n", argsStr);
+		if (verbose) fprintf(stderr, "Requires exactly 3 numerical args, but received: %s\n", argsStr);
 		return;
 	}
 
 	int32_t pos[3], size[3];
 	range(i, 3) {
 		pos[i] = me->center[i];
-		int32_t w = args[i];
-		if (w <= 0 || w > 10000000) {
-			int32_t n;
-			if (w <= 0) n = 1;
-			else n = 10000000;
-			fprintf(stderr, "Input radius %d was replaced with %d\n", w, n);
-			w = n;
-		}
-		size[i] = w;
+		size[i] = adjustRadius(args[i], verbose);
 	}
 	// Place it directly over our head, for starters
 	pos[2] -= me->radius[2] + size[2];
@@ -266,6 +269,38 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 	}
 	range(i, a.num) {
 		uCenter(a[i], offset);
+	}
+}
+
+void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
+	if (!me) return;
+	getLists(me);
+	parseArgs(argsStr);
+	if (args.num >= 3) {
+		int32_t radius[3];
+		range(i, 3) {
+			radius[i] = adjustRadius(args[i], verbose);
+		}
+		range(i, a.num) {
+			ent *e = a[i];
+			box *b = e->myBox;
+			memcpy(e->radius, radius, sizeof(int32_t)*3);
+			assignVelbox(e, b);
+			velbox_remove(b);
+		}
+	} else if (args.num >= 1) {
+		int axis, dir;
+		getAxis(me, &axis, &dir);
+		int32_t amt = args[0];
+		int32_t offset = amt * -dir;
+		range(i, a.num) {
+			ent *e = a[i];
+			box *b = e->myBox;
+			e->center[axis] += offset;
+			e->radius[axis] = adjustRadius(e->radius[axis] + amt, verbose);
+			assignVelbox(e, b);
+			velbox_remove(b);
+		}
 	}
 }
 

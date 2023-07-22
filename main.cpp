@@ -63,6 +63,8 @@ static double viewPitch = 0;
 static int mouseX = 0;
 static int mouseY = 0;
 static char thirdPerson = 1;
+static char ctrlPressed = 0;
+static int wheelIncr = 100;
 
 //static ALLEGRO_VERTEX vertices[4];
 //const int indices[6] = {0, 1, 2, 3, 2, 1};
@@ -327,6 +329,11 @@ static void sendControls(int frame) {
 			puts("Congratulations, you found the one command that isn't listed in /help. This is all it does.");
 		} else if (isCmd(inputTextBuffer, "/secret2")) {
 			puts("You think you're *SO* clever");
+		} else if (isCmd(inputTextBuffer, "/incr")) {
+			char *end;
+			int incr = strtol(inputTextBuffer + 5, &end, 0);
+			if (end == inputTextBuffer + 5)  printf("incr: %d\n", wheelIncr);
+			else wheelIncr = incr;
 		} else if (isCmd(inputTextBuffer, "/b82dtZZ")) {
 			puts("I hate you");
 			globalRunning = 0;
@@ -401,6 +408,7 @@ char handleKey(int code, char pressed) {
 		}
 	}
 	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
+	else if (code == ALLEGRO_KEY_LCTRL || code == ALLEGRO_KEY_RCTRL) ctrlPressed = pressed;
 	return false;
 }
 
@@ -514,11 +522,13 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/turn") && (gs->gamerules & RULE_EDIT)) {
 			edit_rotate(gs, p->entity, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
-			edit_create(gs, p->entity, chatBuffer + 2);
+			edit_create(gs, p->entity, chatBuffer + 2, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {
 			edit_copy(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/p") && (gs->gamerules & RULE_EDIT)) {
 			edit_push(gs, p->entity, chatBuffer + 2);
+		} else if (isCmd(chatBuffer, "/s") && (gs->gamerules & RULE_EDIT)) {
+			edit_stretch(gs, p->entity, chatBuffer + 2, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/d") && (gs->gamerules & RULE_EDIT)) {
 			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
@@ -922,6 +932,11 @@ static void* inputThreadFunc(void *_arg) {
 					// (yes, even accounting for the separate warp event)
 					int x = evnt.mouse.x;
 					int y = evnt.mouse.y;
+					if (evnt.mouse.dz && !(textInputMode & 2) && ctrlPressed) {
+						snprintf(inputTextBuffer, TEXT_BUF_LEN, "/s %d", evnt.mouse.dz > 0 ? -wheelIncr : wheelIncr);
+						bufferedTextLen = strlen(inputTextBuffer);
+						textInputMode |= 2;
+					}
 					if (mouse_grabbed) {
 						handleMouseMove(x - mouseX, y - mouseY);
 						// No idea if these are sensible criteria for warping the mouse,

@@ -70,9 +70,10 @@ static void addRootEnt(gamestate *gs, ent *e) {
 	recursiveHoldRoot(e, e);
 }
 
-void addEnt(gamestate *gs, ent *e, ent *relative) {
+// As a special case, you can pass the `ent`'s existing box, which is useful e.g. for the edit tooling when it changes the size.
+// However, it's on the caller to dispose of the old `box` in that case
+void assignVelbox(ent *e, box *relBox) {
 	box *b = velbox_alloc();
-	e->myBox = b;
 	b->data = e;
 	range(d, 3) {
 		b->p1[d] = e->center[d];
@@ -80,8 +81,13 @@ void addEnt(gamestate *gs, ent *e, ent *relative) {
 		int r = e->radius[d];
 		b->r[d] = r ? r : 1; // velbox doesn't like radii of 0, and frankly neither do I
 	}
-	box *relBox = relative ? relative->myBox : gs->rootBox;
 	velbox_insert(relBox, b);
+
+	e->myBox = b;
+}
+
+void addEnt(gamestate *gs, ent *e, ent *relative) {
+	assignVelbox(e, relative ? relative->myBox : gs->rootBox);
 
 	if (gs->ents) gs->ents->ll.p = e;
 	e->ll.n = gs->ents;

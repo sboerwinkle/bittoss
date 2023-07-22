@@ -211,6 +211,7 @@ extern void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *par
 
 extern byte getAxis(ent *a, ent *b);
 
+extern void assignVelbox(ent *e, box *relBox);
 extern void addEnt(gamestate *gs, ent *e, ent *relative);
 extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y);
 
