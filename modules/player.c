@@ -48,6 +48,24 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 	}
 }
 
+void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode) {
+	char found = 0;
+	holdeesAnyOrder(h, me) {
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(&h->state, 0)) {
+			range(j, h->wires.num) {
+				if (h->wires[j] == target) {
+					uDrop(gs, h);
+					found = 1;
+					// We're just exiting the wire looping here,
+					// still need to finish looking through the holdees
+					break;
+				}
+			}
+		}
+	}
+	if (!found) mkBauble(gs, me, target, mode);
+}
+
 static void player_tick(gamestate *gs, ent *me) {
 	entState *s = &me->state;
 
@@ -115,21 +133,7 @@ static void player_tick(gamestate *gs, ent *me) {
 		range(i, wires.num) {
 			ent *e = wires[i];
 			uUnwire(me, e);
-			char found = 0;
-			holdeesAnyOrder(h, me) {
-				if ((h->typeMask & T_DECOR) && h->wires.num == 1 && !getSlider(&h->state, 0)) {
-					range(j, h->wires.num) {
-						if (h->wires[j] == e) {
-							uDrop(gs, h);
-							found = 1;
-							// We're just exiting the wire looping here,
-							// still need to finish looking through the holdees
-							break;
-						}
-					}
-				}
-			}
-			if (!found) mkBauble(gs, me, e);
+			player_toggleBauble(gs, me, e, 0);
 		}
 	} else {
 		// This is fun block making stuff, i.e. not edittool

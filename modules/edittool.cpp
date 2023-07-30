@@ -5,18 +5,25 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "player.h"
+
 static const int32_t thumbtackSize[3] = {100, 100, 100};
 static const int32_t baubleRadius = 100;
 static const int32_t baubleSize[3] = {baubleRadius, baubleRadius, baubleRadius};
 
 static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	if (me->holder) return r_die;
+
+	uPickup(gs, him, me);
+	return r_pass;
+}
+
+static void thumbtack_tick_held(gamestate *gs, ent *me) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
-		// TODO I'd prefer this to be a toggle
-		uWire(wires[i], him);
+		player_toggleBauble(gs, wires[i], me->holder, 0);
 	}
 	uDead(gs, me);
-	return r_pass;
 }
 
 static void bauble_tick_held(gamestate *gs, ent *me) {
@@ -43,7 +50,7 @@ static void bauble_tick(gamestate *gs, ent *me) {
 	uDead(gs, me);
 }
 
-ent* mkBauble(gamestate *gs, ent *parent, ent *target) {
+ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 	ent *ret = initEnt(
 		gs, parent,
 		parent->center, parent->vel, baubleSize,
@@ -60,6 +67,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target) {
 	ret->wires.add(target);
 
 	uPickup(gs, parent, ret);
+	if (mode) pushBtn(ret, 2);
 
 	return ret;
 }
@@ -81,6 +89,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
 	ret->color = 0x00FF33;
 	ret->pushed = pushedHandlers.getByName("thumbtack-pushed");
+	ret->tickHeld = tickHandlers.getByName("thumbtack-tick-held");
 	// TODO: This is not how wires are supposed to be updated!
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
@@ -94,4 +103,5 @@ void module_edittool() {
 	tickHandlers.reg("bauble-tick-held", bauble_tick_held);
 
 	pushedHandlers.reg("thumbtack-pushed", thumbtack_pushed);
+	tickHandlers.reg("thumbtack-tick-held", thumbtack_tick_held);
 }
