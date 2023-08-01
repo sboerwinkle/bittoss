@@ -164,7 +164,7 @@ static void drawHud(list<player> *ps) {
 	// Draw ammo bars if applicable
 	ent *p = (*ps)[myPlayer].entity;
 	if (!p) return;
-	int charge = p->state.sliders[3].v;
+	int charge = p->sliders[3].v;
 	float x = 0.5 - 3.0/128;
 	while (charge >= 60) {
 		drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
@@ -498,10 +498,10 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;
 			if (e) {
-				int edit = !getSlider(&e->state, 6);
+				int edit = !getSlider(e, 6);
 				// Reach in and tweak internal state to toggle edit mode
 				if (!edit || (gs->gamerules & RULE_EDIT)) {
-					uStateSlider(&e->state, 6, edit);
+					uStateSlider(e, 6, edit);
 					if (isReal && isMe) {
 						printf("Your edit toolset is %s\n", edit ? "ON" : "OFF");
 					}

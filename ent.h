@@ -61,15 +61,6 @@ typedef struct {
 	int32_t v, min, max;
 } slider;
 
-// TODO This whole struct is leftover nonsense, should just be in `ent`
-typedef struct entState {
-	slider *sliders;
-	int numSliders;
-} entState;
-
-extern void freeEntState(entState *s);
-extern void setupEntState(entState *s, int numSliders);
-
 typedef struct ent {
 
 	//// Things related to collisions ////
@@ -146,7 +137,8 @@ typedef struct ent {
 
 	//Things really definitely not related to collisions
 	// For whatever internal state they need
-	entState state;
+	slider *sliders;
+	int numSliders;
 	struct {
 		struct ent *n, *p;
 	} ll, LL;

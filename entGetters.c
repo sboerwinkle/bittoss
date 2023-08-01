@@ -63,10 +63,10 @@ void getVel(int *dest, ent *a, ent *b) {
 	}
 }
 
-int getSlider(entState *s, int ix) {
-	if (ix < 0 || ix >= s->numSliders) {
-		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, s->numSliders);
+int getSlider(ent *e, int ix) {
+	if (ix < 0 || ix >= e->numSliders) {
+		fprintf(stderr, "Can't access slider %d (%d total)\n", ix, e->numSliders);
 		return 0;
 	}
-	return s->sliders[ix].v;
+	return e->sliders[ix].v;
 }

@@ -29,12 +29,11 @@ static void platform_crush(gamestate *gs, ent *me) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
 		ent *e = wires[i];
-		entState *s = &e->state;
 		// Tampering w/ other people's sliders shouldn't be done randomly,
 		// but it is managed so as not to depend on iteration order
 		// (so it should be fine if you know what you're doing!)
-		uStateSlider(s, 3, 180);
-		uStateSlider(s, 4, 5);
+		uStateSlider(e, 3, 180);
+		uStateSlider(e, 4, 5);
 	}
 }
 

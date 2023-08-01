@@ -18,8 +18,8 @@ static regmatch_t regexMatches[3];
 static char getLists(ent *e) {
 	a.num = b.num = 0;
 	holdeesAnyOrder(h, e) {
-		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && h->state.numSliders == 1) {
-			list<ent*> &dest = getSlider(&h->state, 0) ? b : a;
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && h->numSliders == 1) {
+			list<ent*> &dest = getSlider(h, 0) ? b : a;
 			dest.add(h->wires[0]);
 		}
 	}

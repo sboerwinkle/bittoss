@@ -21,7 +21,7 @@ static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir,
 static void thumbtack_tick_held(gamestate *gs, ent *me) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
-		player_toggleBauble(gs, wires[i], me->holder, getSlider(&me->state, 0));
+		player_toggleBauble(gs, wires[i], me->holder, getSlider(me, 0));
 	}
 	uDead(gs, me);
 }
@@ -40,9 +40,9 @@ static void bauble_tick_held(gamestate *gs, ent *me) {
 	uCenter(me, v);
 
 	if (getTrigger(me, 0)) {
-		int s = !getSlider(&me->state, 0);
+		int s = !getSlider(me, 0);
 		me->color = s ? 0xFF0000 : 0x0000FF;
-		uStateSlider(&me->state, 0, s);
+		uStateSlider(me, 0, s);
 	}
 }
 
@@ -96,7 +96,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 	ret->wires.add(parent);
 	// Once again we find ourselves directly manipulating state on a newly created item.
 	// TODO We really need a better way to handle this, maybe flush new items???
-	ret->state.sliders[0].v = mode;
+	ret->sliders[0].v = mode;
 
 	return ret;
 }

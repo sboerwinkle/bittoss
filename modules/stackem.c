@@ -26,8 +26,8 @@ int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, 
 		int vel[3];
 		getVel(vel, me, him);
 		boundVec(vel, 4, 2);
-		uStateSlider(&me->state, 0, vel[0]);
-		uStateSlider(&me->state, 1, vel[1]);
+		uStateSlider(me, 0, vel[0]);
+		uStateSlider(me, 1, vel[1]);
 	}
 	// Todo: Should probably do away with this entirely in favor of specifying the behavior on pickup
 	return r_move;
@@ -35,14 +35,13 @@ int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, 
 
 static void stackem_tick(gamestate *gs, ent *me) {
 	int vel[3];
-	entState *s = &me->state;
 	vel[2] = 0;
-	vel[0] = getSlider(s, 0);
-	vel[1] = getSlider(s, 1);
+	vel[0] = getSlider(me, 0);
+	vel[1] = getSlider(me, 1);
 	uVel(me, vel);
 	// Reset sliders always
-	uStateSlider(s, 0, 0);
-	uStateSlider(s, 1, 0);
+	uStateSlider(me, 0, 0);
+	uStateSlider(me, 1, 0);
 }
 
 static const int32_t stackemSize[3] = {450, 450, 450};

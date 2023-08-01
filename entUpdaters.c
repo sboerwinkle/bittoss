@@ -95,15 +95,15 @@ void uPickup(gamestate *gs, ent *p, ent *e) {
 
 // TODO need functions for wiring / de-wiring ents
 
-void uStateSlider(entState *s, int ix, int32_t value) {
-	if (ix < 0 || ix >= s->numSliders) {
+void uStateSlider(ent *e, int ix, int32_t value) {
+	if (ix < 0 || ix >= e->numSliders) {
 #ifndef NODEBUG_SCRIPT
-		printf("Invalid slider #%d (limit is %d)\n", ix, s->numSliders);
+		printf("Invalid slider #%d (limit is %d)\n", ix, e->numSliders);
 #endif
 		return;
 	}
-	if (value > s->sliders[ix].max) s->sliders[ix].max = value;
-	if (value < s->sliders[ix].min) s->sliders[ix].min = value;
+	if (value > e->sliders[ix].max) e->sliders[ix].max = value;
+	if (value < e->sliders[ix].min) e->sliders[ix].min = value;
 }
 
 void uWire(ent *e, ent *w) {

@@ -11,26 +11,6 @@
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
-static void flushEntState(entState *s) {
-	range(i, s->numSliders) {
-		//sliders are "sticky", i.e. don't reset if left alone
-		if (s->sliders[i].max < s->sliders[i].min) continue;
-		s->sliders[i].v = (s->sliders[i].max + s->sliders[i].min)/2;
-		s->sliders[i].max = INT32_MIN;
-		s->sliders[i].min = INT32_MAX;
-	}
-}
-
-void freeEntState(entState *s) {
-	free(s->sliders);
-}
-
-void setupEntState(entState *s, int numSliders) {
-	s->numSliders = numSliders;
-	s->sliders = (slider*) calloc(numSliders, sizeof(slider));
-	flushEntState(s);
-}
-
 void flushCtrls(ent *who) {
 	int i;
 	for (i = 0; i < 4; i++) {
@@ -428,7 +408,7 @@ static void clearDeads(gamestate *gs) {
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
 		velbox_remove(d->myBox);
-		freeEntState(&d->state);
+		free(d->sliders);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
 		d->wiresRm.destroy();
@@ -561,7 +541,13 @@ static void doTick(gamestate *gs, ent *e, int type) {
 }
 
 void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
-	flushEntState(&e->state);
+	range(i, e->numSliders) {
+		//sliders are "sticky", i.e. don't reset if left alone
+		if (e->sliders[i].max < e->sliders[i].min) continue;
+		e->sliders[i].v = (e->sliders[i].max + e->sliders[i].min)/2;
+		e->sliders[i].max = INT32_MIN;
+		e->sliders[i].min = INT32_MAX;
+	}
 
 	e->typeMask = e->newTypeMask;
 	e->collideMask = e->newCollideMask;
@@ -818,13 +804,11 @@ static ent* cloneEnt(ent *in) {
 	}
 #endif
 
-	entState *inState = &in->state;
-	entState *retState = &ret->state;
-	size_t size = sizeof(slider) * retState->numSliders;
-	retState->sliders = (slider*) malloc(size);
+	size_t size = sizeof(slider) * ret->numSliders;
+	ret->sliders = (slider*) malloc(size);
 	// Maybe iterate assignment instead of this?
 	// I think maybe this is a syscall, but even so I'm not sure if it matters for performance.
-	memcpy(retState->sliders, inState->sliders, size);
+	memcpy(ret->sliders, in->sliders, size);
 
 	ret->wires.init(in->wires);
 	ret->wiresAdd.init();

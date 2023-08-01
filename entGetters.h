@@ -8,4 +8,4 @@ extern void getAxis(int32_t *dest, ent *e);
 extern void getLook(int32_t *dest, ent *e);
 extern void getPos(int *dest, ent *a, ent *b);
 extern void getVel(int *dest, ent *a, ent *b);
-extern int getSlider(entState *s, int ix);
+extern int getSlider(ent *e, int ix);

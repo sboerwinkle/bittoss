@@ -18,22 +18,21 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 }
 
 static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	entState *state = &me->state;
 	if (axis == 2) {
 		if (dir < 0) {
 			int vel[3];
 			getVel(vel, him, me);
 			// Reset what "stationary" is, according to ground speed
-			uStateSlider(state, 0, bound(vel[0], 128));
-			uStateSlider(state, 1, bound(vel[1], 128));
+			uStateSlider(me, 0, bound(vel[0], 128));
+			uStateSlider(me, 1, bound(vel[1], 128));
 			// Indicate that we can jump
-			uStateSlider(state, 2, 1);
+			uStateSlider(me, 2, 1);
 		}
 	} else {
 		// Tried to be more clever about this in the past, but it got weird.
 		// I think being able to suction towards surfaces in midair is not the
 		// weirdest ability, and it has no issues with multiple collisions in a frame.
-		uStateSlider(state, axis, 0);
+		uStateSlider(me, axis, 0);
 	}
 	return r_pass;
 }
@@ -51,7 +50,7 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode) {
 	char found = 0;
 	holdeesAnyOrder(h, me) {
-		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(&h->state, 0)) {
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(h, 0)) {
 			range(j, h->wires.num) {
 				if (h->wires[j] == target) {
 					uDrop(gs, h);
@@ -68,7 +67,7 @@ void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode) {
 
 void player_clearBaubles(gamestate *gs, ent *me, int mode) {
 	holdeesAnyOrder(h, me) {
-		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(&h->state, 0)) {
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(h, 0)) {
 			uDrop(gs, h);
 		}
 	}
@@ -86,19 +85,17 @@ void player_flipBaubles(ent *me) {
 }
 
 static void player_tick(gamestate *gs, ent *me) {
-	entState *s = &me->state;
-
 	// Jumping and movement
 
-	char grounded = getSlider(s, 2) > 0;
-	uStateSlider(s, 2, 0);
+	char grounded = getSlider(me, 2) > 0;
+	uStateSlider(me, 2, 0);
 
 	int axis[2];
 	getAxis(axis, me);
 
 	int sliders[2];
-	sliders[0] = getSlider(s, 0);
-	sliders[1] = getSlider(s, 1);
+	sliders[0] = getSlider(me, 0);
+	sliders[1] = getSlider(me, 1);
 
 	int vel[3];
 	vel[2] = (grounded && getButton(me, 0)) ? -192 : 0;
@@ -109,19 +106,19 @@ static void player_tick(gamestate *gs, ent *me) {
 	int divisor = grounded ? 1 : 2;
 	boundVec(vel, 10 / divisor, 2);
 	range(i, 2) {
-		uStateSlider(s, i, sliders[i] + vel[i]*divisor);
+		uStateSlider(me, i, sliders[i] + vel[i]*divisor);
 	}
 	uVel(me, vel);
 
 	// "shooting" and grabbing
 
-	int charge = getSlider(s, 3);
-	int cooldown = getSlider(s, 4);
+	int charge = getSlider(me, 3);
+	int cooldown = getSlider(me, 4);
 	char fire = getTrigger(me, 0);
 	char altFire = getTrigger(me, 1);
 
 	// Controls edittool on/off, only manipulated externally by game commands
-	if (getSlider(s, 6)) {
+	if (getSlider(me, 6)) {
 		if (cooldown >= 10 && fire) {
 			cooldown = 0;
 			mkThumbtack(gs, me, 0);
@@ -189,8 +186,8 @@ static void player_tick(gamestate *gs, ent *me) {
 				charge -= 180;
 				cooldown = 0;
 				getLook(look, me);
-				int colorToggle = getSlider(s, 5);
-				uStateSlider(s, 5, !colorToggle);
+				int colorToggle = getSlider(me, 5);
+				uStateSlider(me, 5, !colorToggle);
 				int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
 					// 0.040635 == 1.3 / axisMaxis
@@ -201,8 +198,8 @@ static void player_tick(gamestate *gs, ent *me) {
 		}
 	}
 
-	if (charge < 180) uStateSlider(s, 3, charge + 1);
-	if (cooldown < 10) uStateSlider(s, 4, cooldown + 1);
+	if (charge < 180) uStateSlider(me, 3, charge + 1);
+	if (cooldown < 10) uStateSlider(me, 4, cooldown + 1);
 }
 
 int32_t playerSize[3] = {512, 512, 512};

@@ -26,8 +26,8 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	/* so the serialization might not be totally faithful in the event */\
 	/* that something doesn't get flushed all the way (is that possible?)*/\
 	i32(e->color); \
-	range(i, e->state.numSliders) { \
-		i32(e->state.sliders[i].v); \
+	range(i, e->numSliders) { \
+		i32(e->sliders[i].v); \
 	} \
 	check(131); \
 	range(i, e->wires.num) { \
@@ -77,7 +77,7 @@ static void serializeEnt(ent *e, list<char> *data) {
 	range(i, 3) i32(e->vel[i]);
 	range(i, 3) i32(e->radius[i]);
 	check(129);
-	i32(e->state.numSliders);
+	i32(e->numSliders);
 	i32(e->typeMask);
 	i32(e->collideMask);
 	i32(e->wires.num);

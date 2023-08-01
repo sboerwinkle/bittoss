@@ -40,18 +40,15 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	return e;
 }
 
-
 static void flagSpawner_tick(gamestate *gs, ent *me) {
-	// TODO entState is an obsolete concept, should just be passing ent* around
-	entState *s = &me->state;
-	int cooldown = getSlider(s, 0);
+	int cooldown = getSlider(me, 0);
 	if (cooldown == 0) {
 		if (me->wires.num) return;
 		cooldown = 90; // 3 seconds
-		int team = getSlider(s, 1);
+		int team = getSlider(me, 1);
 		uWire(me, mkFlag(gs, me, team));
 	}
-	uStateSlider(s, 0, cooldown - 1);
+	uStateSlider(me, 0, cooldown - 1);
 }
 
 const int32_t spawnerSize[3] = {1, 1, 1};
@@ -64,7 +61,8 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 		2,
 		T_WEIGHTLESS, 0
 	);
-	uStateSlider(&ret->state, 1, team);
+	// TODO This may remove the need for the "do a flush after map load" if we find a more elegant way to handle state changes on newly created ents - it's a recurring problem.
+	uStateSlider(ret, 1, team);
 	ret->tick = tickHandlers.getByName("flag-spawner-tick");
 	ret->color = -1;
 }
