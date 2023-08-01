@@ -21,7 +21,7 @@ static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir,
 static void thumbtack_tick_held(gamestate *gs, ent *me) {
 	list<ent*> &wires = me->wires;
 	range(i, wires.num) {
-		player_toggleBauble(gs, wires[i], me->holder, 0);
+		player_toggleBauble(gs, wires[i], me->holder, getSlider(&me->state, 0));
 	}
 	uDead(gs, me);
 }
@@ -72,7 +72,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 	return ret;
 }
 
-ent* mkThumbtack(gamestate *gs, ent *parent) {
+ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 	int32_t pos[3];
 	int32_t look[3];
 	getLook(look, parent);
@@ -83,7 +83,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 	ent *ret = initEnt(
 		gs, parent,
 		pos, look, thumbtackSize,
-		0,
+		1,
 		T_WEIGHTLESS, T_TERRAIN + T_OBSTACLE + T_DEBRIS
 	);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
@@ -94,6 +94,9 @@ ent* mkThumbtack(gamestate *gs, ent *parent) {
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
 	ret->wires.add(parent);
+	// Once again we find ourselves directly manipulating state on a newly created item.
+	// TODO We really need a better way to handle this, maybe flush new items???
+	ret->state.sliders[0].v = mode;
 
 	return ret;
 }

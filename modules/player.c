@@ -66,6 +66,25 @@ void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode) {
 	if (!found) mkBauble(gs, me, target, mode);
 }
 
+void player_clearBaubles(gamestate *gs, ent *me, int mode) {
+	holdeesAnyOrder(h, me) {
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(&h->state, 0)) {
+			uDrop(gs, h);
+		}
+	}
+}
+
+void player_flipBaubles(ent *me) {
+	holdeesAnyOrder(h, me) {
+		if ((h->typeMask & T_DECOR) && h->wires.num == 1) {
+			// Right now I've got my buttons and triggers all mixed up;
+			// trigger 1 is just button 3 by another name.
+			// (TODO)
+			pushBtn(h, 2);
+		}
+	}
+}
+
 static void player_tick(gamestate *gs, ent *me) {
 	entState *s = &me->state;
 
@@ -99,41 +118,25 @@ static void player_tick(gamestate *gs, ent *me) {
 	int charge = getSlider(s, 3);
 	int cooldown = getSlider(s, 4);
 	char fire = getTrigger(me, 0);
+	char altFire = getTrigger(me, 1);
 
 	// Controls edittool on/off, only manipulated externally by game commands
 	if (getSlider(s, 6)) {
-		// edittool stuff (WIP)
 		if (cooldown >= 10 && fire) {
 			cooldown = 0;
-			mkThumbtack(gs, me);
-		}
-		// Toggle baubles?
-		if (getTrigger(me, 1) && cooldown >= 5) {
+			mkThumbtack(gs, me, 0);
+		} else if (cooldown >= 10 && altFire) {
 			cooldown = 0;
-			holdeesAnyOrder(h, me) {
-				if ((h->typeMask & T_DECOR) && h->wires.num == 1) {
-					// Right now I've got my buttons and triggers all mixed up;
-					// trigger 1 is just button 3 by another name.
-					// (TODO)
-					pushBtn(h, 2);
-				}
-			}
+			mkThumbtack(gs, me, 1);
 		}
-		// Drop baubles?
+		// Shift modifier commands
 		if (getButton(me, 1)) {
-			holdeesAnyOrder(h, me) {
-				if ((h->typeMask & T_DECOR) && h->wires.num == 1 && !getSlider(&h->state, 0)) {
-					uDrop(gs, h);
-				}
+			if (fire) player_clearBaubles(gs, me, 0);
+			if (altFire) player_clearBaubles(gs, me, 1);
+			if (cooldown >= 5 && getButton(me, 0)) {
+				player_flipBaubles(me);
+				cooldown = 0;
 			}
-		}
-		// Turn wires on me into baubles
-		// this is kinda weird and I might change it but honestly whatever
-		list<ent*> &wires = me->wires;
-		range(i, wires.num) {
-			ent *e = wires[i];
-			uUnwire(me, e);
-			player_toggleBauble(gs, me, e, 0);
 		}
 	} else {
 		// This is fun block making stuff, i.e. not edittool
