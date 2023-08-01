@@ -194,6 +194,7 @@ struct gamestate {
 	list<player> *players;
 };
 
+extern void flushPickups(gamestate *gs);
 extern void flushCtrls(ent *e);
 extern void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel);
 

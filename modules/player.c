@@ -119,20 +119,20 @@ static void player_tick(gamestate *gs, ent *me) {
 
 	// Controls edittool on/off, only manipulated externally by game commands
 	if (getSlider(me, 6)) {
-		if (cooldown >= 10 && fire) {
-			cooldown = 0;
-			mkThumbtack(gs, me, 0);
-		} else if (cooldown >= 10 && altFire) {
-			cooldown = 0;
-			mkThumbtack(gs, me, 1);
-		}
-		// Shift modifier commands
-		if (getButton(me, 1)) {
+		if (getButton(me, 1)) { // Shift pressed - clear or flip baubles
 			if (fire) player_clearBaubles(gs, me, 0);
 			if (altFire) player_clearBaubles(gs, me, 1);
 			if (cooldown >= 5 && getButton(me, 0)) {
 				player_flipBaubles(me);
 				cooldown = 0;
+			}
+		} else { // Shift not pressed - click to select
+			if (cooldown >= 10 && fire) {
+				cooldown = 0;
+				mkThumbtack(gs, me, 0);
+			} else if (cooldown >= 10 && altFire) {
+				cooldown = 0;
+				mkThumbtack(gs, me, 1);
 			}
 		}
 	} else {

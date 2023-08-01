@@ -10,10 +10,23 @@
 #include "entFuncs.h"
 #include "colors.h"
 
+#include "modules/player.h"
+
 static list<ent*> a, b;
 static list<int32_t> args;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
+
+static void fixNewBaubles(gamestate *gs) {
+	// Pretty sloppy, but whatever, edit functionality can afford to be an exception.
+	// The problem is that we're creating the baubles outside of the `tick` loop,
+	// which means they'll actually experience a tick before their pickup processes.
+	// (things which are added during the `tick` loop go at the beginning of the list,
+	//  and so miss their `tick` for that turn)
+	// Baubles don't like to be unheld, so they'll self-destruct unless we pick them up
+	// before they tick.
+	flushPickups(gs);
+}
 
 static char getLists(ent *e) {
 	a.num = b.num = 0;
@@ -175,9 +188,10 @@ void edit_wireNearby(gamestate *gs, ent *me) {
 			int32_t r = e->radius[i] + me->radius[i];
 			if (abs(e->center[i] - me->center[i]) > r) goto next;
 		}
-		uWire(me, e);
+		player_toggleBauble(gs, me, e, 0);
 		next:;
 	}
+	fixNewBaubles(gs);
 }
 
 void edit_wireInside(gamestate *gs, ent *me) {
@@ -194,9 +208,10 @@ void edit_wireInside(gamestate *gs, ent *me) {
 				goto skip;
 			}
 		}
-		uWire(me, e);
+		player_toggleBauble(gs, me, e, 0);
 		skip:;
 	}
+	fixNewBaubles(gs);
 }
 
 void edit_rm(gamestate *gs, ent *me) {
@@ -241,7 +256,8 @@ void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
 	);
 	created->color = CLR_WHITE;
-	uWire(me, created);
+	player_toggleBauble(gs, me, created, 0);
+	fixNewBaubles(gs);
 }
 
 void edit_push(gamestate *gs, ent *me, const char *argsStr) {
@@ -310,10 +326,12 @@ void edit_copy(gamestate *gs, ent *me) {
 	int axis, dir;
 	getAxis(me, &axis, &dir);
 	int32_t min, max;
-	getExtents(&b, axis, &min, &max);
+	getExtents(&a, axis, &min, &max);
 	int32_t width = (max-min) * dir;
-	range(i, b.num) {
-		ent *e = b[i];
+	player_clearBaubles(gs, me, 1);
+	player_flipBaubles(me);
+	range(i, a.num) {
+		ent *e = a[i];
 		// Push the existing ent around, just for a sec.
 		// We undo this later, but it spares us having
 		// to copy yet another vector
@@ -326,10 +344,11 @@ void edit_copy(gamestate *gs, ent *me) {
 			T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
 		);
 		created->color = e->color;
-		uWire(me, created);
+		player_toggleBauble(gs, me, created, 0);
 
 		e->center[axis] += width;
 	}
+	fixNewBaubles(gs);
 }
 
 void edit_rotate(gamestate *gs, ent *me, char verbose) {

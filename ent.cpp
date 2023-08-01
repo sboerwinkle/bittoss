@@ -612,7 +612,8 @@ static void flushDrops(gamestate *gs) {
 	}
 }
 
-static void flushPickups(gamestate *gs) {
+void flushPickups(gamestate *gs) {
+	gs->flipFlop_pickup ^= 1;
 	ent *i, *next;
 	byte ff = 1^gs->flipFlop_pickup;
 	for (i = gs->rootEnts; i; i = next) {
@@ -644,7 +645,6 @@ static void flush(gamestate *gs) {
 	//I think our only complaint was that it permits infinitely loopy physics iterations if some jackass writes a stupid script.
 	//And face it, slow / loopy scripts are an inevitable hazard. Maybe better to drop the worries in this dep't and just add immediately.
 	flushDrops(gs);
-	gs->flipFlop_pickup ^= 1;
 	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
