@@ -15,15 +15,15 @@ FRAME_ID_MAX = 128
 
 EMPTY_MSG = b'\0\0\0\0'
 
-usage = "Usage: frame_latency [port]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4)
+usage = "Usage: frame_latency [port] [starting_players]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4) + "\nstarting_players is probably not an option you need"
 
 # TODO clients and buf are used, like, everywhere; maybe make them object members at some point?
 
 class Host:
-    def __init__(self, latency):
-        self.buf = [list() for _ in range(FRAME_ID_MAX)]
+    def __init__(self, latency, starting_players):
+        self.buf = [[EMPTY_MSG] * starting_players for _ in range(FRAME_ID_MAX)]
         self.frame = 0
-        self.clients = []
+        self.clients = [None] * starting_players
         self.latency = latency
 
 class Client:
@@ -216,7 +216,7 @@ async def loop(host, port, framerate = 30):
 
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) < 2 or len(args) > 3:
+    if len(args) < 2 or len(args) > 4:
         print(usage)
         sys.exit(1)
 
@@ -236,5 +236,15 @@ if __name__ == "__main__":
         port = 15000
         print("Using default port.")
 
-    asyncio.get_event_loop().run_until_complete(loop(Host(latency), port))
+    if len(args) > 3:
+        try:
+            starting_players = int(args[3])
+        except:
+            print(usage)
+            sys.exit(1)
+    else:
+        starting_players = 0
+
+
+    asyncio.get_event_loop().run_until_complete(loop(Host(latency, starting_players), port))
     print("Goodbye!")
