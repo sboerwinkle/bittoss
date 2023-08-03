@@ -29,6 +29,7 @@ static void thumbtack_tick_held(gamestate *gs, ent *me) {
 static void bauble_tick_held(gamestate *gs, ent *me) {
 	if (me->wires.num != 1) {
 		uDrop(gs, me);
+		return;
 	}
 	int32_t v[3];
 	ent *parent = me->holder;

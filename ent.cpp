@@ -575,7 +575,8 @@ void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_v
 	e->wiresRm.num = 0;
 	range(i, e->wiresAdd.num) {
 		ent *w = e->wiresAdd[i];
-		if (!e->wires.has(w)) e->wires.add(w);
+		// Not actually sure if the `dead` check is necessary here, but it feels like a good idea
+		if (!e->wires.has(w) && !w->dead) e->wires.add(w);
 	}
 	e->wiresAdd.num = 0;
 
