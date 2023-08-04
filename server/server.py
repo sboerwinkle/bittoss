@@ -4,7 +4,7 @@
 
 # chat_server.py
  
-import sys, socket, select, time
+import sys, socket, select, time, traceback
 import asyncio
 import os
 
@@ -105,14 +105,19 @@ async def handle_client(host, ix):
 async def get_clients(host, port):
     lp = asyncio.get_event_loop()
 
-    # Open port
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.setblocking(False)
-    server_socket.bind((HOST, port))
-    server_socket.listen()
+    try:
+        # Open port
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.setblocking(False)
+        server_socket.bind((HOST, port))
+        server_socket.listen()
  
-    print("Server started on port " + str(port))
+        print("Server started on port " + str(port))
+    except:
+        print("Couldn't open server port!")
+        traceback.print_exc()
+        return
 
     clients = host.clients
     while True:
