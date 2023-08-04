@@ -59,11 +59,12 @@ TODO:
 	/ Send over wire
 	/ dynamic joining
 - "Finish" edit tooling
-	- Bulk selection in area
-	- Flips / rotations on selected items
+	/ Bulk selection in area
+	/ Flips / rotations on selected items
 	- resizing existing things
 		- stretching an edge to a desired point
 			This operation can fail since object widths are always even!
+- Friction as a concept native to the engine?
 
 - CTF scoring plz
 

@@ -9,6 +9,7 @@
 #include "entUpdaters.h"
 #include "entFuncs.h"
 #include "colors.h"
+#include "handlerRegistrar.h"
 
 #include "modules/player.h"
 
@@ -219,6 +220,17 @@ void edit_rm(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		uDead(gs, a[i]);
+	}
+}
+
+void edit_t_paper(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.getByName("move-me");
+		uMyTypeMask(e, T_OBSTACLE);
+		uMyCollideMask(e, T_OBSTACLE | T_TERRAIN);
 	}
 }
 

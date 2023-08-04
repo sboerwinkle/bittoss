@@ -3,6 +3,7 @@ extern int32_t edit_color(ent *e, const char *colorStr, char priviledged);
 extern void edit_wireNearby(gamestate *gs, ent *e);
 extern void edit_wireInside(gamestate *gs, ent *me);
 extern void edit_rm(gamestate *gs, ent *e);
+extern void edit_t_paper(gamestate *gs, ent *me);
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose);

@@ -317,7 +317,7 @@ static void sendControls(int frame) {
 			puts(
 				"Available commands:\n"
 				"/save [FILE] - save to file, default file is \"savegame\"\n"
-				"/load [FILE] - load from file, as above\n" // This one is magic, and handled somewhere else
+				"/load [FILE] - load from file, as above\n"
 				"/sync - send current state over network - also Ctrl+R\n"
 				"/syncme - displays message to other clients requesting sync\n"
 				"/tree - prints debug info about collision detection tree\n"
@@ -325,18 +325,11 @@ static void sendControls(int frame) {
 				"/c COLOR - Sets the player color to COLOR, a 6-digit hex code or a CSS4 color name\n"
 				"/help - display this help\n"
 			);
-		} else if (isCmd(inputTextBuffer, "/secret")) {
-			puts("Congratulations, you found the one command that isn't listed in /help. This is all it does.");
-		} else if (isCmd(inputTextBuffer, "/secret2")) {
-			puts("You think you're *SO* clever");
 		} else if (isCmd(inputTextBuffer, "/incr")) {
 			char *end;
 			int incr = strtol(inputTextBuffer + 5, &end, 0);
 			if (end == inputTextBuffer + 5)  printf("incr: %d\n", wheelIncr);
 			else wheelIncr = incr;
-		} else if (isCmd(inputTextBuffer, "/b82dtZZ")) {
-			puts("I hate you");
-			globalRunning = 0;
 		} else if (isCmd(inputTextBuffer, "/load")) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
@@ -507,12 +500,14 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 					}
 				}
 			}
-		} else if (isCmd(chatBuffer, "/i")) {
+		} else if (isCmd(chatBuffer, "/i")) { // TODO This is rapidly getting unwieldy, move to another file? Maybe even make a lookup table??? Or at least check for '/' and bypass all this otherwise...
 			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/nearby") && (gs->gamerules & RULE_EDIT)) {
 			edit_wireNearby(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/inside") && (gs->gamerules & RULE_EDIT)) {
 			edit_wireInside(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/paper") && (gs->gamerules & RULE_EDIT)) {
+			edit_t_paper(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/hl") && (gs->gamerules & RULE_EDIT)) {
 			edit_highlight(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/m") && (gs->gamerules & RULE_EDIT)) {
