@@ -11,6 +11,18 @@
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
+void boundVec(int32_t *values, int32_t bound, int32_t len) {
+	int32_t max = bound;
+	range(i, len) {
+		int32_t x = abs(values[i]);
+		if (x > max) max = x;
+	}
+	if (max == bound) return;
+	range(i, len) {
+		values[i] = (int64_t) bound * values[i] / max;
+	}
+}
+
 void flushCtrls(ent *who) {
 	int i;
 	for (i = 0; i < 4; i++) {
@@ -486,8 +498,24 @@ static char push_helper(gamestate *gs, ent *e, ent *prev, byte axis, int dir) {
 static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	int displacement = (o->center[axis] - e->center[axis])*dir + e->radius[axis] + o->radius[axis];
 	if (displacement < 0) printf("Shouldn't get a negative displacement!\n");
-	int accel = (o->vel[axis] - e->vel[axis])*dir;
+
+	// Friction
+	int32_t dv[3];
+	dv[axis] = 0;
+	int i = (axis+1)%3;
+	dv[i] = o->vel[i] - e->vel[i];
+	i = (i+1)%3;
+	dv[i] = o->vel[i] - e->vel[i];
+	// We know one of the components is 0 at this point,
+	// so we could just `boundVec` the other two, but rearranging them to always be contiguous
+	// probably isn't worth the effort
+	boundVec(dv, 4, 3);
+
+	// Velocity transfer in the direction of the collision
+	int32_t accel = (o->vel[axis] - e->vel[axis])*dir;
 	if (accel < 0) accel = 0;
+	dv[axis] = accel*dir;
+
 	//TODO: This guy should get to know the person who was moved, and how.
 	//Does it matter that this guy might get called twice, if the other guy gets crushed? Shouldn't matter if he's told the other guy got crushed.
 	//I think we need it to be called twice, so the other guy gets to know that he was pushed while not being held.
@@ -512,10 +540,9 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 		}
 		if (ret == r_pass && e) continue;
 		if (ret == r_drop && e) fumble(gs, prev);
-		int32_t dc[3], dv[3];
-		dc[(axis+1)%3] = dv[(axis+1)%3] = dc[(axis+2)%3] = dv[(axis+2)%3] = 0;
+		int32_t dc[3];
+		dc[(axis+1)%3] = dc[(axis+2)%3] = 0;
 		dc[axis] = displacement*dir;
-		dv[axis] = accel*dir;
 		moveRecursive(prev, dc, dv);
 		break;
 	}

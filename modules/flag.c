@@ -12,7 +12,7 @@ static const int32_t flagSize[3] = {350, 350, 350};
 
 static int flag_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	if (type(him) & T_FLAG) return r_die;
-	return stackem_pushed(gs, me, him, axis, dir, dx, dv);
+	return r_move;
 }
 
 static void flag_crush(gamestate *gs, ent *me) {
@@ -34,7 +34,6 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	e->whoMoves = whoMovesHandlers.getByName("move-me");
 	e->color = (e->typeMask & TEAM_BIT) ? 0xFF8080 : 0x80FF80;
 	e->pushed = pushedHandlers.getByName("flag-pushed");
-	e->tick = tickHandlers.getByName("stackem-tick");
 	e->crush = crushHandlers.getByName("flag-crush");
 
 	return e;

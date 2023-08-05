@@ -1,5 +1,4 @@
 extern int bound(int x, int b);
-extern void boundVec(int32_t *values, int32_t bound, int32_t len);
 extern int type(ent *e);
 extern void getSize(int32_t *dest, ent *e);
 extern char getTrigger(ent *e, int i);

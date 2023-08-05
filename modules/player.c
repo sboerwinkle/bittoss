@@ -18,22 +18,28 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 }
 
 static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	int32_t vel[3];
+	getVel(vel, him, me);
+	// Reset what "stationary" is, according to ground speed
+	vel[0] = bound(vel[0], 128);
+	vel[1] = bound(vel[1], 128);
+	int32_t grounded = 1;
 	if (axis == 2) {
 		if (dir < 0) {
-			int vel[3];
-			getVel(vel, him, me);
-			// Reset what "stationary" is, according to ground speed
-			uStateSlider(me, 0, bound(vel[0], 128));
-			uStateSlider(me, 1, bound(vel[1], 128));
 			// Indicate that we can jump
-			uStateSlider(me, 2, 1);
+			// We check for 1 or >1, but 3 is not an accident here.
+			// If we have multiple collisions the sliders will be
+			// set to the median requested value: (3+1)/2 = 2
+			grounded = 3;
 		}
 	} else {
-		// Tried to be more clever about this in the past, but it got weird.
-		// I think being able to suction towards surfaces in midair is not the
-		// weirdest ability, and it has no issues with multiple collisions in a frame.
-		uStateSlider(me, axis, 0);
+		// It won't report as 0 yet, because the collision isn't finished,
+		// but we know it will be 0.
+		vel[axis] = 0;
 	}
+	uStateSlider(me, 0, vel[0]);
+	uStateSlider(me, 1, vel[1]);
+	uStateSlider(me, 2, grounded);
 	return r_pass;
 }
 
@@ -87,7 +93,7 @@ void player_flipBaubles(ent *me) {
 static void player_tick(gamestate *gs, ent *me) {
 	// Jumping and movement
 
-	char grounded = getSlider(me, 2) > 0;
+	int32_t grounded = getSlider(me, 2);
 	uStateSlider(me, 2, 0);
 
 	int axis[2];
@@ -98,13 +104,25 @@ static void player_tick(gamestate *gs, ent *me) {
 	sliders[1] = getSlider(me, 1);
 
 	int vel[3];
-	vel[2] = (grounded && getButton(me, 0)) ? -192 : 0;
+	if (getButton(me, 0) && grounded > 1) {
+		vel[2] = -192;
+	} else if (grounded) {
+		// If grounded is just 1, things get a little weird.
+		// Currently, I think gravity is 8 and friction is 4,
+		// so the "wallrunning" vertical boost should probably be less than
+		// 8-4=4, just so you can never negate gravity (even if already falling)
+		vel[2] = -3;
+	} else {
+		vel[2] = 0;
+	}
 	range(i, 2) {
 		vel[i] = 4*axis[i] - sliders[i];
 	}
 	// In the air, our efforts only yield half the impulse
-	int divisor = grounded ? 1 : 2;
-	boundVec(vel, 10 / divisor, 2);
+	int divisor = grounded > 1 ? 1 : 2;
+	boundVec(vel, 28 / divisor, 2);
+	vel[0] /= 2;
+	vel[1] /= 2;
 	range(i, 2) {
 		uStateSlider(me, i, sliders[i] + vel[i]*divisor);
 	}

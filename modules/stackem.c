@@ -21,29 +21,6 @@ static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return MOVE_HIM;
 }
 
-int stackem_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	if (axis == 2 && dir == -1) {
-		int vel[3];
-		getVel(vel, me, him);
-		boundVec(vel, 4, 2);
-		uStateSlider(me, 0, vel[0]);
-		uStateSlider(me, 1, vel[1]);
-	}
-	// Todo: Should probably do away with this entirely in favor of specifying the behavior on pickup
-	return r_move;
-}
-
-static void stackem_tick(gamestate *gs, ent *me) {
-	int vel[3];
-	vel[2] = 0;
-	vel[0] = getSlider(me, 0);
-	vel[1] = getSlider(me, 1);
-	uVel(me, vel);
-	// Reset sliders always
-	uStateSlider(me, 0, 0);
-	uStateSlider(me, 1, 0);
-}
-
 static const int32_t stackemSize[3] = {450, 450, 450};
 
 ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
@@ -55,7 +32,7 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	ent *e = initEnt(
 		gs, owner,
 		pos, owner->vel, stackemSize,
-		2,
+		0,
 		T_HEAVY + T_OBSTACLE + (TEAM_MASK & type(owner)), T_TERRAIN + T_OBSTACLE
 	);
 	// TODO Unsatisfied with how "modules" share stuff at the moment,
@@ -65,14 +42,16 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.getByName("stackem-whomoves");
 	e->color = (e->typeMask & TEAM_BIT) ? 0x805555 : 0x558055;
-	e->pushed = pushedHandlers.getByName("stackem-pushed");
-	e->tick = tickHandlers.getByName("stackem-tick");
 
 	return e;
 }
 
 void module_stackem() {
 	whoMovesHandlers.reg("stackem-whomoves", stackem_whoMoves);
-	pushedHandlers.reg("stackem-pushed", stackem_pushed);
-	tickHandlers.reg("stackem-tick", stackem_tick);
+
+	// At some point I actually need a way to stop constantly breaking my savegame files.
+	// For now, I need to do this so the spacing doesn't get off in these handler registrars,
+	// even though I no longer need these handlers to exist.
+	pushedHandlers.reg("stackem-pushed", NULL);
+	tickHandlers.reg("stackem-tick", NULL);
 }

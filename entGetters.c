@@ -10,18 +10,6 @@ int bound(int x, int b) {
 	return x;
 }
 
-void boundVec(int32_t *values, int32_t bound, int32_t len) {
-	int32_t max = bound;
-	range(i, len) {
-		int32_t x = abs(values[i]);
-		if (x > max) max = x;
-	}
-	if (max == bound) return;
-	range(i, len) {
-		values[i] = (int64_t) bound * values[i] / max;
-	}
-}
-
 int type(ent *e) {
 	return e->typeMask;
 }
