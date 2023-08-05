@@ -135,7 +135,7 @@ void edit_info(ent *e) {
 
 	e = a[0];
 	printf(
-		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %6X\nSelected %d, %d\n",
+		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %06X\nSelected %d, %d\n",
 		e->center[0], e->center[1], e->center[2],
 		e->radius[0], e->radius[1], e->radius[2],
 		e->color,
