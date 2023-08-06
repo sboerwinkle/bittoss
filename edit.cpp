@@ -311,8 +311,9 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		}
 		range(i, a.num) {
 			ent *e = a[i];
-			box *b = e->myBox;
 			memcpy(e->radius, radius, sizeof(int32_t)*3);
+
+			box *b = e->myBox;
 			assignVelbox(e, b);
 			velbox_remove(b);
 		}
@@ -323,9 +324,10 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		int32_t offset = amt * -dir;
 		range(i, a.num) {
 			ent *e = a[i];
-			box *b = e->myBox;
 			e->center[axis] += offset;
 			e->radius[axis] = adjustRadius(e->radius[axis] + amt, verbose);
+
+			box *b = e->myBox;
 			assignVelbox(e, b);
 			velbox_remove(b);
 		}
@@ -388,7 +390,6 @@ void edit_rotate(gamestate *gs, ent *me, char verbose) {
 
 	range(i, a.num) {
 		ent *e = a[i];
-		// No need to redo velbox data, since it only cares about what the box's greatest width is.
 		int32_t tmp = e->radius[axis];
 		e->radius[axis] = e->radius[axis2];
 		e->radius[axis2] = tmp;
@@ -396,6 +397,10 @@ void edit_rotate(gamestate *gs, ent *me, char verbose) {
 		tmp = e->center[axis2] - c2;
 		e->center[axis2] = c2 + e->center[axis] - c1;
 		e->center[axis] = c1 - tmp + shift;
+
+		box *b = e->myBox;
+		assignVelbox(e, b);
+		velbox_remove(b);
 	}
 }
 
