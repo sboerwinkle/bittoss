@@ -10,6 +10,7 @@ extern void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbo
 extern void edit_copy(gamestate *gs, ent *me);
 extern void edit_rotate(gamestate *gs, ent *me, char verbose);
 extern void edit_flip(gamestate *gs, ent *me);
+extern void edit_pickup(gamestate *gs, ent *me);
 extern void edit_highlight(gamestate *gs, ent *me);
 extern void edit_measure(gamestate *gs, ent *me);
 extern void edit_init();

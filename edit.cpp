@@ -418,6 +418,17 @@ void edit_flip(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_pickup(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	ent *holder = b[0];
+	range(i, a.num) {
+		ent *e = a[i];
+		uPickup(gs, holder, e);
+	}
+}
+
 void edit_highlight(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);

@@ -516,6 +516,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			edit_flip(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/turn") && (gs->gamerules & RULE_EDIT)) {
 			edit_rotate(gs, p->entity, isMe && isReal);
+		} else if (isCmd(chatBuffer, "/pickup") && (gs->gamerules & RULE_EDIT)) {
+			edit_pickup(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
 			edit_create(gs, p->entity, chatBuffer + 2, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {
