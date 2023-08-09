@@ -25,14 +25,6 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	/* We're not handling any of the fields related to pending changes, */\
 	/* so the serialization might not be totally faithful in the event */\
 	/* that something doesn't get flushed all the way (is that possible?)*/\
-	i32(e->color); \
-	range(i, e->numSliders) { \
-		i32(e->sliders[i].v); \
-	} \
-	check(131); \
-	range(i, e->wires.num) { \
-		wire(e->wires[i]); \
-	} \
 	check(132); \
 	/* Don't remember right now if controls roll over between frames -*/\
 	/* for now we're not going to bother.*/\
@@ -59,29 +51,49 @@ static void writeEntRef(list<char> *data, ent *e) {
 	write32(data, e ? e->clone.ix : -1);
 }
 
-static int enumerateSiblings(ent *e, int ix) {
-	for (; e; e = e->LL.n) {
+static int enumerateAll(ent *e) {
+	int ix = 0;
+	for (; e; e = e->ll.n) {
 		e->clone.ix = ix++;
-		ix = enumerateSiblings(e->holdee, ix);
 	}
 	return ix;
 }
 
-static void serializeEnt(ent *e, list<char> *data) {
+static int enumerateSelected(ent *e) {
+	int ix = 0;
+	for (; e; e = e->ll.n) {
+		if (e->clone.ix != -1) e->clone.ix = ix++;
+	}
+	return ix;
+}
+
+static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 #define check(x) data->add(x)
 #define i32(x) write32(data, x)
 #define handler(x, y) write32(data, y.reverseLookup(x))
 #define wire(w) write32(data, w->clone.ix)
 	check(128);
-	range(i, 3) i32(e->center[i]);
-	range(i, 3) i32(e->vel[i]);
+	range(i, 3) i32(e->center[i] - c_offset[i]);
+	range(i, 3) i32(e->vel[i] - v_offset[i]);
 	range(i, 3) i32(e->radius[i]);
 	check(129);
 	i32(e->numSliders);
 	i32(e->typeMask);
 	i32(e->collideMask);
-	i32(e->wires.num);
+
+	int numWires = 0;
+	range(i, e->wires.num) if (e->wires[i]->clone.ix != -1) numWires++;
+	i32(numWires);
+
 	check(130);
+	i32(e->color);
+	range(i, e->numSliders) i32(e->sliders[i].v);
+	check(131);
+	range(i, e->wires.num) {
+		int ix = e->wires[i]->clone.ix;
+		if (ix != -1) i32(ix);
+	}
+
 	processEnt(e);
 #undef wire
 #undef handler
@@ -90,23 +102,26 @@ static void serializeEnt(ent *e, list<char> *data) {
 	writeEntRef(data, e->holder);
 }
 
-static void serializeSiblings(ent *e, list<char> *data) {
-	for (; e; e = e->LL.n) {
-		serializeEnt(e, data);
-		serializeSiblings(e->holdee, data);
+static void serializeEnts(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
+	for (; e; e = e->ll.n) {
+		if (e->clone.ix != -1) serializeEnt(e, data, c_offset, v_offset);
 	}
 }
 
-void serialize(gamestate *gs, list<char> *data) {
-	// First 8 bytes are 'gam0', followed by the count of entities (which we'll populate later)
-	data->setMaxUp(data->num + 8);
+void writeHeader(list<char> *data) {
+	// First 8 bytes are 'gam0'
+	data->setMaxUp(data->num + 4);
 	memcpy(&(*data)[data->num], version_string, 4);
-	int countIx = data->num + 4;
-	data->num += 8;
+	data->num += 4;
+}
 
-	int num = enumerateSiblings(gs->rootEnts, 0);
-	write32Raw(data, countIx, num);
-	serializeSiblings(gs->rootEnts, data);
+void serialize(gamestate *gs, list<char> *data) {
+	writeHeader(data);
+
+	// Count of entities
+	write32(data, enumerateAll(gs->rootEnts));
+
+	serializeEnts(gs->rootEnts, data, zeroVec, zeroVec);
 
 	int numPlayers = gs->players->num;
 	write32(data, numPlayers);
@@ -119,6 +134,20 @@ void serialize(gamestate *gs, list<char> *data) {
 
 	write32(data, gs->rand);
 	write32(data, gs->gamerules);
+}
+
+// Same format as a proper savegame, but we only include some ents, and never any players or global state
+void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
+	writeHeader(data);
+
+	// Count of entities
+	write32(data, enumerateSelected(gs->rootEnts));
+
+	serializeEnts(gs->rootEnts, data, c_offset, v_offset);
+
+	write32(data, 0);
+	write32(data, 0);
+	write32(data, 0);
 }
 
 static int32_t read32(const list<char> *data, int *ix) {
@@ -160,6 +189,11 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	e->wires.num = numWires;
 
 	check(130);
+	i32(e->color);
+	range(i, e->numSliders) i32(e->sliders[i].v);
+	check(131);
+	range(i, numWires) wire(e->wires[i]);
+
 	processEnt(e);
 #undef wire
 #undef i32
