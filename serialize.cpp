@@ -164,7 +164,7 @@ static void checksum(const list<char> *data, int *ix, int expected) {
 	}
 }
 
-static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix) {
+static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
 	int32_t c[3], v[3], r[3];
 
 #define check(x) checksum(data, ix, x)
@@ -172,8 +172,8 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 #define handler(x, y) x = y.get(read32(data, ix))
 #define wire(x) x = ents[read32(data, ix)]
 	check(128);
-	range(i, 3) i32(c[i]);
-	range(i, 3) i32(v[i]);
+	range(i, 3) c[i] = read32(data, ix) + c_offset[i];
+	range(i, 3) v[i] = read32(data, ix) + v_offset[i];
 	range(i, 3) i32(r[i]);
 	check(129);
 	// Order in which arguments are evaluated isn't defined, so this has to be explicitly ordered
@@ -205,10 +205,10 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	}
 }
 
-void deserialize(gamestate *gs, const list<char> *data) {
+int verifyHeader(const list<char> *data, int *ix) {
 	if (data->num < 4) {
 		fputs("Only got %d bytes of data, can't deserialize\n", stderr);
-		return;
+		return -1;
 	}
 	if (strncmp(data->items, version_string, 4)) {
 		fprintf(
@@ -217,17 +217,25 @@ void deserialize(gamestate *gs, const list<char> *data) {
 			version_string,
 			(*data)[0], (*data)[1], (*data)[2], (*data)[3]
 		);
-		return;
+		return -1;
 	}
-	int _ix = 4; // Used to step through the inbound data
-	int *ix = &_ix;
+	*ix = 4;
 	int32_t numEnts = read32(data, ix);
 	if (data->num < numEnts * 80) {
 		// 80 isn't exact, and it doesn't have to be since we're careful when reading data out of that list.
 		// We just want a sanity check so we don't allocate 0x80808080 entities...
 		fputs("Not enough data in file to deserialize!\n", stderr);
-		return;
+		return -1;
 	}
+	return numEnts;
+}
+
+void deserialize(gamestate *gs, const list<char> *data) {
+	int _ix;
+	int *ix = &_ix;
+	int numEnts = verifyHeader(data, ix);
+	if (numEnts == -1) return;
+
 	ent** ents = new ent*[numEnts];
 	range(i, numEnts) {
 		// A bunch of ent-sized spaces in memory.
@@ -236,7 +244,7 @@ void deserialize(gamestate *gs, const list<char> *data) {
 		ents[i] = (ent*) calloc(1, sizeof(ent));
 	}
 	range(i, numEnts) {
-		deserializeEnt(gs, ents, ents[i], data, ix);
+		deserializeEnt(gs, ents, ents[i], data, ix, zeroVec, zeroVec);
 	}
 
 	int serializedPlayers = read32(data, ix);
@@ -256,6 +264,23 @@ void deserialize(gamestate *gs, const list<char> *data) {
 
 	gs->rand = read32(data, ix);
 	gs->gamerules = read32(data, ix);
+
+	delete[] ents;
+}
+
+void deserializeSelected(gamestate *gs, const list<char> *data, int32_t *c_offset, int32_t *v_offset) {
+	int _ix;
+	int *ix = &_ix;
+	int numEnts = verifyHeader(data, ix);
+	if (numEnts == -1) return;
+
+	ent** ents = new ent*[numEnts];
+	range(i, numEnts) {
+		ents[i] = (ent*) calloc(1, sizeof(ent));
+	}
+	range(i, numEnts) {
+		deserializeEnt(gs, ents, ents[i], data, ix, c_offset, v_offset);
+	}
 
 	delete[] ents;
 }
