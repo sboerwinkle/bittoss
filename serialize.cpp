@@ -40,7 +40,7 @@ static void write32Raw(list<char> *data, int offset, int32_t v) {
 	*(int32_t*)(data->items + offset) = htonl(v);
 }
 
-static void write32(list<char> *data, int32_t v) {
+void write32(list<char> *data, int32_t v) {
 	int n = data->num;
 	data->setMaxUp(n + 4);
 	write32Raw(data, n, v);

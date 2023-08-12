@@ -6,3 +6,10 @@ vgcore*
 game
 tinyscheme/run
 Makefile.old
+
+savegame
+*.gam
+*.itm
+
+# VIM files
+*.swp

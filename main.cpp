@@ -74,6 +74,7 @@ static int wheelIncr = 100;
 #define TEXT_BUF_LEN 200
 static char chatBuffer[TEXT_BUF_LEN];
 static char inputTextBuffer[TEXT_BUF_LEN];
+static char loopbackCommandBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
@@ -108,6 +109,7 @@ static char startFrame;
 #define FRAME_ID_MAX 128
 
 #define BIN_CMD_LOAD 128
+#define BIN_CMD_IMPORT 129
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
@@ -276,6 +278,7 @@ static void sendControls(int frame) {
 	out[9] = round(-cosine / divisor);
 	out[10] = round(pitchSine / divisor);
 
+	char loopbackCommand = 0;
 	if (syncReady == 2) {
 		out.add((char)BIN_CMD_LOAD);
 		out.addAll(syncData);
@@ -302,24 +305,49 @@ static void sendControls(int frame) {
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
 			out.add((char)BIN_CMD_LOAD);
 			readFile(file, &out);
+		} else if (isCmd(inputTextBuffer, "/import")) {
+			char *offsetEnd;
+			int32_t offset = strtol(inputTextBuffer + 7, &offsetEnd, 0);
+			if (!*offsetEnd) {
+				puts("Usage: /import DISTANCE FILENAME");
+			} else {
+				out.add((char)BIN_CMD_IMPORT);
+				write32(&out, offset);
+				readFile(offsetEnd + 1, &out);
+			}
+		} else if (isCmd(inputTextBuffer, "/save") || isCmd(inputTextBuffer, "/export")) {
+			// These commands should only affect the local filesystem, and not game state -
+			// therefore, they don't need to be synchronized.
+			// What's more, we don't really want to trust the server about such things.
+			// So, those commands are only processed from the loopbackCommandBuffer,
+			// which is our threadsafe way to communicate from the input thread to the paced thread.
+			loopbackCommand = 1;
 		} else {
 			int start = out.num;
 			out.num += bufferedTextLen;
 			out.setMaxUp(out.num);
 			memcpy(out.items + start, inputTextBuffer, bufferedTextLen);
 		}
-		textInputMode -= 2;
-		if (textInputMode == 1) setupTyping();
 	}
 	*(int32_t*)out.items = htonl(out.num - 4);
 	sendData(out.items, out.num);
 
 	lock(outboundMutex);
+	if (loopbackCommand && !*loopbackCommandBuffer) {
+		strcpy(loopbackCommandBuffer, inputTextBuffer);
+	}
 	if (syncReady == 2) syncReady = 0;
 	outboundData.add();
 	signal(outboundCond);
 	unlock(outboundMutex);
 	// Todo: Maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
+
+	if (textInputMode >= 2) {
+		// loopbackCommandBuffer still needs to look at the inputTextBuffer inside the locked section,
+		// so this last bit of cleanup has to wait until after.
+		textInputMode -= 2;
+		if (textInputMode == 1) setupTyping();
+	}
 }
 
 static void updateColor(player *p) {
@@ -410,6 +438,26 @@ static void updateMedianTime() {
 	}
 }
 
+static void processLoopbackCommand(gamestate *gs) {
+	const char* const c = loopbackCommandBuffer;
+	int chars = strlen(c);
+	if (isCmd(c, "/save")) {
+		const char *name = "savegame";
+		if (chars > 6) name = c + 6;
+		printf("Saving game to %s\n", name);
+		saveGame(name);
+	} else if (isCmd(c, "/export")) {
+		if (chars <= 8) {
+			puts("/export requries a filename");
+			return;
+		}
+		ent *me = (*gs->players)[myPlayer].entity;
+		edit_export(gs, me, c + 8);
+	} else {
+		printf("Unknown loopback command: %s\n", c);
+	}
+}
+
 static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
 	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
 		if (!isReal) return;
@@ -428,20 +476,26 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		deserialize(rootState, &fakeList);
 		return;
 	}
+	if (chars > 5 && *(unsigned char*)data == BIN_CMD_IMPORT) {
+		if (!(gs->gamerules & RULE_EDIT)) {
+			if (isReal && isMe) puts("/import only works with /rule 10 enabled");
+			return;
+		}
+
+		list<char> fakeList;
+		fakeList.items = data+5;
+		fakeList.num = fakeList.max = chars - 5;
+		int32_t distance = ntohl(*(int32_t*)(data+1));
+		edit_import(gs, p->entity, distance, &fakeList);
+		return;
+	}
 	// Message could get lost here if multiple people send on the same frame,
 	// but it will at least be consistent? Maybe fixing this is a TODO
 	if (chars < TEXT_BUF_LEN) {
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
 		char wasCommand = 1;
-		if (isCmd(chatBuffer, "/save")) {
-			if (isMe && isReal) {
-				const char *name = "savegame";
-				if (chars > 6) name = chatBuffer + 6;
-				printf("Saving game to %s\n", name);
-				saveGame(name);
-			}
-		} else if (isCmd(chatBuffer, "/sync")) {
+		if (isCmd(chatBuffer, "/sync")) {
 			if (isMe && isReal && !syncReady) {
 				syncData.num = 0;
 				serialize(rootState, &syncData);
@@ -719,6 +773,12 @@ static void* pacedThreadFunc(void *_arg) {
 		outboundData.multipop(framesProcessed);
 		reqdOutboundSize -= framesProcessed;
 		if (syncReady == 1) syncReady = 2;
+		if (*loopbackCommandBuffer) {
+			// This part is kind of slow for us to keep the mutex locked;
+			// maybe fix this later if it's actually a problem
+			processLoopbackCommand(rootState);
+			*loopbackCommandBuffer = '\0';
+		}
 		unlock(outboundMutex);
 
 		int outboundStart;
@@ -1110,7 +1170,7 @@ int main(int argc, char **argv) {
 	strcpy(inputTextBuffer, "/syncme");
 	bufferedTextLen = strlen(inputTextBuffer);
 	textInputMode = 2;
-	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
+	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = loopbackCommandBuffer[0] = '\0';
 
 	// Pre-populate timing buffer, set `startSec`
 	{

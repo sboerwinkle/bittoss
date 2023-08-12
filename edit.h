@@ -13,5 +13,7 @@ extern void edit_flip(gamestate *gs, ent *me);
 extern void edit_pickup(gamestate *gs, ent *me);
 extern void edit_highlight(gamestate *gs, ent *me);
 extern void edit_measure(gamestate *gs, ent *me);
+extern void edit_import(gamestate *gs, ent *me, int32_t dist, list<char> *data);
+extern void edit_export(gamestate *gs, ent *me, const char *name);
 extern void edit_init();
 extern void edit_destroy();

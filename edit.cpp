@@ -461,8 +461,7 @@ void edit_measure(gamestate *gs, ent *me) {
 	}
 }
 
-// TODO This has to have the data come in with the command since the file lives on the local filesystem
-void edit_import(gamestate *gs, ent *me, char *name, int32_t dist) {
+void edit_import(gamestate *gs, ent *me, int32_t dist, list<char> *data) {
 	if (!me) return;
 	int axis, dir;
 	getAxis(me, &axis, &dir);
@@ -470,21 +469,17 @@ void edit_import(gamestate *gs, ent *me, char *name, int32_t dist) {
 	memcpy(center, me->center, sizeof(center));
 	center[axis] += dist * dir;
 
-	ent *start = gs->rootEnts;
+	ent *start = gs->ents;
 
-	list<char> data;
-	data.init();
-	readFile(name, &data);
-	deserializeSelected(gs, &data, center, me->vel);
-	data.destroy();
+	deserializeSelected(gs, data, center, me->vel);
 
-	for (ent *e = gs->rootEnts; e != start; e = e->ll.n) {
+	for (ent *e = gs->ents; e != start; e = e->ll.n) {
 		player_toggleBauble(gs, me, e, 0);
 	}
 	fixNewBaubles(gs);
 }
 
-void edit_export(gamestate *gs, ent *me, char *name) {
+void edit_export(gamestate *gs, ent *me, const char *name) {
 	if (!me) return;
 	getLists(me);
 	int32_t median[3];
