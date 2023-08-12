@@ -11,6 +11,8 @@
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
+static list<ent*> toCollide;
+
 void boundVec(int32_t *values, int32_t bound, int32_t len) {
 	int32_t max = bound;
 	range(i, len) {
@@ -323,8 +325,8 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//TODO; If that fails, maybe try exposed broadside surface of the leaf's recursive holders?
 	//puts("Using a collision-ranking criterion which I should not!");
 	//puts("Using collision-ranking criteria which break symmetry!");
-	cb_helper(axes[i]);
-	cb_helper(dirs[i]);
+	// cb_helper(axes[i]);
+	// cb_helper(dirs[i]);
 	//puts("Using the most evil collision-ranking criterion");
 	return 0;
 #undef cb_helper
@@ -333,11 +335,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 static byte tryCollide(ent *leaf, ent *buddy, byte axis, int dir, char mutual) {
 	ent *root = leaf->holdRoot;
 	if (collisionBetter(root, leaf, buddy, axis, dir, mutual)) {
+		if (!root->collisionBuddy) toCollide.add(root);
 		root->collisionLeaf = leaf;
 		root->collisionBuddy = buddy;
-		root->collisionMutual = mutual;
 		root->collisionAxis = axis;
 		root->collisionDir = dir;
+		root->collisionMutual = mutual;
 		return 1;
 	}
 	return 0;
@@ -348,10 +351,6 @@ static byte checkCollision(ent *a, ent *b) {
 	char BonA = 0 != (a->typeMask & b->collideMask);
 	if (!AonB && !BonA) return 0;
 	if (a->holdRoot == b->holdRoot) return 0;
-	// `getAxisAndDir` is a little heavy - lots of branching, lots of 64-bit math.
-	// For the first iteration where we're checking all against all,
-	// my gut is that adding this check will be a net optimization, but that's untested.
-	if (a->collisionBuddy == b || b->collisionBuddy == a) return 0; // We already checked them!
 	int dir = getAxisAndDir(a, b);
 	if (dir == 0) return 0;
 	byte axis;
@@ -393,9 +392,14 @@ static byte checkCollision(ent *a, ent *b) {
 
 static char doIteration(gamestate *gs) {
 	char ret = 0;
+	toCollide.num = 0;
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		if (!e->needsCollision) continue;
 
+		// Todo: The first iteration does 2x as many checks as necessary,
+		//       since we're checking all against all.
+		//       Could repurpose `needsPhysUpdate` (or make it a `union`)
+		//       to fix this, but IDK if it's worth the complexity.
 		list<box*> &intersects = e->myBox->intersects;
 		int n = intersects.num; // Small optimization (I hope)
 		// Skip i=0, first intersect is always ourselves
@@ -545,6 +549,35 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 		dc[axis] = displacement*dir;
 		moveRecursive(prev, dc, dv);
 		break;
+	}
+}
+
+static char shouldResolveCollision(gamestate *gs, ent *e) {
+	// Ents can be pushed by ents that are being pushed by other ents,
+	// in a chain or potentially a cycle.
+	// If there is a collision in this chain that is definitively better than ours,
+	// we'll skip processing our collision for now.
+	ent *otherRoot = e;
+	ent *loopDetector = e;
+	char flip = 0;
+	while (1) {
+		otherRoot = otherRoot->collisionBuddy->holdRoot;
+		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) {
+			return 1;
+		}
+		if (collisionBetter(
+			e,
+			otherRoot->collisionLeaf,
+			otherRoot->collisionBuddy,
+			otherRoot->collisionAxis,
+			otherRoot->collisionDir,
+			otherRoot->collisionMutual
+		)) {
+			return 0;
+		}
+
+		if (flip) loopDetector = loopDetector->collisionBuddy->holdRoot;
+		flip = !flip;
 	}
 }
 
@@ -721,13 +754,26 @@ void doPhysics(gamestate *gs) {
 	//can't be sure about the death status (easy, ignore death) or holditude of anything.
 	//Except onPush[ed] can access members of the pushees tree
 	while(doIteration(gs)) {
-		for (i = gs->rootEnts; i; i = i->LL.n) {
-			if (i->collisionBuddy) {
-				//Do physics-y type things in here
-				push(gs, i->collisionLeaf, i->collisionBuddy, i->collisionAxis, i->collisionDir);
-				i->collisionBuddy = NULL;
-				requireCollisionRecursive(i);
+		// Of the items elligible for collision,
+		// we're going to maybe rule some out as not needing resolution right now.
+		// We'll sort the ones that do need resolution to the beginning of the list.
+		int realNum = toCollide.num;
+		toCollide.num = 0;
+		for (int j = 0; j < realNum; j++) {
+			ent *test = toCollide[j];
+			if (shouldResolveCollision(gs, test)) {
+				toCollide[j] = toCollide[toCollide.num];
+				toCollide[toCollide.num++] = test;
 			}
+		}
+		for (int j = 0; j < toCollide.num; j++) {
+			ent *e = toCollide[j];
+			push(gs, e->collisionLeaf, e->collisionBuddy, e->collisionAxis, e->collisionDir);
+		}
+		for (int j = 0; j < realNum; j++) {
+			ent *e = toCollide[j];
+			e->collisionBuddy = NULL;
+			requireCollisionRecursive(e);
 		}
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
@@ -950,6 +996,9 @@ gamestate* dup(gamestate *in, list<player> *players) {
 }
 
 void ent_init() {
+	toCollide.init();
 	// Used to do something lol
 }
-void ent_destroy() {}
+void ent_destroy() {
+	toCollide.destroy();
+}

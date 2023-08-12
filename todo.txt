@@ -1,5 +1,5 @@
 TODO:
-- Things that are being pushed by things that are being pushed aren't resolved first
+/ Things that are being pushed by things that are being pushed aren't resolved first
 / Server exiting cancels input thread but doesn't exit app
 / Complete switch to Scheme ref-counting
 	/ References seem to be resolved, maybe
