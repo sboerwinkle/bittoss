@@ -119,9 +119,9 @@ void serialize(gamestate *gs, list<char> *data) {
 	writeHeader(data);
 
 	// Count of entities
-	write32(data, enumerateAll(gs->rootEnts));
+	write32(data, enumerateAll(gs->ents));
 
-	serializeEnts(gs->rootEnts, data, zeroVec, zeroVec);
+	serializeEnts(gs->ents, data, zeroVec, zeroVec);
 
 	int numPlayers = gs->players->num;
 	write32(data, numPlayers);
@@ -141,9 +141,9 @@ void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset,
 	writeHeader(data);
 
 	// Count of entities
-	write32(data, enumerateSelected(gs->rootEnts));
+	write32(data, enumerateSelected(gs->ents));
 
-	serializeEnts(gs->rootEnts, data, c_offset, v_offset);
+	serializeEnts(gs->ents, data, c_offset, v_offset);
 
 	write32(data, 0);
 	write32(data, 0);
@@ -268,7 +268,7 @@ void deserialize(gamestate *gs, const list<char> *data) {
 	delete[] ents;
 }
 
-void deserializeSelected(gamestate *gs, const list<char> *data, int32_t *c_offset, int32_t *v_offset) {
+void deserializeSelected(gamestate *gs, const list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 	int _ix;
 	int *ix = &_ix;
 	int numEnts = verifyHeader(data, ix);

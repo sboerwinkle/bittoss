@@ -10,6 +10,8 @@
 #include "entFuncs.h"
 #include "colors.h"
 #include "handlerRegistrar.h"
+#include "file.h"
+#include "serialize.h"
 
 #include "modules/player.h"
 
@@ -341,26 +343,25 @@ void edit_copy(gamestate *gs, ent *me) {
 	getAxis(me, &axis, &dir);
 	int32_t min, max;
 	getExtents(&a, axis, &min, &max);
-	int32_t width = (max-min) * dir;
+	int32_t center[3] = {0, 0, 0};
+	center[axis] = (max-min) * dir;
 	player_clearBaubles(gs, me, 1);
 	player_flipBaubles(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		// Push the existing ent around, just for a sec.
-		// We undo this later, but it spares us having
-		// to copy yet another vector
-		e->center[axis] -= width;
 
-		ent *created = initEnt(
-			gs, e,
-			e->center, zeroVec, e->radius,
-			0,
-			T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
-		);
-		created->color = e->color;
-		player_toggleBauble(gs, me, created, 0);
+	for (ent *e = gs->ents; e; e = e->ll.n) {
+		e->clone.ix = -1;
+	}
+	range(i, a.num) a[i]->clone.ix = 0; // This just marks it for serialization
+	ent *start = gs->ents;
 
-		e->center[axis] += width;
+	list<char> data;
+	data.init();
+	serializeSelected(gs, &data, center, zeroVec);
+	deserializeSelected(gs, &data, zeroVec, zeroVec);
+	data.destroy();
+
+	for (ent *e = gs->ents; e != start; e = e->ll.n) {
+		player_toggleBauble(gs, me, e, 0);
 	}
 	fixNewBaubles(gs);
 }
@@ -458,6 +459,47 @@ void edit_measure(gamestate *gs, ent *me) {
 		}
 		putchar('\n');
 	}
+}
+
+// TODO This has to have the data come in with the command since the file lives on the local filesystem
+void edit_import(gamestate *gs, ent *me, char *name, int32_t dist) {
+	if (!me) return;
+	int axis, dir;
+	getAxis(me, &axis, &dir);
+	int32_t center[3];
+	memcpy(center, me->center, sizeof(center));
+	center[axis] += dist * dir;
+
+	ent *start = gs->rootEnts;
+
+	list<char> data;
+	data.init();
+	readFile(name, &data);
+	deserializeSelected(gs, &data, center, me->vel);
+	data.destroy();
+
+	for (ent *e = gs->rootEnts; e != start; e = e->ll.n) {
+		player_toggleBauble(gs, me, e, 0);
+	}
+	fixNewBaubles(gs);
+}
+
+void edit_export(gamestate *gs, ent *me, char *name) {
+	if (!me) return;
+	getLists(me);
+	int32_t median[3];
+	getMedian(median);
+
+	for (ent *e = gs->rootEnts; e; e = e->ll.n) {
+		e->clone.ix = -1;
+	}
+	range(i, a.num) a[i]->clone.ix = 0; // This just marks it for serialization
+
+	list<char> data;
+	data.init();
+	serializeSelected(gs, &data, median, me->vel);
+	writeFile(name, &data);
+	data.destroy();
 }
 
 void edit_init() {

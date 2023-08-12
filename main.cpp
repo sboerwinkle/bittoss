@@ -1,4 +1,3 @@
-#include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +6,6 @@
 #include <allegro5/allegro_opengl.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <unistd.h>
 
 #include "util.h"
 #include "list.h"
@@ -26,6 +24,7 @@
 #include "colors.h"
 #include "debugTree.h"
 #include "edit.h"
+#include "file.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -185,44 +184,12 @@ static void resetPlayers(gamestate *gs) {
 	range(i, gs->players->num) resetPlayer(gs, i);
 }
 
-static void readFile(const char *name, list<char> *out) {
-	int fd = open(name, O_RDONLY);
-	if (fd == -1) {
-		fprintf(stderr, "ERROR - Load failed - Couldn't read file '%s'\n", name);
-		return;
-	}
-	int ret;
-	do {
-		out->setMaxUp(out->num + 1000);
-		ret = read(fd, out->items + out->num, 1000);
-		if (ret == -1) {
-			fprintf(stderr, "Failed to read from file, errno is %d\n", errno);
-			break;
-		}
-		out->num += ret;
-	} while (ret);
-	close(fd);
-}
-
 static void saveGame(const char *name) {
 	list<char> data;
 	data.init();
 	serialize(rootState, &data);
-	int fd = open(name, O_WRONLY | O_CREAT, 0664); // perms: rw-rw-r--
-	if (fd == -1) {
-		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
-		return;
-	}
-	int ret = write(fd, data.items, data.num);
-	if (ret != data.num) {
-		fprintf(stderr, "ERROR - Save failed - `write` returned %d when %d was expected\n", ret, data.num);
-		// We could always retry a partial write but that's more effort that I'm not sure is necessary
-		if (ret == -1) {
-			fprintf(stderr, "errno is %d\n", errno);
-		}
-	}
+	writeFile(name, &data);
 	data.destroy();
-	close(fd);
 }
 
 static void doInputs(ent *e, char *data) {
