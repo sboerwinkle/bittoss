@@ -21,6 +21,8 @@
 #include "modules/player.h"
 #include "modules/eyes.h"
 #include "modules/stackem.h"
+#include "modules/logic.h"
+#include "modules/door.h"
 
 void initMods() {
 	module_common();
@@ -32,4 +34,6 @@ void initMods() {
 	module_player();
 	module_eyes();
 	module_stackem();
+	module_logic();
+	module_door();
 }

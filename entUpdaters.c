@@ -93,8 +93,6 @@ void uPickup(gamestate *gs, ent *p, ent *e) {
 	e->holder_max[gs->flipFlop_pickup] = p;
 }
 
-// TODO need functions for wiring / de-wiring ents
-
 void uStateSlider(ent *e, int ix, int32_t value) {
 	if (ix < 0 || ix >= e->numSliders) {
 #ifndef NODEBUG_SCRIPT

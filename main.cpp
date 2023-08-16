@@ -524,11 +524,23 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/i")) { // TODO This is rapidly getting unwieldy, move to another file? Maybe even make a lookup table??? Or at least check for '/' and bypass all this otherwise...
 			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/nearby") && (gs->gamerules & RULE_EDIT)) {
-			edit_wireNearby(gs, p->entity);
+			edit_selectNearby(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/inside") && (gs->gamerules & RULE_EDIT)) {
-			edit_wireInside(gs, p->entity);
+			edit_selectInside(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/wires") && (gs->gamerules & RULE_EDIT)) {
+			edit_selectWires(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/paper") && (gs->gamerules & RULE_EDIT)) {
-			edit_t_paper(gs, p->entity);
+			edit_m_paper(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/dumb") && (gs->gamerules & RULE_EDIT)) {
+			edit_t_dumb(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/logic") && (gs->gamerules & RULE_EDIT)) {
+			edit_t_logic(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/logic_debug") && (gs->gamerules & RULE_EDIT)) {
+			edit_t_logic_debug(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/door") && (gs->gamerules & RULE_EDIT)) {
+			edit_t_door(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/slider") && (gs->gamerules & RULE_EDIT)) {
+			edit_slider(gs, p->entity, chatBuffer + 7, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/hl") && (gs->gamerules & RULE_EDIT)) {
 			edit_highlight(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/m") && (gs->gamerules & RULE_EDIT)) {
@@ -539,6 +551,12 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			edit_rotate(gs, p->entity, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/pickup") && (gs->gamerules & RULE_EDIT)) {
 			edit_pickup(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/drop") && (gs->gamerules & RULE_EDIT)) {
+			edit_drop(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/wire") && (gs->gamerules & RULE_EDIT)) {
+			edit_wire(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/unwire") && (gs->gamerules & RULE_EDIT)) {
+			edit_unwire(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
 			edit_create(gs, p->entity, chatBuffer + 2, isMe && isReal);
 		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {

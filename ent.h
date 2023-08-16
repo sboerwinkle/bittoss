@@ -6,6 +6,7 @@
 #include "box.h"
 
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
+#define wiresAnyOrder(var, who) ent *var; for (int __i = 0; __i < who->wires.num && ((var = who->wires[__i]) || 1); __i++)
 // Despite the name, the iteration order is very much deterministic and boring.
 // However, it is a reminder that it is against the spirit of the game to treat
 // things differently for no visible reason - thus you shouldn't depend on
@@ -270,3 +271,4 @@ enum retCodes {
 #define T_NO_DRAW_FP 128
 #define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)
+#define T_ACTIVE 2048

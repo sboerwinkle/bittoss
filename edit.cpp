@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <regex.h>
+#include <strings.h>
 
 #include "util.h"
 #include "list.h"
@@ -29,6 +30,17 @@ static void fixNewBaubles(gamestate *gs) {
 	// Baubles don't like to be unheld, so they'll self-destruct unless we pick them up
 	// before they tick.
 	flushPickups(gs);
+}
+
+static void setNumSliders(ent *e, int sliders) {
+	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
+	int oldSliders = e->numSliders;
+	if (sliders > oldSliders) {
+		// Reset all the sliders we added
+		bzero(e->sliders + oldSliders, sizeof(slider) * (sliders - oldSliders));
+		flushMisc(e, zeroVec, zeroVec);
+	}
+	e->numSliders = sliders;
 }
 
 static char getLists(ent *e) {
@@ -137,12 +149,19 @@ void edit_info(ent *e) {
 
 	e = a[0];
 	printf(
-		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %06X\nSelected %d, %d\n",
+		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %06X\n",
 		e->center[0], e->center[1], e->center[2],
 		e->radius[0], e->radius[1], e->radius[2],
-		e->color,
-		aNum, bNum
+		e->color
 	);
+	if (e->numSliders) {
+		fputs("Sliders: ", stdout);
+		range(i, e->numSliders) {
+			printf("%d ", e->sliders[i].v);
+		}
+		putchar('\n');
+	}
+	printf("Selected %d, %d\n", aNum, bNum);
 }
 
 int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
@@ -183,7 +202,7 @@ int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
 	return (a.num == 1 && a[0] == e) ? color : -2;
 }
 
-void edit_wireNearby(gamestate *gs, ent *me) {
+void edit_selectNearby(gamestate *gs, ent *me) {
 	if (!me) return;
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		if (e->holdRoot == me) continue;
@@ -197,7 +216,7 @@ void edit_wireNearby(gamestate *gs, ent *me) {
 	fixNewBaubles(gs);
 }
 
-void edit_wireInside(gamestate *gs, ent *me) {
+void edit_selectInside(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	int32_t min[3], max[3];
@@ -217,6 +236,27 @@ void edit_wireInside(gamestate *gs, ent *me) {
 	fixNewBaubles(gs);
 }
 
+void edit_selectWires(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	list<ent*> wires;
+	wires.init();
+	range(i, b.num) {
+		ent *e = b[i];
+		wiresAnyOrder(w, e) {
+			// We can't do anything more clever than this,
+			// because we can't risk causing a desync
+			// (so no sorting by memory address, e.g.)
+			if (!wires.has(w)) wires.add(w);
+		}
+	}
+	range(i, wires.num) {
+		player_toggleBauble(gs, me, wires[i], 0);
+	}
+	fixNewBaubles(gs);
+	wires.destroy();
+}
+
 void edit_rm(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -225,7 +265,7 @@ void edit_rm(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_t_paper(gamestate *gs, ent *me) {
+void edit_m_paper(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	range(i, a.num) {
@@ -233,6 +273,65 @@ void edit_t_paper(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.getByName("move-me");
 		uMyTypeMask(e, T_OBSTACLE);
 		uMyCollideMask(e, T_OBSTACLE | T_TERRAIN);
+	}
+}
+
+void edit_t_dumb(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.getByName("nil");
+		e->tickHeld = tickHandlers.getByName("nil");
+		e->push = pushHandlers.getByName("nil");
+		e->pushed = pushedHandlers.getByName("nil");
+		setNumSliders(e, 0);
+	}
+}
+
+void edit_t_logic(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.getByName("logic-tick");
+		e->push = pushHandlers.getByName("logic-push");
+		setNumSliders(e, 2);
+	}
+}
+
+void edit_t_logic_debug(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.getByName("logic-tick-debug");
+		e->push = pushHandlers.getByName("logic-push");
+		setNumSliders(e, 2);
+	}
+}
+
+void edit_t_door(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.getByName("door-tick");
+		e->push = pushHandlers.getByName("nil");
+		setNumSliders(e, 3);
+	}
+}
+
+void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
+	if (!me) return;
+	getLists(me);
+	parseArgs(argsStr);
+	if (args.num != 2) {
+		if (verbose) puts("Exactly 2 args are expected to /slider");
+		return;
+	}
+	range(i, a.num) {
+		uStateSlider(a[i], args[0], args[1]);
 	}
 }
 
@@ -423,10 +522,46 @@ void edit_pickup(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 
+	// TODO This should log a warning if (b.num != 1), and if a provided "verbose" flag is on (isMe && isReal)
 	ent *holder = b[0];
 	range(i, a.num) {
 		ent *e = a[i];
 		uPickup(gs, holder, e);
+	}
+}
+
+void edit_drop(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	range(i, a.num) {
+		uDrop(gs, a[i]);
+	}
+}
+
+void edit_wire(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	range(j, b.num) {
+		ent *e2 = b[j];
+		range(i, a.num) {
+			ent *e = a[i];
+			uWire(e2, e);
+		}
+	}
+}
+
+void edit_unwire(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	range(j, b.num) {
+		ent *e2 = b[j];
+		range(i, a.num) {
+			ent *e = a[i];
+			uUnwire(e2, e);
+		}
 	}
 }
 
