@@ -265,14 +265,45 @@ void edit_rm(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_m_weight(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		uMyTypeMask(e, T_WEIGHTLESS ^ e->typeMask);
+	}
+}
+
 void edit_m_paper(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.getByName("move-me");
-		uMyTypeMask(e, T_OBSTACLE);
-		uMyCollideMask(e, T_OBSTACLE | T_TERRAIN);
+		uMyTypeMask(e, T_OBSTACLE + (e->typeMask & T_WEIGHTLESS));
+		uMyCollideMask(e, T_OBSTACLE + T_TERRAIN);
+	}
+}
+
+void edit_m_wood(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.getByName("wood-whomoves");
+		uMyTypeMask(e, T_OBSTACLE + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
+		uMyCollideMask(e, T_TERRAIN + T_OBSTACLE);
+	}
+}
+
+void edit_m_stone(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
+		uMyTypeMask(e, T_TERRAIN + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
+		uMyCollideMask(e, T_TERRAIN);
 	}
 }
 

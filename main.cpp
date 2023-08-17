@@ -529,8 +529,14 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			edit_selectInside(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/wires") && (gs->gamerules & RULE_EDIT)) {
 			edit_selectWires(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/weight") && (gs->gamerules & RULE_EDIT)) {
+			edit_m_weight(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/paper") && (gs->gamerules & RULE_EDIT)) {
 			edit_m_paper(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/wood") && (gs->gamerules & RULE_EDIT)) {
+			edit_m_wood(gs, p->entity);
+		} else if (isCmd(chatBuffer, "/stone") && (gs->gamerules & RULE_EDIT)) {
+			edit_m_stone(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/dumb") && (gs->gamerules & RULE_EDIT)) {
 			edit_t_dumb(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/logic") && (gs->gamerules & RULE_EDIT)) {
