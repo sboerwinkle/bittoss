@@ -303,6 +303,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	//Criteria for ranking collisions:
 	//Prefer mutual collisions, reduces weirdness where one half will "miss" the collision by processing a different collision.
 	cb_helper(mutuals[i]);
+	// This one should probably be time to impact, but maybe this'll be good enough?
+	// In rare cases is may have no input (if colliding objects perfectly touched last frame), which isn't great.
+	// However, we need something like this before we get to lateral clearance,
+	// so that small objects in front of big objects can be hit in a sane order.
+	// Distance to contact (minimize(-), old)
+	cb_helper(folks[i]->radius[axes[i]]+leafs[i]->radius[axes[i]] + (folks[i]->old[axes[i]] - leafs[i]->old[axes[i]])*dirs[i]);
 	// Distance to lateral clearance (maximize, old)
 #define clearance(x) folks[i]->radius[x] + leafs[i]->radius[x] - abs(folks[i]->old[x] - leafs[i]->old[x])
 	cb_helper(min(clearance((axes[i]+1)%3), clearance((axes[i]+2)%3)));

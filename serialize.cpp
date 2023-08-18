@@ -2,11 +2,15 @@
 #include "util.h"
 #include "list.h"
 #include "ent.h"
+#include "entGetters.h"
+#include "entUpdaters.h"
 #include "entFuncs.h"
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam0";
+static const char* version_string = "gam1";
+#define VERSION 1
+static int version; // TODO global state is bad, use a context object during deserialization
 
 static const int32_t dummyPos[3] = {0, 0, 0};
 static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
@@ -67,6 +71,14 @@ static int enumerateSelected(ent *e) {
 	return ix;
 }
 
+static char buttonByte(ent *e) {
+	char ret = 0;
+	range(i, 4) {
+		if (getButton(e, i)) ret |= 1 << i;
+	}
+	return ret;
+}
+
 static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 #define check(x) data->add(x)
 #define i32(x) write32(data, x)
@@ -87,6 +99,7 @@ static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, cons
 
 	check(130);
 	i32(e->color);
+	data->add(buttonByte(e));
 	range(i, e->numSliders) i32(e->sliders[i].v);
 	check(131);
 	range(i, e->wires.num) {
@@ -150,6 +163,13 @@ void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset,
 	write32(data, 0);
 }
 
+static char read8(const list<char> *data, int *ix) {
+	int i = *ix;
+	if (i >= data->num) return 0;
+	*ix = i+1;
+	return (*data)[i];
+}
+
 static int32_t read32(const list<char> *data, int *ix) {
 	int i = *ix;
 	if (i + 4 > data->num) return 0;
@@ -161,6 +181,14 @@ static void checksum(const list<char> *data, int *ix, int expected) {
 	char x = (*data)[(*ix)++];
 	if (x != (char) expected) {
 		fprintf(stderr, "Expected %d, got %hhu\n", expected, x);
+	}
+}
+
+static void handleButtons(const list<char> *data, int *ix, ent *e) {
+	if (version == 0) return; // We didn't encode active buttons in version 0, since logic wasn't a thing then!
+	char c = read8(data, ix);
+	range(i, 4) {
+		if (c & (1 << i)) pushBtn(e, i);
 	}
 }
 
@@ -190,6 +218,8 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 
 	check(130);
 	i32(e->color);
+	handleButtons(data, ix, e);
+	//flushCtrls(e);
 	range(i, e->numSliders) i32(e->sliders[i].v);
 	check(131);
 	range(i, numWires) wire(e->wires[i]);
@@ -210,12 +240,23 @@ int verifyHeader(const list<char> *data, int *ix) {
 		fputs("Only got %d bytes of data, can't deserialize\n", stderr);
 		return -1;
 	}
-	if (strncmp(data->items, version_string, 4)) {
+	// Only compare 3 bytes, not 4, since the last one we use as a version
+	if (strncmp(data->items, version_string, 3)) {
 		fprintf(
 			stderr,
 			"Beginning of serialized data should read \"%s\", actually reads \"%c%c%c%c\"\n",
 			version_string,
 			(*data)[0], (*data)[1], (*data)[2], (*data)[3]
+		);
+		return -1;
+	}
+	// `version` is a global, we should probably not be doing that but oh well
+	version = data->items[3] - '0';
+	if (version < 0 || version > VERSION) {
+		fprintf(
+			stderr,
+			"Version number should be between 0 and %d, but found %d\n",
+			VERSION, version
 		);
 		return -1;
 	}

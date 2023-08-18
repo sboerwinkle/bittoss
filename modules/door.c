@@ -39,9 +39,10 @@ static void door_tick(gamestate *gs, ent *me) {
 	int32_t ease = getSlider(me, 2);
 	if (ease > 1) range(i, 3) pos[i] = pos[i] / ease + (pos[i] > 0 ? 1 : (pos[i] < 0 ? -1 : 0));
 	boundVec(pos, speed, 3);
-	// `pos` is now the desired velocity
-	range(i, 3) vel[i] = pos[i] - vel[i];
+	// `pos` is now my desired velocity
+	range(i, 3) vel[i] = pos[i] + vel[i];
 	boundVec(vel, accel, 3);
+	// `vel` is now my desired acceleration
 	uVel(me, vel);
 }
 

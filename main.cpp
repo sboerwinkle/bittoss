@@ -458,6 +458,39 @@ static void processLoopbackCommand(gamestate *gs) {
 	}
 }
 
+static char editCmds(gamestate *gs, ent *me, char verbose) {
+#define cmd(s, x) if (isCmd(chatBuffer, s)) do {x; return 1;} while(0)
+	cmd("/nearby", edit_selectNearby(gs, me));
+	cmd("/inside", edit_selectInside(gs, me));
+	cmd("/wires", edit_selectWires(gs, me));
+	cmd("/weight", edit_m_weight(gs, me));
+	cmd("/paper", edit_m_paper(gs, me));
+	cmd("/wood", edit_m_wood(gs, me));
+	cmd("/stone", edit_m_stone(gs, me));
+	cmd("/wall", edit_m_wall(gs, me));
+	cmd("/ghost", edit_m_ghost(gs, me));
+	cmd("/dumb", edit_t_dumb(gs, me));
+	cmd("/logic", edit_t_logic(gs, me));
+	cmd("/logic_debug", edit_t_logic_debug(gs, me));
+	cmd("/door", edit_t_door(gs, me));
+	cmd("/slider", edit_slider(gs, me, chatBuffer + 7, verbose));
+	cmd("/hl", edit_highlight(gs, me));
+	cmd("/m", if (verbose) edit_measure(gs, me));
+	cmd("/flip", edit_flip(gs, me));
+	cmd("/turn", edit_rotate(gs, me, verbose));
+	cmd("/pickup", edit_pickup(gs, me));
+	cmd("/drop", edit_drop(gs, me));
+	cmd("/wire", edit_wire(gs, me));
+	cmd("/unwire", edit_unwire(gs, me));
+	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
+	cmd("/copy", edit_copy(gs, me));
+	cmd("/p", edit_push(gs, me, chatBuffer + 2));
+	cmd("/s", edit_stretch(gs, me, chatBuffer + 2, verbose));
+	cmd("/d", edit_rm(gs, me));
+#undef cmd
+	return 0;
+}
+
 static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
 	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
 		if (!isReal) return;
@@ -523,56 +556,6 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			}
 		} else if (isCmd(chatBuffer, "/i")) { // TODO This is rapidly getting unwieldy, move to another file? Maybe even make a lookup table??? Or at least check for '/' and bypass all this otherwise...
 			if (isMe && isReal) edit_info(p->entity);
-		} else if (isCmd(chatBuffer, "/nearby") && (gs->gamerules & RULE_EDIT)) {
-			edit_selectNearby(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/inside") && (gs->gamerules & RULE_EDIT)) {
-			edit_selectInside(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/wires") && (gs->gamerules & RULE_EDIT)) {
-			edit_selectWires(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/weight") && (gs->gamerules & RULE_EDIT)) {
-			edit_m_weight(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/paper") && (gs->gamerules & RULE_EDIT)) {
-			edit_m_paper(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/wood") && (gs->gamerules & RULE_EDIT)) {
-			edit_m_wood(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/stone") && (gs->gamerules & RULE_EDIT)) {
-			edit_m_stone(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/dumb") && (gs->gamerules & RULE_EDIT)) {
-			edit_t_dumb(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/logic") && (gs->gamerules & RULE_EDIT)) {
-			edit_t_logic(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/logic_debug") && (gs->gamerules & RULE_EDIT)) {
-			edit_t_logic_debug(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/door") && (gs->gamerules & RULE_EDIT)) {
-			edit_t_door(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/slider") && (gs->gamerules & RULE_EDIT)) {
-			edit_slider(gs, p->entity, chatBuffer + 7, isMe && isReal);
-		} else if (isCmd(chatBuffer, "/hl") && (gs->gamerules & RULE_EDIT)) {
-			edit_highlight(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/m") && (gs->gamerules & RULE_EDIT)) {
-			if (isMe && isReal) edit_measure(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/flip") && (gs->gamerules & RULE_EDIT)) {
-			edit_flip(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/turn") && (gs->gamerules & RULE_EDIT)) {
-			edit_rotate(gs, p->entity, isMe && isReal);
-		} else if (isCmd(chatBuffer, "/pickup") && (gs->gamerules & RULE_EDIT)) {
-			edit_pickup(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/drop") && (gs->gamerules & RULE_EDIT)) {
-			edit_drop(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/wire") && (gs->gamerules & RULE_EDIT)) {
-			edit_wire(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/unwire") && (gs->gamerules & RULE_EDIT)) {
-			edit_unwire(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/b") && (gs->gamerules & RULE_EDIT)) {
-			edit_create(gs, p->entity, chatBuffer + 2, isMe && isReal);
-		} else if (isCmd(chatBuffer, "/copy") && (gs->gamerules & RULE_EDIT)) {
-			edit_copy(gs, p->entity);
-		} else if (isCmd(chatBuffer, "/p") && (gs->gamerules & RULE_EDIT)) {
-			edit_push(gs, p->entity, chatBuffer + 2);
-		} else if (isCmd(chatBuffer, "/s") && (gs->gamerules & RULE_EDIT)) {
-			edit_stretch(gs, p->entity, chatBuffer + 2, isMe && isReal);
-		} else if (isCmd(chatBuffer, "/d") && (gs->gamerules & RULE_EDIT)) {
-			edit_rm(gs, p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) {
 				int rule = atoi(chatBuffer+6);
@@ -592,6 +575,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color = edit_color(p->entity, chatBuffer + 3, !!(gs->gamerules & RULE_EDIT));
 			if (color != -2) p->color = color;
+		} else if ((gs->gamerules & RULE_EDIT) && chatBuffer[0] == '/') {
+			wasCommand = editCmds(gs, p->entity, isMe && isReal);
 		} else {
 			wasCommand = 0;
 		}

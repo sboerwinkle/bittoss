@@ -8,6 +8,8 @@ extern void edit_m_weight(gamestate *gs, ent *me);
 extern void edit_m_paper(gamestate *gs, ent *me);
 extern void edit_m_wood(gamestate *gs, ent *me);
 extern void edit_m_stone(gamestate *gs, ent *me);
+extern void edit_m_wall(gamestate *gs, ent *me);
+extern void edit_m_ghost(gamestate *gs, ent *me);
 extern void edit_t_dumb(gamestate *gs, ent *me);
 extern void edit_t_logic(gamestate *gs, ent *me);
 extern void edit_t_logic_debug(gamestate *gs, ent *me);

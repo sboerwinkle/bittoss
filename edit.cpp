@@ -307,6 +307,30 @@ void edit_m_stone(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_m_wall(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		// `whoMoves` actually shouldn't be called, since it has no collideMask.
+		// "real" walls actually leave it NULL, but I think this is better.
+		e->whoMoves = whoMovesHandlers.getByName("move-me");
+		uMyTypeMask(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
+		uMyCollideMask(e, 0);
+	}
+}
+
+void edit_m_ghost(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
+		uMyTypeMask(e, T_WEIGHTLESS);
+		uMyCollideMask(e, 0);
+	}
+}
+
 void edit_t_dumb(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -326,6 +350,7 @@ void edit_t_logic(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->tick = tickHandlers.getByName("logic-tick");
+		e->tickHeld = tickHandlers.getByName("logic-tick");
 		e->push = pushHandlers.getByName("logic-push");
 		setNumSliders(e, 2);
 	}
@@ -337,6 +362,7 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->tick = tickHandlers.getByName("logic-tick-debug");
+		e->tickHeld = tickHandlers.getByName("logic-tick-debug");
 		e->push = pushHandlers.getByName("logic-push");
 		setNumSliders(e, 2);
 	}
@@ -348,6 +374,7 @@ void edit_t_door(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->tick = tickHandlers.getByName("door-tick");
+		e->tickHeld = tickHandlers.getByName("door-tick");
 		e->push = pushHandlers.getByName("nil");
 		setNumSliders(e, 3);
 	}
