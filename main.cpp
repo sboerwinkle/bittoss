@@ -887,9 +887,9 @@ static void* inputThreadFunc(void *_arg) {
 				if (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL) {
 					if (evnt.keyboard.keycode == ALLEGRO_KEY_R) {
 						strcpy(inputTextBuffer, "/sync");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_W) {
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_E) {
 						strcpy(inputTextBuffer, "/p");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_S) {
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_K) {
 						strcpy(inputTextBuffer, "/save");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_L) {
 						strcpy(inputTextBuffer, "/load");
