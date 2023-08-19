@@ -65,10 +65,10 @@ void uDead(gamestate *gs, ent *e) {
 }
 
 void uDrop(gamestate *gs, ent *e) {
-	e->drop_max[gs->flipFlop_drop] = 1;
+	e->newDrop = 1;
 }
 
-void uPickup(gamestate *gs, ent *p, ent *e) {
+void uPickup(gamestate *gs, ent *p, ent *e, int32_t holdFlags) {
 	if (e->holder) {
 #ifndef NODEBUG_SCRIPT
 		// Previously this would log something, but it's probably not a script bug to try to pick something up
@@ -85,12 +85,13 @@ void uPickup(gamestate *gs, ent *p, ent *e) {
 #endif
 		return;
 	}
-	p->holdRoot->pickup_max[gs->flipFlop_pickup] = 1;
-	if (e->holder_max[gs->flipFlop_pickup]) {
-		if (e->holder_max[gs->flipFlop_pickup] != p) e->holder_max[gs->flipFlop_pickup] = e;
+	p->holdRoot->newPickup = 1;
+	if (e->newHolder) {
+		if (e->newHolder != p || e->newHoldFlags != holdFlags) e->newHolder = e;
 		return;
 	}
-	e->holder_max[gs->flipFlop_pickup] = p;
+	e->newHolder = p;
+	e->newHoldFlags = holdFlags;
 }
 
 void uStateSlider(ent *e, int ix, int32_t value) {

@@ -4,6 +4,7 @@ extern void edit_selectNearby(gamestate *gs, ent *e);
 extern void edit_selectInside(gamestate *gs, ent *me);
 extern void edit_selectWires(gamestate *gs, ent *me);
 extern void edit_selectHeld(gamestate *gs, ent *me);
+extern void edit_selectHeldRecursive(gamestate *gs, ent *me);
 extern void edit_rm(gamestate *gs, ent *e);
 extern void edit_m_weight(gamestate *gs, ent *me);
 extern void edit_m_paper(gamestate *gs, ent *me);
@@ -22,7 +23,7 @@ extern void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbo
 extern void edit_copy(gamestate *gs, ent *me);
 extern void edit_rotate(gamestate *gs, ent *me, char verbose);
 extern void edit_flip(gamestate *gs, ent *me);
-extern void edit_pickup(gamestate *gs, ent *me);
+extern void edit_pickup(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_drop(gamestate *gs, ent *me);
 extern void edit_wire(gamestate *gs, ent *me);
 extern void edit_unwire(gamestate *gs, ent *me);

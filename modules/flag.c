@@ -10,9 +10,8 @@
 
 static const int32_t flagSize[3] = {350, 350, 350};
 
-static int flag_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	if (type(him) & T_FLAG) return r_die;
-	return r_move;
+static char flag_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	return (type(him) & T_FLAG) ? 1 : 0;
 }
 
 static void flag_crush(gamestate *gs, ent *me) {

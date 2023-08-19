@@ -8,8 +8,8 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam1";
-#define VERSION 1
+static const char* version_string = "gam2";
+#define VERSION 2
 static int version; // TODO global state is bad, use a context object during deserialization
 
 static const int32_t dummyPos[3] = {0, 0, 0};
@@ -108,11 +108,12 @@ static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, cons
 	}
 
 	processEnt(e);
+	writeEntRef(data, e->holder);
+	i32(e->holdFlags);
 #undef wire
 #undef handler
 #undef i32
 #undef check
-	writeEntRef(data, e->holder);
 }
 
 static void serializeEnts(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
@@ -230,8 +231,9 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 #undef handler
 #undef check
 	int holder = read32(data, ix);
+	int holdFlags = version >= 2 ? read32(data, ix) : 0;
 	if (holder != -1) {
-		pickupNoHandlers(gs, ents[holder], e);
+		pickupNoHandlers(gs, ents[holder], e, holdFlags);
 	}
 }
 

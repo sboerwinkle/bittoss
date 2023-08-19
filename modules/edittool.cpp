@@ -11,11 +11,11 @@ static const int32_t thumbtackSize[3] = {100, 100, 100};
 static const int32_t baubleRadius = 100;
 static const int32_t baubleSize[3] = {baubleRadius, baubleRadius, baubleRadius};
 
-static int thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	if (me->holder) return r_die;
+static char thumbtack_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	if (me->holder) return 1;
 
-	uPickup(gs, him, me);
-	return r_pass;
+	uPickup(gs, him, me, HOLD_MOVE);
+	return 0;
 }
 
 static void thumbtack_tick_held(gamestate *gs, ent *me) {
@@ -59,7 +59,6 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 		T_DECOR | T_NO_DRAW_FP, 0);
 	ret->whoMoves = whoMovesHandlers.getByName("move-me");
 	ret->color = 0x0000FF;
-	ret->pushed = pushedHandlers.getByName("drop-on-pushed");
 	ret->tick = tickHandlers.getByName("bauble-tick");
 	ret->tickHeld = tickHandlers.getByName("bauble-tick-held");
 	// TODO: This is not how wires are supposed to be updated!
@@ -67,7 +66,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
 	ret->wires.add(target);
 
-	uPickup(gs, parent, ret);
+	uPickup(gs, parent, ret, HOLD_DROP);
 	if (mode) pushBtn(ret, 2);
 
 	return ret;

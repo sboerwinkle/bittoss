@@ -9,8 +9,8 @@ static int explosion_whoMoves(ent *me, ent *him, int axis, int dir) {
 	return (type(him) & T_TERRAIN) ? MOVE_ME : MOVE_HIM;
 }
 
-static int explosion_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	return r_die;
+static char explosion_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	return 1;
 }
 
 static void explosion_tick(gamestate *gs, ent *me) {

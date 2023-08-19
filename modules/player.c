@@ -17,7 +17,7 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_BOTH;
 }
 
-static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	int32_t vel[3];
 	getVel(vel, him, me);
 	// Reset what "stationary" is, according to ground speed
@@ -43,7 +43,7 @@ static int player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, in
 	}
 	uStateSlider(me, 0, vel[0]);
 	uStateSlider(me, 1, vel[1]);
-	return r_pass;
+	return 0;
 }
 
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
@@ -52,7 +52,7 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		holdeesAnyOrder(h, me) {
 			if (!(h->typeMask & T_DECOR)) return;
 		}
-		uPickup(gs, me, him);
+		uPickup(gs, me, him, HOLD_MOVE);
 	}
 }
 

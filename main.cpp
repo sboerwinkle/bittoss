@@ -463,6 +463,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/nearby", edit_selectNearby(gs, me));
 	cmd("/inside", edit_selectInside(gs, me));
 	cmd("/held", edit_selectHeld(gs, me));
+	cmd("/tree", edit_selectHeldRecursive(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
 	cmd("/weight", edit_m_weight(gs, me));
 	cmd("/paper", edit_m_paper(gs, me));
@@ -479,7 +480,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/m", if (verbose) edit_measure(gs, me));
 	cmd("/flip", edit_flip(gs, me));
 	cmd("/turn", edit_rotate(gs, me, verbose));
-	cmd("/pickup", edit_pickup(gs, me));
+	cmd("/pickup", edit_pickup(gs, me, chatBuffer + 7));
 	cmd("/drop", edit_drop(gs, me));
 	cmd("/wire", edit_wire(gs, me));
 	cmd("/unwire", edit_unwire(gs, me));
@@ -537,7 +538,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			}
 		} else if (isCmd(chatBuffer, "/syncme")) {
 			if (isReal && !isMe) syncNeeded = 1;
-		} else if (isCmd(chatBuffer, "/tree")) {
+		} else if (isCmd(chatBuffer, "/_tree")) {
 			if (isMe && isReal) {
 				printTree(gs);
 			}

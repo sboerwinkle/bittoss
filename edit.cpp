@@ -262,6 +262,27 @@ void edit_selectHeld(gamestate *gs, ent *me) {
 	fixNewBaubles(gs);
 }
 
+static void selectRecursive(gamestate *gs, ent *me, ent *e) {
+	player_toggleBauble(gs, me, e, 0);
+	for (ent *x = e->holdee; x; x = x->LL.n) selectRecursive(gs, me, x);
+}
+
+void edit_selectHeldRecursive(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, b.num) {
+		ent *e = b[i];
+		// Since we're going recursive, need to skip items with a selected ancestor.
+		// we probably don't want to explicitly also move this ent.
+		for (ent *x = e->holder; x; x = x->holder) {
+			if (b.has(x)) goto next;
+		}
+		selectRecursive(gs, me, e);
+		next:;
+	}
+	fixNewBaubles(gs);
+}
+
 void edit_rm(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -589,15 +610,18 @@ void edit_flip(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_pickup(gamestate *gs, ent *me) {
+void edit_pickup(gamestate *gs, ent *me, const char* argsStr) {
 	if (!me) return;
 	getLists(me);
+	parseArgs(argsStr);
+	int32_t holdFlags = args.num ? args[0] : 0;
 
 	// TODO This should log a warning if (b.num != 1), and if a provided "verbose" flag is on (isMe && isReal)
 	ent *holder = b[0];
 	range(i, a.num) {
 		ent *e = a[i];
-		uPickup(gs, holder, e);
+		if (e->holder == holder) e->holdFlags = holdFlags;
+		else uPickup(gs, holder, e, holdFlags);
 	}
 }
 

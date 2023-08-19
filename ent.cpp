@@ -141,7 +141,7 @@ static void rmRootEnt(gamestate *gs, ent *e) {
 	if (e->LL.n) e->LL.n->LL.p = e->LL.p;
 }
 
-void pickupNoHandlers(gamestate *gs, ent *x, ent *y) {
+void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 	rmRootEnt(gs, y);
 	y->LL.n = x->holdee;
 	y->LL.p = NULL;
@@ -149,6 +149,7 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y) {
 	x->holdee = y;
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
+	y->holdFlags = holdFlags;
 	// In the future, the actual behavior on pickup might be more flexible.
 	// Might also do away with the return value of `onPushed`, and have it
 	// be a property of the connection (actually, stored on the holdee)
@@ -160,11 +161,10 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y) {
 	}
 }
 
-static void pickup(gamestate *gs, ent *x, ent *y) {
-	//printf("pickup, ff is %d\n", flipFlop_pickup);
+static void pickup(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 	x->onPickUp(x, y);
 	y->onPickedUp(y, x);
-	pickupNoHandlers(gs, x, y);
+	pickupNoHandlers(gs, x, y, holdFlags);
 }
 
 static void killEntNoHandlers(gamestate *gs, ent *e) {
@@ -535,21 +535,20 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	while (1) {
 		if (push_helper(gs, e, prev, axis, dir)) break;
 		
-		int ret;
-		if (e->pushed == NULL) {
-			ret = r_pass;
-		} else {
-			ret = (*e->pushed)(gs, e, o, axis, dir, displacement, accel);
+		if (e->pushed) {
+			if ((*e->pushed)(gs, e, o, axis, dir, displacement, accel)) {
+				crushEnt(gs, e);
+				break;
+			}
 		}
 
 		prev = e;
 		e = e->holder;
-		if (ret == r_die) {
-			crushEnt(gs, prev);
-			break;
+		if (e) {
+			int32_t holdFlags = prev->holdFlags;
+			if (holdFlags == HOLD_PASS) continue;
+			if (holdFlags == HOLD_DROP) fumble(gs, prev);
 		}
-		if (ret == r_pass && e) continue;
-		if (ret == r_drop && e) fumble(gs, prev);
 		int32_t dc[3];
 		dc[(axis+1)%3] = dc[(axis+2)%3] = 0;
 		dc[axis] = displacement*dir;
@@ -672,31 +671,29 @@ static void flushDeaths(gamestate *gs) {
 static void flushDrops(gamestate *gs) {
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
-		if (i->drop_max[1^gs->flipFlop_drop]) {
-			i->drop_max[1^gs->flipFlop_drop] = 0;
+		if (i->newDrop) {
+			i->newDrop = 0;
 			fumble(gs, i);
 		}
 	}
 }
 
 void flushPickups(gamestate *gs) {
-	gs->flipFlop_pickup ^= 1;
 	ent *i, *next;
-	byte ff = 1^gs->flipFlop_pickup;
 	for (i = gs->rootEnts; i; i = next) {
 		next = i->LL.n;
 
 		//If I'm picking someone else up, clean up and move along.
-		if (i->pickup_max[ff]) {
-			i->pickup_max[ff] = 0;
-			i->holder_max[ff] = NULL;
+		if (i->newPickup) {
+			i->newPickup = 0;
+			i->newHolder = NULL;
 			continue;
 		}
-		ent *x = i->holder_max[ff];
+		ent *x = i->newHolder;
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;
-		if (x != i && !x->dead) pickup(gs, x, i);
-		i->holder_max[ff] = NULL;
+		if (x != i && !x->dead) pickup(gs, x, i, i->newHoldFlags);
+		i->newHolder = NULL;
 	}
 }
 
@@ -704,13 +701,10 @@ static void flush(gamestate *gs) {
 	//Now we've got to worry about requests issued while that same request is being flushed. Lame.
 	gs->flipFlop_death ^= 1;
 	flushDeaths(gs);
-	//I think deaths has to come first. Otherwise e.g. a pickup could schedule another pickup on something that will be gone by the end of this turn,
+	//I think deaths has to come first.
+	//Otherwise e.g. a pickup could schedule another pickup on something that will be gone by the end of this turn,
 	//or a death could schedule an add and a pickup for this guy on that add.
 	//flushAdds();
-	gs->flipFlop_drop ^= 1;
-	//TODO: We're leaking references to unadded ents, and that causes problems. Something could be picked up by an ent that doesn't properly exist yet. Probably the best bet is to review and make damn sure that there's no harm in adding ents immediately when requested.
-	//I think our only complaint was that it permits infinitely loopy physics iterations if some jackass writes a stupid script.
-	//And face it, slow / loopy scripts are an inevitable hazard. Maybe better to drop the worries in this dep't and just add immediately.
 	flushDrops(gs);
 	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
 	ent *i;
@@ -879,7 +873,7 @@ static ent* cloneEnt(ent *in) {
 	// Most of the fields we can just directly copy, no fuss no muss
 	*ret = *in;
 #ifndef NODEBUG
-	if (ret->collisionBuddy || ret->holder_max[0] || ret->holder_max[1]) {
+	if (ret->collisionBuddy || ret->newHolder) {
 		fputs("One of the transient ent*'s wasn't null, so uhh... it's probably f*cked now\n", stderr);
 	}
 #endif
@@ -982,8 +976,6 @@ gamestate* dup(gamestate *in, list<player> *players) {
 	ret->deadTail = NULL;
 
 	ret->flipFlop_death = in->flipFlop_death;
-	ret->flipFlop_drop = in->flipFlop_drop;
-	ret->flipFlop_pickup = in->flipFlop_pickup;
 
 	players->num = 0;
 	players->addAll(*in->players);

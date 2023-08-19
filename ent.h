@@ -54,7 +54,7 @@ struct gamestate;
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
 typedef void (*tick_t)(struct gamestate *gs, struct ent*);
 typedef void (*crush_t)(struct gamestate *gs, struct ent*);
-typedef int (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
+typedef char (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
 
 
@@ -117,6 +117,7 @@ typedef struct ent {
 	//Things not related to collisions, unless fumbling is involved.
 	//Who, if anyone, is holding me.
 	struct ent *holder;
+	int32_t holdFlags;
 	//Who's holding me ultimately (Can be myself)
 	struct ent *holdRoot;
 	//The first person (if any) I'm holding
@@ -127,10 +128,10 @@ typedef struct ent {
 	// An ent cannot track another ent multiple times (again, it's a set) or associate any other info with the tracking
 	list<struct ent*> wires;
 
-	//Two sets for these, because the handler for the event may request an event of the same type, and it's got to happen *next* iteration
-	struct ent *holder_max[2];
-	char pickup_max[2];
-	char drop_max[2];
+	struct ent *newHolder;
+	int32_t newHoldFlags;
+	char newPickup;
+	char newDrop;
 
 	// Don't need two per of these, since there's no handler code called when a wire is actually added / removed
 	list<struct ent*> wiresAdd;
@@ -186,8 +187,8 @@ struct gamestate {
 	ent *rootEnts;
 	//This linked list is only maintained one-directionally so that the "next" pointer can remain unchanged. Since ents may kill themselves while being looped over, this last part is important.
 	ent *deadTail;
-	// TODO Maybe with luck we can do away with these???
-	byte flipFlop_death, flipFlop_drop, flipFlop_pickup;
+	// TODO Maybe with luck we can do away with this???
+	byte flipFlop_death;
 	int32_t rand;
 	int32_t gamerules;
 	box *rootBox;
@@ -209,7 +210,7 @@ extern byte getAxis(ent *a, ent *b);
 
 extern void assignVelbox(ent *e, box *relBox);
 extern void addEnt(gamestate *gs, ent *e, ent *relative);
-extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y);
+extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags);
 
 extern void drawEnt(ent *e, float r, float g, float b);
 
@@ -247,13 +248,10 @@ none			| me	| him	| both	| none
 #define MOVE_BOTH 7
 #define MOVE_NONE 15
 
-//Constants for `pushed` return code
-enum retCodes {
-	r_die = 0,
-	r_drop = 1,
-	r_move = 2,
-	r_pass = 3
-};
+// holdFlags values
+#define HOLD_PASS 0
+#define HOLD_DROP 1
+#define HOLD_MOVE 2
 
 
 //Collisions are slippery, but objects can update their internal vel's to create friction if'n they so choose
