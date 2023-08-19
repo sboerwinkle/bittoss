@@ -462,6 +462,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 #define cmd(s, x) if (isCmd(chatBuffer, s)) do {x; return 1;} while(0)
 	cmd("/nearby", edit_selectNearby(gs, me));
 	cmd("/inside", edit_selectInside(gs, me));
+	cmd("/held", edit_selectHeld(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
 	cmd("/weight", edit_m_weight(gs, me));
 	cmd("/paper", edit_m_paper(gs, me));

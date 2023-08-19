@@ -3,6 +3,7 @@ extern int32_t edit_color(ent *e, const char *colorStr, char priviledged);
 extern void edit_selectNearby(gamestate *gs, ent *e);
 extern void edit_selectInside(gamestate *gs, ent *me);
 extern void edit_selectWires(gamestate *gs, ent *me);
+extern void edit_selectHeld(gamestate *gs, ent *me);
 extern void edit_rm(gamestate *gs, ent *e);
 extern void edit_m_weight(gamestate *gs, ent *me);
 extern void edit_m_paper(gamestate *gs, ent *me);

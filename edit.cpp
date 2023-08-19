@@ -202,21 +202,7 @@ int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
 	return (a.num == 1 && a[0] == e) ? color : -2;
 }
 
-void edit_selectNearby(gamestate *gs, ent *me) {
-	if (!me) return;
-	for (ent *e = gs->ents; e; e = e->ll.n) {
-		if (e->holdRoot == me) continue;
-		range(i, 3) {
-			int32_t r = e->radius[i] + me->radius[i];
-			if (abs(e->center[i] - me->center[i]) > r) goto next;
-		}
-		player_toggleBauble(gs, me, e, 0);
-		next:;
-	}
-	fixNewBaubles(gs);
-}
-
-void edit_selectInside(gamestate *gs, ent *me) {
+static void _selectInside(gamestate *gs, ent *me, int32_t offset) {
 	if (!me) return;
 	getLists(me);
 	int32_t min[3], max[3];
@@ -224,8 +210,8 @@ void edit_selectInside(gamestate *gs, ent *me) {
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		range(i, 3) {
 			if (
-				e->center[i] + e->radius[i] - min[i] <= 0 ||
-				e->center[i] - e->radius[i] - max[i] >= 0
+				e->center[i] + e->radius[i] - min[i] <= -offset ||
+				e->center[i] - e->radius[i] - max[i] >= offset
 			) {
 				goto skip;
 			}
@@ -234,6 +220,14 @@ void edit_selectInside(gamestate *gs, ent *me) {
 		skip:;
 	}
 	fixNewBaubles(gs);
+}
+
+void edit_selectNearby(gamestate *gs, ent *me) {
+	_selectInside(gs, me, 1);
+}
+
+void edit_selectInside(gamestate *gs, ent *me) {
+	_selectInside(gs, me, 0);
 }
 
 void edit_selectWires(gamestate *gs, ent *me) {
@@ -255,6 +249,17 @@ void edit_selectWires(gamestate *gs, ent *me) {
 	}
 	fixNewBaubles(gs);
 	wires.destroy();
+}
+
+void edit_selectHeld(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, b.num) {
+		for (ent *x = b[i]->holdee; x; x = x->LL.n) {
+			player_toggleBauble(gs, me, x, 0);
+		}
+	}
+	fixNewBaubles(gs);
 }
 
 void edit_rm(gamestate *gs, ent *me) {
@@ -455,7 +460,15 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 		offset[axis] = dir * amt;
 	}
 	range(i, a.num) {
+		// Since offsets are passed onto children,
+		// if any of our ancestors is also selected
+		// we probably don't want to explicitly also move this ent.
+		for (ent *x = a[i]->holder; x; x = x->holder) {
+			if (a.has(x)) goto next;
+		}
+
 		uCenter(a[i], offset);
+		next:;
 	}
 }
 
