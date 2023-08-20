@@ -691,7 +691,14 @@ void edit_measure(gamestate *gs, ent *me) {
 	putchar('\n');
 
 	if (a.num == 2) {
-		d -= 2*(a[0]->radius[axis] + a[1]->radius[axis]);
+		d = abs(a[0]->center[axis] - a[1]->center[axis]);
+		printf("Centers: %d", d);
+		if (d%2 == 0) {
+			printf(" (2*%d)", d/2);
+		}
+		putchar('\n');
+
+		d -= a[0]->radius[axis] + a[1]->radius[axis];
 		printf("Inner: %d", d);
 		if (d%2 == 0) {
 			printf(" (2*%d)", d/2);
