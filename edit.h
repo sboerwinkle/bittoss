@@ -21,6 +21,8 @@ extern void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbos
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose);
+extern void edit_scale(gamestate *gs, ent *me, const char *argsStr, char verbose);
+extern void edit_scale_force(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_copy(gamestate *gs, ent *me);
 extern void edit_rotate(gamestate *gs, ent *me, char verbose);
 extern void edit_flip(gamestate *gs, ent *me);

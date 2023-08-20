@@ -482,6 +482,8 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/copy", edit_copy(gs, me));
 	cmd("/flip", edit_flip(gs, me));
 	cmd("/turn", edit_rotate(gs, me, verbose));
+	cmd("/scale", edit_scale(gs, me, chatBuffer + 6, verbose));
+	cmd("/scale!", edit_scale_force(gs, me, chatBuffer + 6, verbose));
 
 	cmd("/pickup", edit_pickup(gs, me, chatBuffer + 7));
 	cmd("/drop", edit_drop(gs, me));

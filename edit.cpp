@@ -32,6 +32,12 @@ static void fixNewBaubles(gamestate *gs) {
 	flushPickups(gs);
 }
 
+static void radiusFix(ent *e) {
+	box *b = e->myBox;
+	assignVelbox(e, b);
+	velbox_remove(b);
+}
+
 static void setNumSliders(ent *e, int sliders) {
 	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
 	int oldSliders = e->numSliders;
@@ -515,9 +521,7 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 			ent *e = a[i];
 			memcpy(e->radius, radius, sizeof(int32_t)*3);
 
-			box *b = e->myBox;
-			assignVelbox(e, b);
-			velbox_remove(b);
+			radiusFix(e);
 		}
 	} else if (args.num >= 1) {
 		int axis, dir;
@@ -529,11 +533,56 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 			e->center[axis] += offset;
 			e->radius[axis] = adjustRadius(e->radius[axis] + amt, verbose);
 
-			box *b = e->myBox;
-			assignVelbox(e, b);
-			velbox_remove(b);
+			radiusFix(e);
 		}
 	}
+}
+
+static void _scale(gamestate *gs, ent *me, const char *argsStr, char verbose, char force) {
+	if (!me) return;
+	getLists(me);
+	parseArgs(argsStr);
+	if (args.num != 2) {
+		if (verbose) puts("/scale requires exactly 2 args");
+		return;
+	}
+	int32_t numer = args[0];
+	int32_t denom = args[1];
+
+	int32_t oldCenter[3];
+	memcpy(oldCenter, a[0]->center, sizeof(oldCenter));
+	int32_t newCenter[3];
+	getMedian(newCenter);
+	range(d, 3) newCenter[d] = newCenter[d] + (oldCenter[d] - newCenter[d]) * numer / denom;
+
+	if (!force) {
+		range(i, a.num) {
+			ent *e = a[i];
+			range(d, 3) {
+				if (e->radius[d] % denom || (e->center[d] - oldCenter[d]) % denom) {
+					if (verbose) puts("Refusing to /scale, divisor doesn't fit evently. You may /scale! if desired.");
+					return;
+				}
+			}
+		}
+	}
+
+	range(i, a.num) {
+		ent *e = a[i];
+		range(d, 3) {
+			e->radius[d] = e->radius[d] * numer / denom;
+			e->center[d] = newCenter[d] + (e->center[d] - oldCenter[d]) * numer / denom;
+		}
+		radiusFix(e);
+	}
+}
+
+void edit_scale(gamestate *gs, ent *me, const char *argsStr, char verbose) {
+	_scale(gs, me, argsStr, verbose, 0);
+}
+
+void edit_scale_force(gamestate *gs, ent *me, const char *argsStr, char verbose) {
+	_scale(gs, me, argsStr, verbose, 1);
 }
 
 void edit_copy(gamestate *gs, ent *me) {
@@ -599,9 +648,7 @@ void edit_rotate(gamestate *gs, ent *me, char verbose) {
 		e->center[axis2] = c2 + e->center[axis] - c1;
 		e->center[axis] = c1 - tmp + shift;
 
-		box *b = e->myBox;
-		assignVelbox(e, b);
-		velbox_remove(b);
+		radiusFix(e);
 	}
 }
 
