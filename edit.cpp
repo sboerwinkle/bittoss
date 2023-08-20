@@ -731,7 +731,7 @@ void edit_export(gamestate *gs, ent *me, const char *name) {
 	int32_t median[3];
 	getMedian(median);
 
-	for (ent *e = gs->rootEnts; e; e = e->ll.n) {
+	for (ent *e = gs->ents; e; e = e->ll.n) {
 		e->clone.ix = -1;
 	}
 	range(i, a.num) a[i]->clone.ix = 0; // This just marks it for serialization
