@@ -300,9 +300,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	int vals[2];
 	int i;
 #define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
-	//Criteria for ranking collisions:
-	//Prefer mutual collisions, reduces weirdness where one half will "miss" the collision by processing a different collision.
-	cb_helper(mutuals[i]);
+	// Criteria for ranking collisions:
+	// Prefer non-mutual collisions.
+	// Previously this was reversed, to avoid only one ent processing that collision.
+	// However, with collisions now being skipped if the pushee has a more pressing collision,
+	// it actually is generally nicer to have this reversed.
+	cb_helper(!mutuals[i]);
 	// This one should probably be time to impact, but maybe this'll be good enough?
 	// In rare cases is may have no input (if colliding objects perfectly touched last frame), which isn't great.
 	// However, we need something like this before we get to lateral clearance,
