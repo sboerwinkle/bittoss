@@ -375,7 +375,7 @@ void edit_t_cursed(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("tick-cursed");
+		e->tick = tickHandlers.getByName("cursed-tick");
 	}
 }
 
