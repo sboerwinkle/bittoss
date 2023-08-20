@@ -67,6 +67,9 @@ TODO:
 			This operation can fail since object widths are always even!
 	- Documentation for all this edit stuff dear god
 / Friction as a concept native to the engine?
+- Rework handler registrar again so module load order isn't so closely tied to the handler's ID
+	Probably a big header with enums is the way to go here, so handlers have an ID rather than a name
+	Could still associate the ID with a name of course
 
 - CTF scoring plz
 

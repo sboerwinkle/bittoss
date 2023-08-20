@@ -465,30 +465,36 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/held", edit_selectHeld(gs, me));
 	cmd("/tree", edit_selectHeldRecursive(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
+
 	cmd("/weight", edit_m_weight(gs, me));
 	cmd("/paper", edit_m_paper(gs, me));
 	cmd("/wood", edit_m_wood(gs, me));
 	cmd("/stone", edit_m_stone(gs, me));
 	cmd("/wall", edit_m_wall(gs, me));
 	cmd("/ghost", edit_m_ghost(gs, me));
+
 	cmd("/dumb", edit_t_dumb(gs, me));
+	cmd("/cursed", edit_t_cursed(gs, me));
 	cmd("/logic", edit_t_logic(gs, me));
 	cmd("/logic_debug", edit_t_logic_debug(gs, me));
 	cmd("/door", edit_t_door(gs, me));
-	cmd("/slider", edit_slider(gs, me, chatBuffer + 7, verbose));
-	cmd("/hl", edit_highlight(gs, me));
-	cmd("/m", if (verbose) edit_measure(gs, me));
+
+	cmd("/copy", edit_copy(gs, me));
 	cmd("/flip", edit_flip(gs, me));
 	cmd("/turn", edit_rotate(gs, me, verbose));
+
 	cmd("/pickup", edit_pickup(gs, me, chatBuffer + 7));
 	cmd("/drop", edit_drop(gs, me));
 	cmd("/wire", edit_wire(gs, me));
 	cmd("/unwire", edit_unwire(gs, me));
+
 	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
-	cmd("/copy", edit_copy(gs, me));
 	cmd("/p", edit_push(gs, me, chatBuffer + 2));
 	cmd("/s", edit_stretch(gs, me, chatBuffer + 2, verbose));
 	cmd("/d", edit_rm(gs, me));
+	cmd("/slider", edit_slider(gs, me, chatBuffer + 7, verbose));
+	cmd("/hl", edit_highlight(gs, me));
+	cmd("/m", if (verbose) edit_measure(gs, me));
 #undef cmd
 	return 0;
 }

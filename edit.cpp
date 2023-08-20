@@ -370,6 +370,15 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_t_cursed(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.getByName("tick-cursed");
+	}
+}
+
 void edit_t_logic(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
