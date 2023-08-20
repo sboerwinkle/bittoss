@@ -499,7 +499,9 @@ static char push_helper(gamestate *gs, ent *e, ent *prev, byte axis, int dir) {
 		if (e != ret) return 0;
 	}
 	e->forced[axis] += dir;
-	if (e->forced[axis] == dir*3) {
+	// Been experiencing some unexpected safety crushes -
+	// going to set this from 3->15 until I can figure out why exactly they're happening
+	if (e->forced[axis] == dir*15) {
 		puts("Safety crush!");
 		crushEnt(gs, e);
 		return 1;
