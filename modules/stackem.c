@@ -40,18 +40,12 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	//      all our handlers are registered, however.
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
-	e->whoMoves = whoMovesHandlers.getByName("stackem-whomoves");
+	e->whoMoves = whoMovesHandlers.get(WHOMOVES_STACKEM);
 	e->color = (e->typeMask & TEAM_BIT) ? 0x805555 : 0x558055;
 
 	return e;
 }
 
 void module_stackem() {
-	whoMovesHandlers.reg("stackem-whomoves", stackem_whoMoves);
-
-	// At some point I actually need a way to stop constantly breaking my savegame files.
-	// For now, I need to do this so the spacing doesn't get off in these handler registrars,
-	// even though I no longer need these handlers to exist.
-	pushedHandlers.reg("stackem-pushed", NULL);
-	tickHandlers.reg("stackem-tick", NULL);
+	whoMovesHandlers.reg(WHOMOVES_STACKEM, stackem_whoMoves);
 }

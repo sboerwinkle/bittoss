@@ -30,10 +30,10 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	//      all our handlers are registered, however.
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
-	e->whoMoves = whoMovesHandlers.getByName("move-me");
+	e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	e->color = (e->typeMask & TEAM_BIT) ? 0xFF8080 : 0x80FF80;
-	e->pushed = pushedHandlers.getByName("flag-pushed");
-	e->crush = crushHandlers.getByName("flag-crush");
+	e->pushed = pushedHandlers.get(PUSHED_FLAG);
+	e->crush = crushHandlers.get(CRUSH_FLAG);
 
 	return e;
 }
@@ -61,12 +61,12 @@ void mkFlagSpawner(gamestate *gs, int32_t *pos, int32_t team) {
 	);
 	// TODO This may remove the need for the "do a flush after map load" if we find a more elegant way to handle state changes on newly created ents - it's a recurring problem.
 	uStateSlider(ret, 1, team);
-	ret->tick = tickHandlers.getByName("flag-spawner-tick");
+	ret->tick = tickHandlers.get(TICK_FLAG_SPAWNER);
 	ret->color = -1;
 }
 
 void module_flag() {
-	tickHandlers.reg("flag-spawner-tick", flagSpawner_tick);
-	crushHandlers.reg("flag-crush", flag_crush);
-	pushedHandlers.reg("flag-pushed", flag_pushed);
+	tickHandlers.reg(TICK_FLAG_SPAWNER, flagSpawner_tick);
+	crushHandlers.reg(CRUSH_FLAG, flag_crush);
+	pushedHandlers.reg(PUSHED_FLAG, flag_pushed);
 }

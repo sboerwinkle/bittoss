@@ -57,10 +57,10 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 		parent->center, parent->vel, baubleSize,
 		1,
 		T_DECOR | T_NO_DRAW_FP, 0);
-	ret->whoMoves = whoMovesHandlers.getByName("move-me");
+	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = 0x0000FF;
-	ret->tick = tickHandlers.getByName("bauble-tick");
-	ret->tickHeld = tickHandlers.getByName("bauble-tick-held");
+	ret->tick = tickHandlers.get(TICK_BAUBLE);
+	ret->tickHeld = tickHandlers.get(TICK_HELD_BAUBLE);
 	// TODO: This is not how wires are supposed to be updated!
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
@@ -86,10 +86,10 @@ ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 		1,
 		T_WEIGHTLESS, T_TERRAIN + T_OBSTACLE + T_DEBRIS
 	);
-	ret->whoMoves = whoMovesHandlers.getByName("move-me");
+	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = 0x00FF33;
-	ret->pushed = pushedHandlers.getByName("thumbtack-pushed");
-	ret->tickHeld = tickHandlers.getByName("thumbtack-tick-held");
+	ret->pushed = pushedHandlers.get(PUSHED_THUMBTACK);
+	ret->tickHeld = tickHandlers.get(TICK_HELD_THUMBTACK);
 	// TODO: This is not how wires are supposed to be updated!
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
@@ -102,9 +102,9 @@ ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 }
 
 void module_edittool() {
-	tickHandlers.reg("bauble-tick", bauble_tick);
-	tickHandlers.reg("bauble-tick-held", bauble_tick_held);
+	tickHandlers.reg(TICK_BAUBLE, bauble_tick);
+	tickHandlers.reg(TICK_HELD_BAUBLE, bauble_tick_held);
 
-	pushedHandlers.reg("thumbtack-pushed", thumbtack_pushed);
-	tickHandlers.reg("thumbtack-tick-held", thumbtack_tick_held);
+	pushedHandlers.reg(PUSHED_THUMBTACK, thumbtack_pushed);
+	tickHandlers.reg(TICK_HELD_THUMBTACK, thumbtack_tick_held);
 }

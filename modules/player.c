@@ -223,17 +223,17 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 		7,
 		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
 	);
-	ret->whoMoves = whoMovesHandlers.getByName("player-whomoves");
+	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_PLAYER);
 	ret->color = 0xFFFFFF;
-	ret->pushed = pushedHandlers.getByName("player-pushed");
-	ret->push = pushHandlers.getByName("player-push");
-	ret->tick = tickHandlers.getByName("player-tick");
+	ret->pushed = pushedHandlers.get(PUSHED_PLAYER);
+	ret->push = pushHandlers.get(PUSH_PLAYER);
+	ret->tick = tickHandlers.get(TICK_PLAYER);
 	return ret;
 }
 
 void module_player() {
-	whoMovesHandlers.reg("player-whomoves", player_whoMoves);
-	tickHandlers.reg("player-tick", player_tick);
-	pushedHandlers.reg("player-pushed", player_pushed);
-	pushHandlers.reg("player-push", player_push);
+	whoMovesHandlers.reg(WHOMOVES_PLAYER, player_whoMoves);
+	tickHandlers.reg(TICK_PLAYER, player_tick);
+	pushedHandlers.reg(PUSHED_PLAYER, player_pushed);
+	pushHandlers.reg(PUSH_PLAYER, player_push);
 }

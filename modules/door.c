@@ -47,5 +47,5 @@ static void door_tick(gamestate *gs, ent *me) {
 }
 
 void module_door() {
-	tickHandlers.reg("door-tick", door_tick);
+	tickHandlers.reg(TICK_DOOR, door_tick);
 }

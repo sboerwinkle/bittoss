@@ -15,5 +15,5 @@ static int wood_whoMoves(ent *a, ent *b, int axis, int dir) {
 }
 
 void module_wood() {
-	whoMovesHandlers.reg("wood-whomoves", wood_whoMoves);
+	whoMovesHandlers.reg(WHOMOVES_WOOD, wood_whoMoves);
 }

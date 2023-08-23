@@ -15,7 +15,7 @@ static void eye_tick(gamestate *gs, ent *me) {
 	uMyCollideMask(me, me->collideMask | T_TERRAIN | T_OBSTACLE | T_DEBRIS);
 	// It's fine to set this directly in a tick handler,
 	// handlers are considered internal state that no other ent should be looking at anyway
-	me->tick = tickHandlers.getByName("nil");
+	me->tick = tickHandlers.get(TICK_NIL);
 }
 
 static void eye_tick_held(gamestate *gs, ent *me) {
@@ -38,10 +38,10 @@ ent* mkEye(gamestate *gs, ent *parent) {
 		parent->center, parent->vel, eyeSize,
 		0,
 		T_DECOR | T_NO_DRAW_FP, 0);
-	ret->whoMoves = whoMovesHandlers.getByName("move-me");
+	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = 0xFFFFFF;
-	ret->tickHeld = tickHandlers.getByName("eye-tick-held");
-	ret->tick = tickHandlers.getByName("eye-tick");
+	ret->tickHeld = tickHandlers.get(TICK_HELD_EYE);
+	ret->tick = tickHandlers.get(TICK_EYE);
 
 	uPickup(gs, parent, ret, HOLD_DROP);
 
@@ -49,6 +49,6 @@ ent* mkEye(gamestate *gs, ent *parent) {
 }
 
 void module_eyes() {
-	tickHandlers.reg("eye-tick", eye_tick);
-	tickHandlers.reg("eye-tick-held", eye_tick_held);
+	tickHandlers.reg(TICK_EYE, eye_tick);
+	tickHandlers.reg(TICK_HELD_EYE, eye_tick_held);
 }

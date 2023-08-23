@@ -30,10 +30,10 @@ static void mkExplosion(gamestate *gs, ent *parent, int32_t *pos, int32_t *vel) 
 		pos, vel, explosionSize,
 		1,
 		T_OBSTACLE + T_HEAVY, T_TERRAIN + T_OBSTACLE);
-	ret->whoMoves = whoMovesHandlers.getByName("explosion-whoMoves");
+	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_EXPLOSION);
 	ret->color = 0xFFB233;
-	ret->pushed = pushedHandlers.getByName("explosion-pushed");
-	ret->tick = tickHandlers.getByName("explosion-tick");
+	ret->pushed = pushedHandlers.get(PUSHED_EXPLOSION);
+	ret->tick = tickHandlers.get(TICK_EXPLOSION);
 }
 
 void explode(gamestate *gs, ent *parent, int count, int32_t force) {
@@ -63,7 +63,7 @@ vel[ix] = parent->vel[ix] + 2 * force * counter/(count-1) - force
 }
 
 void module_explosion() {
-	whoMovesHandlers.reg("explosion-whoMoves", explosion_whoMoves);
-	pushedHandlers.reg("explosion-pushed", explosion_pushed);
-	tickHandlers.reg("explosion-tick", explosion_tick);
+	whoMovesHandlers.reg(WHOMOVES_EXPLOSION, explosion_whoMoves);
+	pushedHandlers.reg(PUSHED_EXPLOSION, explosion_pushed);
+	tickHandlers.reg(TICK_EXPLOSION, explosion_tick);
 }

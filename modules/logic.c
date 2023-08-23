@@ -63,7 +63,7 @@ static void logic_tick_debug(gamestate *gs, ent *me) {
 }
 
 void module_logic() {
-	tickHandlers.reg("logic-tick", logic_tick);
-	tickHandlers.reg("logic-tick-debug", logic_tick_debug);
-	pushHandlers.reg("logic-push", logic_push);
+	tickHandlers.reg(TICK_LOGIC, logic_tick);
+	tickHandlers.reg(TICK_LOGIC_DEBUG, logic_tick_debug);
+	pushHandlers.reg(PUSH_LOGIC, logic_push);
 }

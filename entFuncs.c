@@ -96,5 +96,5 @@ ent *initEnt(
 }
 
 void init_entFuncs() {
-	defaultPush = pushHandlers.getByName("nil");
+	defaultPush = pushHandlers.get(PUSH_NIL);
 }

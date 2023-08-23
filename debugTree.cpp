@@ -21,9 +21,8 @@ static void f(box *b, list<char> *i) {
 	printf("(%d)", b->intersects.num);
 	if (b->data) {
 		ent *e = (ent*)b->data;
-		putchar(' ');
-		fputs(tickHandlers.itemToName(e->tick), stdout);
-		printf(" %6X", e->color);
+
+		printf(" %d %6X", tickHandlers.reverseLookup(e->tick), e->color);
 	}
 	putchar('\n');
 	indent(i);

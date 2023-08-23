@@ -15,17 +15,13 @@ catalog<push_t> pushHandlers;
 static void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
 
 void init_registrar() {
-	whoMovesHandlers.init();
-	tickHandlers.init();
-	crushHandlers.init();
-	pushedHandlers.init();
-	pushHandlers.init();
+	whoMovesHandlers.init(WHOMOVES_NUM);
+	tickHandlers.init(TICK_NUM);
+	crushHandlers.init(CRUSH_NUM);
+	pushedHandlers.init(PUSHED_NUM);
+	pushHandlers.init(PUSH_NUM);
 
-	whoMovesHandlers.reg("nil", NULL);
-	tickHandlers.reg("nil", NULL);
-	crushHandlers.reg("nil", NULL);
-	pushedHandlers.reg("nil", NULL);
-	pushHandlers.reg("nil", onPushDefault);
+	pushHandlers.reg(PUSH_NIL, onPushDefault);
 }
 
 void destroy_registrar() {

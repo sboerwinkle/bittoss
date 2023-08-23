@@ -24,7 +24,6 @@
 #include "modules/logic.h"
 #include "modules/door.h"
 #include "modules/wood.h"
-#include "modules/common2.h"
 
 void initMods() {
 	module_common();
@@ -39,5 +38,4 @@ void initMods() {
 	module_logic();
 	module_door();
 	module_wood();
-	module_common2();
 }

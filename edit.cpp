@@ -311,7 +311,7 @@ void edit_m_paper(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.getByName("move-me");
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_OBSTACLE + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_OBSTACLE + T_TERRAIN);
 	}
@@ -322,7 +322,7 @@ void edit_m_wood(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.getByName("wood-whomoves");
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_WOOD);
 		uMyTypeMask(e, T_OBSTACLE + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN + T_OBSTACLE);
 	}
@@ -333,7 +333,7 @@ void edit_m_stone(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
 		uMyTypeMask(e, T_TERRAIN + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN);
 	}
@@ -346,7 +346,7 @@ void edit_m_wall(gamestate *gs, ent *me) {
 		ent *e = a[i];
 		// `whoMoves` actually shouldn't be called, since it has no collideMask.
 		// "real" walls actually leave it NULL, but I think this is better.
-		e->whoMoves = whoMovesHandlers.getByName("move-me");
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
 	}
@@ -357,7 +357,7 @@ void edit_m_ghost(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.getByName("platform-whomoves");
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
 		uMyTypeMask(e, T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
 	}
@@ -368,10 +368,10 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("nil");
-		e->tickHeld = tickHandlers.getByName("nil");
-		e->push = pushHandlers.getByName("nil");
-		e->pushed = pushedHandlers.getByName("nil");
+		e->tick = tickHandlers.get(TICK_NIL);
+		e->tickHeld = tickHandlers.get(TICK_NIL);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		setNumSliders(e, 0);
 	}
 }
@@ -381,7 +381,7 @@ void edit_t_cursed(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("cursed-tick");
+		e->tick = tickHandlers.get(TICK_CURSED);
 	}
 }
 
@@ -390,9 +390,9 @@ void edit_t_logic(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("logic-tick");
-		e->tickHeld = tickHandlers.getByName("logic-tick");
-		e->push = pushHandlers.getByName("logic-push");
+		e->tick = tickHandlers.get(TICK_LOGIC);
+		e->tickHeld = tickHandlers.get(TICK_LOGIC);
+		e->push = pushHandlers.get(PUSH_LOGIC);
 		setNumSliders(e, 2);
 	}
 }
@@ -402,9 +402,9 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("logic-tick-debug");
-		e->tickHeld = tickHandlers.getByName("logic-tick-debug");
-		e->push = pushHandlers.getByName("logic-push");
+		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
+		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
+		e->push = pushHandlers.get(PUSH_LOGIC);
 		setNumSliders(e, 2);
 	}
 }
@@ -414,9 +414,9 @@ void edit_t_door(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->tick = tickHandlers.getByName("door-tick");
-		e->tickHeld = tickHandlers.getByName("door-tick");
-		e->push = pushHandlers.getByName("nil");
+		e->tick = tickHandlers.get(TICK_DOOR);
+		e->tickHeld = tickHandlers.get(TICK_DOOR);
+		e->push = pushHandlers.get(PUSH_NIL);
 		setNumSliders(e, 3);
 	}
 }
