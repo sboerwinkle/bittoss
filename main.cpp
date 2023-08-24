@@ -954,6 +954,12 @@ static void* inputThreadFunc(void *_arg) {
 					else if (btn == 2) mouseSecondaryDown = 1;
 				}
 				break;
+			case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+				// This doesn't actually fire if you switch out via keyboard,
+				// because Allegro is a useless POS I should have abandoned a long time ago.
+				// However, that sounds like work, so we'll just do this for now and hope
+				// it helps a little somehow.
+				// (fall-thru into next block)
 			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
 				mouse_grabbed = 0;
 				mouseBtnDown = 0;
