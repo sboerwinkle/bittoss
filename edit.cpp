@@ -208,7 +208,7 @@ int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
 	return (a.num == 1 && a[0] == e) ? color : -2;
 }
 
-static void _selectInside(gamestate *gs, ent *me, int32_t offset) {
+static void _selectInside(gamestate *gs, ent *me, char bidi, int32_t offset) {
 	if (!me) return;
 	getLists(me);
 	int32_t min[3], max[3];
@@ -216,8 +216,16 @@ static void _selectInside(gamestate *gs, ent *me, int32_t offset) {
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		range(i, 3) {
 			if (
-				e->center[i] + e->radius[i] - min[i] <= -offset ||
-				e->center[i] - e->radius[i] - max[i] >= offset
+				e->center[i] + e->radius[i] - min[i] < -offset ||
+				e->center[i] - e->radius[i] - max[i] > offset
+			) {
+				goto skip;
+			}
+			if (
+				bidi && (
+					e->center[i] - e->radius[i] - min[i] < -offset ||
+					e->center[i] + e->radius[i] - max[i] > offset
+				)
 			) {
 				goto skip;
 			}
@@ -228,12 +236,19 @@ static void _selectInside(gamestate *gs, ent *me, int32_t offset) {
 	fixNewBaubles(gs);
 }
 
-void edit_selectNearby(gamestate *gs, ent *me) {
-	_selectInside(gs, me, 1);
-}
-
-void edit_selectInside(gamestate *gs, ent *me) {
-	_selectInside(gs, me, 0);
+void edit_selectInside(gamestate *gs, ent *me, const char *argsStr) {
+	parseArgs(argsStr);
+	int mode = 1;
+	if (args.num && args[0] >= 0 && args[0] < 4) {
+		mode = args[0];
+	}
+	/*
+	 * 0 - touching -        bidi false, offset 0
+	 * 1 - intersecting -    bidi false, offset -1
+	 * 2 - covered -         bidi true,  offset 0
+	 * 3 - surrounded -      bidi true,  offset -1
+	 */
+	_selectInside(gs, me, mode >= 2, -(mode%2));
 }
 
 void edit_selectWires(gamestate *gs, ent *me) {
@@ -465,7 +480,7 @@ void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		gs, me,
 		pos, zeroVec, size,
 		0,
-		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
+		T_WEIGHTLESS, 0
 	);
 	created->color = CLR_WHITE;
 	player_toggleBauble(gs, me, created, 0);
@@ -754,17 +769,14 @@ void edit_measure(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_import(gamestate *gs, ent *me, int32_t dist, list<char> *data) {
+void edit_import(gamestate *gs, ent *me, list<char> *data) {
 	if (!me) return;
 	int axis, dir;
 	getAxis(me, &axis, &dir);
-	int32_t center[3];
-	memcpy(center, me->center, sizeof(center));
-	center[axis] += dist * dir;
 
 	ent *start = gs->ents;
 
-	deserializeSelected(gs, data, center, me->vel);
+	deserializeSelected(gs, data, me->center, me->vel);
 
 	for (ent *e = gs->ents; e != start; e = e->ll.n) {
 		player_toggleBauble(gs, me, e, 0);
@@ -775,8 +787,6 @@ void edit_import(gamestate *gs, ent *me, int32_t dist, list<char> *data) {
 void edit_export(gamestate *gs, ent *me, const char *name) {
 	if (!me) return;
 	getLists(me);
-	int32_t median[3];
-	getMedian(median);
 
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		e->clone.ix = -1;
@@ -785,7 +795,7 @@ void edit_export(gamestate *gs, ent *me, const char *name) {
 
 	list<char> data;
 	data.init();
-	serializeSelected(gs, &data, median, me->vel);
+	serializeSelected(gs, &data, me->center, me->vel);
 	writeFile(name, &data);
 	data.destroy();
 }

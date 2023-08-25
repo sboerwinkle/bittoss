@@ -305,16 +305,9 @@ static void sendControls(int frame) {
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
 			out.add((char)BIN_CMD_LOAD);
 			readFile(file, &out);
-		} else if (isCmd(inputTextBuffer, "/import")) {
-			char *offsetEnd;
-			int32_t offset = strtol(inputTextBuffer + 7, &offsetEnd, 0);
-			if (!*offsetEnd) {
-				puts("Usage: /import DISTANCE FILENAME");
-			} else {
-				out.add((char)BIN_CMD_IMPORT);
-				write32(&out, offset);
-				readFile(offsetEnd + 1, &out);
-			}
+		} else if (!strncmp(inputTextBuffer, "/import ", 8)) {
+			out.add((char)BIN_CMD_IMPORT);
+			readFile(inputTextBuffer + 8, &out);
 		} else if (isCmd(inputTextBuffer, "/save") || isCmd(inputTextBuffer, "/export")) {
 			// These commands should only affect the local filesystem, and not game state -
 			// therefore, they don't need to be synchronized.
@@ -460,8 +453,7 @@ static void processLoopbackCommand(gamestate *gs) {
 
 static char editCmds(gamestate *gs, ent *me, char verbose) {
 #define cmd(s, x) if (isCmd(chatBuffer, s)) do {x; return 1;} while(0)
-	cmd("/nearby", edit_selectNearby(gs, me));
-	cmd("/inside", edit_selectInside(gs, me));
+	cmd("/inside", edit_selectInside(gs, me, chatBuffer + 7));
 	cmd("/held", edit_selectHeld(gs, me));
 	cmd("/tree", edit_selectHeldRecursive(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
@@ -526,10 +518,9 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		}
 
 		list<char> fakeList;
-		fakeList.items = data+5;
-		fakeList.num = fakeList.max = chars - 5;
-		int32_t distance = ntohl(*(int32_t*)(data+1));
-		edit_import(gs, p->entity, distance, &fakeList);
+		fakeList.items = data+1;
+		fakeList.num = fakeList.max = chars - 1;
+		edit_import(gs, p->entity, &fakeList);
 		return;
 	}
 	// Message could get lost here if multiple people send on the same frame,
@@ -906,6 +897,14 @@ static void* inputThreadFunc(void *_arg) {
 						strcpy(inputTextBuffer, "/copy");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_F) {
 						strcpy(inputTextBuffer, "/hl");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_B) {
+						strcpy(inputTextBuffer, "/b 200 200 200");
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_I) {
+						if (p1Keys[5]) {
+							strcpy(inputTextBuffer, "/inside 2");
+						} else {
+							strcpy(inputTextBuffer, "/inside");
+						}
 					} else {
 						break;
 					}
@@ -982,7 +981,17 @@ static void* inputThreadFunc(void *_arg) {
 					int x = evnt.mouse.x;
 					int y = evnt.mouse.y;
 					if (evnt.mouse.dz && !(textInputMode & 2) && ctrlPressed) {
-						snprintf(inputTextBuffer, TEXT_BUF_LEN, "/s %d", evnt.mouse.dz > 0 ? -wheelIncr : wheelIncr);
+						const char *c;
+						char pos;
+						if (p1Keys[5]) {
+							// Pressing LShift changes it from "resize" to "move"
+							c = "p";
+							pos = evnt.mouse.dz > 0;
+						} else {
+							c = "s";
+							pos = evnt.mouse.dz < 0;
+						}
+						snprintf(inputTextBuffer, TEXT_BUF_LEN, "/%s %d", c, pos ? wheelIncr : -wheelIncr);
 						bufferedTextLen = strlen(inputTextBuffer);
 						textInputMode |= 2;
 					}

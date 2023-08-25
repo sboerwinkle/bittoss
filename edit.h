@@ -1,7 +1,6 @@
 extern void edit_info(ent *e);
 extern int32_t edit_color(ent *e, const char *colorStr, char priviledged);
-extern void edit_selectNearby(gamestate *gs, ent *e);
-extern void edit_selectInside(gamestate *gs, ent *me);
+extern void edit_selectInside(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_selectWires(gamestate *gs, ent *me);
 extern void edit_selectHeld(gamestate *gs, ent *me);
 extern void edit_selectHeldRecursive(gamestate *gs, ent *me);
@@ -32,7 +31,7 @@ extern void edit_wire(gamestate *gs, ent *me);
 extern void edit_unwire(gamestate *gs, ent *me);
 extern void edit_highlight(gamestate *gs, ent *me);
 extern void edit_measure(gamestate *gs, ent *me);
-extern void edit_import(gamestate *gs, ent *me, int32_t dist, list<char> *data);
+extern void edit_import(gamestate *gs, ent *me, list<char> *data);
 extern void edit_export(gamestate *gs, ent *me, const char *name);
 extern void edit_init();
 extern void edit_destroy();
