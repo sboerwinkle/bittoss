@@ -8,8 +8,8 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam2";
-#define VERSION 2
+static const char* version_string = "gam3";
+#define VERSION 3
 static int version; // TODO global state is bad, use a context object during deserialization
 
 static const int32_t dummyPos[3] = {0, 0, 0};
@@ -143,6 +143,7 @@ void serialize(gamestate *gs, list<char> *data) {
 		player *p = &(*gs->players)[i];
 		write32(data, p->color);
 		write32(data, p->reviveCounter);
+		write32(data, p->data);
 		writeEntRef(data, p->entity);
 	}
 
@@ -299,6 +300,7 @@ void deserialize(gamestate *gs, const list<char> *data) {
 
 		p->color = read32(data, ix);
 		p->reviveCounter = read32(data, ix);
+		p->data = version >= 3 ? read32(data, ix) : 0;
 
 		int e_ix = read32(data, ix);
 		if (e_ix == -1) p->entity = NULL;

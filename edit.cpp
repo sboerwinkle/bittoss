@@ -72,13 +72,8 @@ static char getLists(ent *e) {
 
 static void parseArgs(const char *a) {
 	args.num = 0;
-	char *b;
-	while (1) {
-		int32_t arg = strtol(a, &b, 0);
-		if (b == a) return;
-		a = b;
-		args.add(arg);
-	}
+	int32_t x;
+	while (getNum(&a, &x)) args.add(x);
 }
 
 static void getExtents(list<ent*> *L, int axis, int32_t *min_out, int32_t *max_out) {

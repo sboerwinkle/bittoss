@@ -179,6 +179,7 @@ struct player {
 	ent *entity;
 	int32_t color;
 	int32_t reviveCounter;
+	int32_t data;
 };
 
 struct gamestate {

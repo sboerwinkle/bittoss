@@ -177,7 +177,9 @@ static void drawHud(list<player> *ps) {
 
 static void resetPlayer(gamestate *gs, int i) {
 	player *p = &(*gs->players)[i];
-	p->reviveCounter = 0;
+	// A really big number; new players should be considered as "dead a long time" so they spawn immediately
+	p->reviveCounter = 100000;
+	p->data = 0;
 	p->entity = NULL;
 	p->color = defaultColors[i % 8];
 }
@@ -296,10 +298,10 @@ static void sendControls(int frame) {
 				"/help - display this help\n"
 			);
 		} else if (isCmd(inputTextBuffer, "/incr")) {
-			char *end;
-			int incr = strtol(inputTextBuffer + 5, &end, 0);
-			if (end == inputTextBuffer + 5)  printf("incr: %d\n", wheelIncr);
-			else wheelIncr = incr;
+			int32_t x;
+			const char *c = inputTextBuffer;
+			if (getNum(&c, &x)) wheelIncr = x;
+			else printf("incr: %d\n", wheelIncr);
 		} else if (isCmd(inputTextBuffer, "/load")) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
@@ -354,7 +356,7 @@ static void mkHeroes(gamestate *gs) {
 	range(i, numPlayers) {
 		player *p = &(*gs->players)[i];
 		if (p->entity == NULL) {
-			if (p->reviveCounter--) continue;
+			if (p->reviveCounter++ < FRAMERATE * 3) continue;
 			p->entity = mkHero(gs, i, numPlayers);
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
@@ -371,7 +373,7 @@ static void cleanupDeadHeroes(gamestate *gs) {
 		player *p = &(*gs->players)[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
-			p->reviveCounter = FRAMERATE * 3;
+			p->reviveCounter = 0;
 			if (i == myPlayer) {
 				viewPitch = M_PI_4 / 2;
 				viewYaw = 0;
@@ -534,6 +536,20 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 				syncData.num = 0;
 				serialize(rootState, &syncData);
 				syncReady = 1;
+			}
+		} else if (isCmd(chatBuffer, "/data")) {
+			const char* c = chatBuffer + 5;
+			int32_t data;
+			if (getNum(&c, &data)) {
+				int32_t tmp;
+				while (getNum(&c, &tmp)) {
+					data = data * 0x100 + tmp;
+				}
+				p->data = data;
+			} else {
+				if (isMe && isReal) {
+					printf("data: 0x%X\n", p->data);
+				}
 			}
 		} else if (isCmd(chatBuffer, "/syncme")) {
 			if (isReal && !isMe) syncNeeded = 1;
