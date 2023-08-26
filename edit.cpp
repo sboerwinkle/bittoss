@@ -431,6 +431,18 @@ void edit_t_door(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_t_respawn(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_RESPAWN);
+		e->tickHeld = tickHandlers.get(TICK_RESPAWN);
+		e->push = pushHandlers.get(PUSH_NIL);
+		setNumSliders(e, 5);
+	}
+}
+
 void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	if (!me) return;
 	getLists(me);

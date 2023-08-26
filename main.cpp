@@ -345,24 +345,19 @@ static void sendControls(int frame) {
 	}
 }
 
-static void updateColor(player *p) {
-	if (p->entity) {
-		p->entity->color = p->color;
-	}
-}
-
 static void mkHeroes(gamestate *gs) {
 	int numPlayers = gs->players->num;
 	range(i, numPlayers) {
 		player *p = &(*gs->players)[i];
 		if (p->entity == NULL) {
-			if (p->reviveCounter++ < FRAMERATE * 3) continue;
+			if (p->reviveCounter < FRAMERATE * 3) continue;
 			p->entity = mkHero(gs, i, numPlayers);
+			p->entity->color = p->color;
+			p->reviveCounter = 0;
 			if (i == myPlayer) {
 				viewPitch = M_PI_2;
 				viewYaw = 0;
 			}
-			updateColor(p);
 		}
 	}
 }
@@ -373,7 +368,6 @@ static void cleanupDeadHeroes(gamestate *gs) {
 		player *p = &(*gs->players)[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
-			p->reviveCounter = 0;
 			if (i == myPlayer) {
 				viewPitch = M_PI_4 / 2;
 				viewYaw = 0;
@@ -472,6 +466,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/logic", edit_t_logic(gs, me));
 	cmd("/logic_debug", edit_t_logic_debug(gs, me));
 	cmd("/door", edit_t_door(gs, me));
+	cmd("/respawner", edit_t_respawn(gs, me));
 
 	cmd("/copy", edit_copy(gs, me));
 	cmd("/flip", edit_flip(gs, me));
@@ -583,7 +578,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 				}
 			} else if (isMe && isReal) {
 				puts(RULE_HELP_STR);
-				range(i, 6) {
+				range(i, 7) {
 					putchar((gs->gamerules & (1<<i)) ? 'X' : '.');
 				}
 				putchar('\n');
@@ -648,6 +643,8 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		}
 		if (players[i].entity != NULL) {
 			doInputs(players[i].entity, data);
+		} else {
+			players[i].reviveCounter++;
 		}
 		// Some edit commands depend on the player's view direction,
 		// so especially if they missed last frame we really want to
@@ -663,7 +660,7 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	// This means all the creation stuff will be flushed out before
 	// the new ents process any ticks themselves, and they'll see
 	// correctly initialized state.
-	mkHeroes(state);
+	if (state->gamerules & EFFECT_SPAWN) mkHeroes(state);
 
 	// Flushes stuff like deaths and pickups, but not velocity (yet).
 	prepPhysics(state);

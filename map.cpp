@@ -48,7 +48,7 @@ static void mkBase(gamestate *gs, int32_t xOffset, int32_t team) {
 }
 
 void mkMap(gamestate *gs) {
-	gs->gamerules = EFFECT_CRUSH + EFFECT_BLOCKS + EFFECT_GRAV;
+	gs->gamerules = EFFECT_CRUSH + EFFECT_BLOCKS + EFFECT_GRAV + EFFECT_SPAWN;
 	mkBase(gs, 64000, 1);
 	mkBase(gs, -64000, 2);
 }
