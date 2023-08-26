@@ -26,7 +26,7 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 	if (axis == 2) {
 		if (dir < 0) {
 			// Indicate that we can jump
-			uStateSlider(me, 2, 1);
+			uSlider(me, 2, 1);
 		}
 	} else {
 		// It won't report as 0 yet, because the collision isn't finished,
@@ -41,8 +41,8 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 		up[2] = -3;
 		uVel(me, up);
 	}
-	uStateSlider(me, 0, vel[0]);
-	uStateSlider(me, 1, vel[1]);
+	uSlider(me, 0, vel[0]);
+	uSlider(me, 1, vel[1]);
 	return 0;
 }
 
@@ -97,7 +97,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	// Jumping and movement
 
 	char grounded = getSlider(me, 2) > 0;
-	uStateSlider(me, 2, 0);
+	uSlider(me, 2, 0);
 
 	int axis[2];
 	getAxis(axis, me);
@@ -117,7 +117,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	vel[0] /= 2;
 	vel[1] /= 2;
 	range(i, 2) {
-		uStateSlider(me, i, sliders[i] + vel[i]*divisor);
+		uSlider(me, i, sliders[i] + vel[i]*divisor);
 	}
 	uVel(me, vel);
 
@@ -198,7 +198,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				cooldown = 0;
 				getLook(look, me);
 				int colorToggle = getSlider(me, 5);
-				uStateSlider(me, 5, !colorToggle);
+				uSlider(me, 5, !colorToggle);
 				int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
 					// 0.040635 == 1.3 / axisMaxis
@@ -209,8 +209,8 @@ static void player_tick(gamestate *gs, ent *me) {
 		}
 	}
 
-	if (charge < 180) uStateSlider(me, 3, charge + 1);
-	if (cooldown < 10) uStateSlider(me, 4, cooldown + 1);
+	if (charge < 180) uSlider(me, 3, charge + 1);
+	if (cooldown < 10) uSlider(me, 4, cooldown + 1);
 }
 
 int32_t playerSize[3] = {512, 512, 512};

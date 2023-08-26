@@ -440,7 +440,7 @@ void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		return;
 	}
 	range(i, a.num) {
-		uStateSlider(a[i], args[0], args[1]);
+		uSlider(a[i], args[0], args[1]);
 	}
 }
 

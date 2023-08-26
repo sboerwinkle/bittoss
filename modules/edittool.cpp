@@ -43,7 +43,7 @@ static void bauble_tick_held(gamestate *gs, ent *me) {
 	if (getTrigger(me, 0)) {
 		int s = !getSlider(me, 0);
 		me->color = s ? 0xFF0000 : 0x0000FF;
-		uStateSlider(me, 0, s);
+		uSlider(me, 0, s);
 	}
 }
 

@@ -565,7 +565,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 				int edit = !getSlider(e, 6);
 				// Reach in and tweak internal state to toggle edit mode
 				if (!edit || (gs->gamerules & RULE_EDIT)) {
-					uStateSlider(e, 6, edit);
+					uSlider(e, 6, edit);
 					if (isReal && isMe) {
 						printf("Your edit toolset is %s\n", edit ? "ON" : "OFF");
 					}

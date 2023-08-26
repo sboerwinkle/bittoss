@@ -93,7 +93,7 @@ void uPickup(gamestate *gs, ent *p, ent *e, int32_t holdFlags) {
 	e->newHoldFlags = holdFlags;
 }
 
-void uStateSlider(ent *e, int ix, int32_t value) {
+void uSlider(ent *e, int ix, int32_t value) {
 	if (ix < 0 || ix >= e->numSliders) {
 #ifndef NODEBUG_SCRIPT
 		printf("Invalid slider #%d (limit is %d)\n", ix, e->numSliders);

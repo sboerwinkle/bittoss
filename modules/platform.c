@@ -32,8 +32,8 @@ static void platform_crush(gamestate *gs, ent *me) {
 		// Tampering w/ other people's sliders shouldn't be done randomly,
 		// but it is managed so as not to depend on iteration order
 		// (so it should be fine if you know what you're doing!)
-		uStateSlider(e, 3, 180);
-		uStateSlider(e, 4, 5);
+		uSlider(e, 3, 180);
+		uSlider(e, 4, 5);
 	}
 }
 

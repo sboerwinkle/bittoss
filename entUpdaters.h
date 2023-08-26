@@ -6,7 +6,7 @@ extern void uVel(ent *e, int32_t *a);
 extern void uDead(gamestate *gs, ent *e);
 extern void uDrop(gamestate *gs, ent *e);
 extern void uPickup(gamestate *gs, ent *e, ent *p, int32_t holdFlags);
-extern void uStateSlider(ent *e, int ix, int32_t value);
+extern void uSlider(ent *e, int ix, int32_t value);
 extern void uWire(ent *e, ent *w);
 extern void uUnwire(ent *e, ent *w);
 extern void uMyTypeMask(ent *e, uint32_t mask);
