@@ -150,17 +150,17 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
 	y->holdFlags = holdFlags;
-	// TODO: This means items holding moving items won't be imported properly.
-	//       Maybe velocity zeroing should be some bit on holdFlags that gets
-	//       erased when the pickup happens.
-	// In the future, the actual behavior on pickup might be more flexible.
-	// Might also do away with the return value of `onPushed`, and have it
-	// be a property of the connection (actually, stored on the holdee)
-	// so whoever initiates it dictates the behavior.
-	// For now, this makes plenty of sense.
+	/*
+	// Zeroes relative velocity when something's picked up.
+	// Don't need this any more, but I could see the need coming back
+	// depending on how pickups are used in the future.
+	// If so, we'd want it to be some flag in `holdFlags` that gets
+	// consumed here (not set on object, so it doesn't get reprocessed
+	// during save-load cycle)
 	range(i, 3) {
 		y->d_vel[i] = x->vel[i] - y->vel[i];
 	}
+	*/
 }
 
 static void pickup(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
@@ -704,8 +704,7 @@ void flushPickups(gamestate *gs) {
 	}
 }
 
-static void flush(gamestate *gs) {
-	//Now we've got to worry about requests issued while that same request is being flushed. Lame.
+static void flush1(gamestate *gs) {
 	gs->flipFlop_death ^= 1;
 	flushDeaths(gs);
 	//I think deaths has to come first.
@@ -714,6 +713,9 @@ static void flush(gamestate *gs) {
 	//flushAdds();
 	flushDrops(gs);
 	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
+}
+
+static void flush2(gamestate *gs) {
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
 		flushMisc(i, zeroVec, zeroVec);
@@ -738,8 +740,16 @@ void doUpdates(gamestate *gs) {
 	}
 }
 
+void prepPhysics(gamestate *gs) {
+	flush1(gs);
+}
+
+// The break between prepPhysics and doPhysics is here specifically so that gravity plays
+// as nice as possible with different situations, but you could do other stuff in this
+// gap as well. Check main.cpp for more explanation as to why gravity happens when it does.
+
 void doPhysics(gamestate *gs) {
-	flush(gs);
+	flush2(gs);
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
 		box *b = i->myBox;
@@ -797,25 +807,14 @@ void doPhysics(gamestate *gs) {
 			}
 		}
 	}
-	/* TODO:
-	Right now we're doing what we'll call "level 1" collisions - just resolve everything until it stops.
-	We also might want options for:
-		level 0 - only one round of resolution per tick
-		level 1 - If a round has any unpushed pushers, only resolve them. This might require more careful maintenance of the "needsCollision" flags.
-		level 2 - Like level 1, but if there are no unpushed pushers we next check for circular pushers.
-	*/
 
 	invokeOnCrush(gs);
 
-	flush(gs);
+	flush1(gs);
+	flush2(gs);
 }
 
 void finishStep(gamestate *gs) {
-	// TODO Maybe call onCrush here instead?
-	//      The advantage is we don't have to worry about
-	//      adding boxes specially when we're mid-collision.
-	//      We'll also have to be careful to ignore collisions
-	//      with dead boxes, however.
 	clearDeads(gs);
 }
 

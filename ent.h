@@ -215,6 +215,7 @@ extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags);
 extern void drawEnt(ent *e, float r, float g, float b);
 
 extern void doUpdates(gamestate *gs);
+extern void prepPhysics(gamestate *gs);
 extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
 extern void doDrawing(gamestate *gs, ent *inhabit);

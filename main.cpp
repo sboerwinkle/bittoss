@@ -658,11 +658,23 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	}
 
 	doUpdates(state);
+
+	// Hero creation happens here, right after all the ticks.
+	// This means all the creation stuff will be flushed out before
+	// the new ents process any ticks themselves, and they'll see
+	// correctly initialized state.
 	mkHeroes(state);
 
-	// Gravity should be applied right before physics;
-	// `doPhysics` has a flush at the beginning, so we're sure it hits every single entity (nothing new is created that we miss), 
-	// and also things that are "at rest" on a surface will see a "stationary" vertical velocity (except during collisions)
+	// Flushes stuff like deaths and pickups, but not velocity (yet).
+	prepPhysics(state);
+
+	// Gravity is applied at a very specific time in the cycle.
+	// We want ents that are resting on a surface to see the same velocity as the surface,
+	//   so it has to be between tick handlers and velocity flush / collisions.
+	// More specifically, flushing pickups / drops changes which ents are rootEnts (and are eligible for gravity),
+	//   so it has to be between pickup flush and velocity flush.
+	//   This leaves a single correct point for gravity to apply, unless we go shuffling around basic stuff.
+	// The division between prepPhysics and doPhysics is specifically so we can do stuff in that gap.
 	if (state->gamerules & EFFECT_GRAV) doGravity(state);
 
 	doPhysics(state); 
@@ -1195,6 +1207,7 @@ int main(int argc, char **argv) {
 	// Loading from file is one thing, but programatically defined maps may need a `flush` so things aren't weird the first time around.
 	// `flush` isn't exposed since this is the one time we need it, and it's not like it really matters,
 	// so we just do the second half of a normal step to get the same effect.
+	prepPhysics(rootState);
 	doPhysics(rootState);
 	finishStep(rootState);
 	// Not 100% sure this part is necessary, but it's simpler if we know the phantom state is also in a valid state.
