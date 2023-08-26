@@ -150,14 +150,16 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
 	y->holdFlags = holdFlags;
+	// TODO: This means items holding moving items won't be imported properly.
+	//       Maybe velocity zeroing should be some bit on holdFlags that gets
+	//       erased when the pickup happens.
 	// In the future, the actual behavior on pickup might be more flexible.
 	// Might also do away with the return value of `onPushed`, and have it
 	// be a property of the connection (actually, stored on the holdee)
 	// so whoever initiates it dictates the behavior.
 	// For now, this makes plenty of sense.
 	range(i, 3) {
-		y->vel[i] = x->vel[i];
-		y->d_vel[i] = 0;
+		y->d_vel[i] = x->vel[i] - y->vel[i];
 	}
 }
 
@@ -688,12 +690,12 @@ void flushPickups(gamestate *gs) {
 	for (i = gs->rootEnts; i; i = next) {
 		next = i->LL.n;
 
-		//If I'm picking someone else up, clean up and move along.
-		if (i->newPickup) {
-			i->newPickup = 0;
-			i->newHolder = NULL;
-			continue;
-		}
+		// Previously, ents picking someone up couldn't be
+		// picked up in the same tick. Presumably this was for
+		// deterministic ordering of `pickup` handlers?
+		// I'm not concerned about that any more, but it's
+		// possible some other more serious reason may emerge.
+
 		ent *x = i->newHolder;
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;

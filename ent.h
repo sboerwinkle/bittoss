@@ -130,7 +130,6 @@ typedef struct ent {
 
 	struct ent *newHolder;
 	int32_t newHoldFlags;
-	char newPickup;
 	char newDrop;
 
 	// Don't need two per of these, since there's no handler code called when a wire is actually added / removed

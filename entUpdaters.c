@@ -85,7 +85,6 @@ void uPickup(gamestate *gs, ent *p, ent *e, int32_t holdFlags) {
 #endif
 		return;
 	}
-	p->holdRoot->newPickup = 1;
 	if (e->newHolder) {
 		if (e->newHolder != p || e->newHoldFlags != holdFlags) e->newHolder = e;
 		return;
