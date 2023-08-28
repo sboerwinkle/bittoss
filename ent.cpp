@@ -64,6 +64,29 @@ static void addRootEnt(gamestate *gs, ent *e) {
 	recursiveHoldRoot(e, e);
 }
 
+static box* getRelBox(gamestate *gs, ent *e) {
+	for (; e; e = e->holder) {
+		if (e->myBox) return e->myBox;
+	}
+	return gs->rootBox;
+}
+
+static char needsVelbox(ent *e) {
+	return e->collideMask || (e->typeMask & T_COLLIDABLE);
+}
+
+static char fixHasVelbox(gamestate *gs, ent *e) {
+	char needsBox = needsVelbox(e);
+	if (needsBox == (e->myBox != NULL)) return;
+	if (needsBox) {
+		assignVelbox(e, getRelBox(e->holder));
+	} else {
+		box *b = e->myBox;
+		velbox_remove(b);
+		e->myBox = NULL;
+	}
+}
+
 // As a special case, you can pass the `ent`'s existing box, which is useful e.g. for the edit tooling when it changes the size.
 // However, it's on the caller to dispose of the old `box` in that case
 void assignVelbox(ent *e, box *relBox) {
@@ -81,7 +104,7 @@ void assignVelbox(ent *e, box *relBox) {
 }
 
 void addEnt(gamestate *gs, ent *e, ent *relative) {
-	assignVelbox(e, relative ? relative->myBox : gs->rootBox);
+	if (needsVelbox(e)) assignVelbox(e, getRelBox(relative));
 
 	if (gs->ents) gs->ents->ll.p = e;
 	e->ll.n = gs->ents;
@@ -407,17 +430,19 @@ static char doIteration(gamestate *gs) {
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		if (!e->needsCollision) continue;
 
-		// Todo: The first iteration does 2x as many checks as necessary,
-		//       since we're checking all against all.
-		//       Could repurpose `needsPhysUpdate` (or make it a `union`)
-		//       to fix this, but IDK if it's worth the complexity.
-		list<box*> &intersects = e->myBox->intersects;
-		int n = intersects.num; // Small optimization (I hope)
-		// Skip i=0, first intersect is always ourselves
-		for (int i = 1; i < n; i++) {
-			ent *o = (ent*) intersects[i]->data;
-			if (!o || o->dead) continue;
-			ret |= checkCollision(e, o);
+		if (e->myBox) {
+			// Todo: The first iteration does 2x as many checks as necessary,
+			//       since we're checking all against all.
+			//       Could repurpose `needsPhysUpdate` (or make it a `union`)
+			//       to fix this, but IDK if it's worth the complexity.
+			list<box*> &intersects = e->myBox->intersects;
+			int n = intersects.num; // Small optimization (I hope)
+			// Skip i=0, first intersect is always ourselves
+			for (int i = 1; i < n; i++) {
+				ent *o = (ent*) intersects[i]->data;
+				if (!o || o->dead) continue;
+				ret |= checkCollision(e, o);
+			}
 		}
 		e->needsCollision = 0;
 	}
@@ -434,7 +459,7 @@ static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
-		velbox_remove(d->myBox);
+		if (d->myBox) velbox_remove(d->myBox);
 		free(d->sliders);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
@@ -612,7 +637,7 @@ static void doTick(gamestate *gs, ent *e, int type) {
 	}
 }
 
-void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
+void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
 	range(i, e->numSliders) {
 		//sliders are "sticky", i.e. don't reset if left alone
 		if (e->sliders[i].max < e->sliders[i].min) continue;
@@ -621,8 +646,11 @@ void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_v
 		e->sliders[i].min = INT32_MAX;
 	}
 
-	e->typeMask = e->newTypeMask;
-	e->collideMask = e->newCollideMask;
+	if (e->newTypeMask != e->typeMask || e->collideMask != e->newCollideMask) {
+		e->typeMask = e->newTypeMask;
+		e->collideMask = e->newCollideMask;
+		fixHasVelbox(gs, e);
+	}
 
 	range(i, 3) {
 		e->d_center[i] += parent_d_center[i];
@@ -654,7 +682,7 @@ void flushMisc(ent *e, const int32_t *parent_d_center, const int32_t *parent_d_v
 
 	ent *c;
 	for (c = e->holdee; c; c = c->LL.n) {
-		flushMisc(c, e->d_center, e->d_vel);
+		flushMisc(gs, c, e->d_center, e->d_vel);
 	}
 	range(i, 3) {
 		e->d_center[i] = 0;
@@ -718,7 +746,7 @@ static void flush1(gamestate *gs) {
 static void flush2(gamestate *gs) {
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
-		flushMisc(i, zeroVec, zeroVec);
+		flushMisc(gs, i, zeroVec, zeroVec);
 	}
 }
 
@@ -757,9 +785,11 @@ void doPhysics(gamestate *gs) {
 		int j;
 		for (j = 0; j < 3; j++) {
 			i->center[j] += i->vel[j];
-			b->p1[j] = i->old[j];
-			b->p2[j] = i->center[j];
 			i->forced[j] = 0;
+			if (b) {
+				b->p1[j] = i->old[j];
+				b->p2[j] = i->center[j];
+			}
 		}
 		i->needsCollision = 1;
 	}
@@ -800,10 +830,12 @@ void doPhysics(gamestate *gs) {
 				//      either consistently
 				memcpy(i->center, i->center2, sizeof(i->center));
 				memcpy(i->vel, i->vel2, sizeof(i->vel));
-				range(j, 3) {
-					i->myBox->p2[j] = i->center[j];
+				if (i->myBox) {
+					range(j, 3) {
+						i->myBox->p2[j] = i->center[j];
+					}
+					velbox_update(i->myBox);
 				}
-				velbox_update(i->myBox);
 			}
 		}
 	}

@@ -32,8 +32,11 @@ static void fixNewBaubles(gamestate *gs) {
 	flushPickups(gs);
 }
 
+// TODO We can get away with a lot less if we're just e.g. turning the ent,
+//      since we know it won't change position in the heirarchy.
 static void radiusFix(ent *e) {
 	box *b = e->myBox;
+	if (!b) return;
 	assignVelbox(e, b);
 	velbox_remove(b);
 }
