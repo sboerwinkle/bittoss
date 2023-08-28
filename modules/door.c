@@ -16,7 +16,7 @@ static void door_tick(gamestate *gs, ent *me) {
 	}
 	int numActive = 0;
 	wiresAnyOrder(w, me) {
-		if (type(w) & T_ACTIVE) {
+		if (getButton(w, 2)) {
 			if (!numActive) {
 				// We may have been accumulating velocity for the "no active" case,
 				// zero that out when we hit our first active wire

@@ -270,8 +270,9 @@ none			| me	| him	| both	| none
 #define T_NO_DRAW_FP 128
 #define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)
-#define T_ACTIVE 2048
+// T_ACTIVE used to be 2048, that really had no reason to be a type flag and is now gone.
+
 // This is kind of messy, but not all type flags necessarily require an ent to do collision checking.
-// For instance, it's assumed nobody has T_ACTIVE in their collideMask.
+// For instance, it's assumed nobody has T_WEIGHTLESS in their collideMask.
 // This messiness is because typeMask is de facto two things - types for collisions, and behavioral types.
 #define T_COLLIDABLE (T_HEAVY + T_TERRAIN + T_OBSTACLE + T_DEBRIS + T_FLAG)
