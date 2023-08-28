@@ -78,12 +78,11 @@ static char loopbackCommandBuffer[TEXT_BUF_LEN];
 static int bufferedTextLen = 0;
 static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
-#define micro_hist_num 5
-static int historical_phys_micros[micro_hist_num];
-static int historical_draw_micros[micro_hist_num];
-static int historical_flip_micros[micro_hist_num];
-static int micro_hist_ix = micro_hist_num-1;
+static int phys_micros = 0;
+static int draw_micros = 0;
+static int flip_micros = 0;
 static struct timespec t1, t2, t3, t4;
+static int performanceFrames = 0;
 
 #define frame_nanos 33333333
 // TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
@@ -154,9 +153,9 @@ static void drawHud(list<player> *ps) {
 	drawHudText(drawMe, 1, 1, 1, hudColor);
 	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
 
-	float f1 = (double) historical_draw_micros[micro_hist_ix] / micros_per_frame;
-	float f2 = (double) historical_flip_micros[micro_hist_ix] / micros_per_frame;
-	float f3 = (double) historical_phys_micros[micro_hist_ix] / micros_per_frame;
+	float f1 = (double) draw_micros / micros_per_frame;
+	float f2 = (double) flip_micros / micros_per_frame;
+	float f3 = (double) phys_micros / micros_per_frame;
 	// Draw frame timing bars
 	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, bluColor);
 	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, redColor);
@@ -302,6 +301,8 @@ static void sendControls(int frame) {
 			const char *c = inputTextBuffer;
 			if (getNum(&c, &x)) wheelIncr = x;
 			else printf("incr: %d\n", wheelIncr);
+		} else if (isCmd(inputTextBuffer, "/perf")) {
+			performanceFrames = 60;
 		} else if (isCmd(inputTextBuffer, "/load")) {
 			const char *file = "savegame";
 			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
@@ -692,6 +693,7 @@ static void cloneToPhantom() {
 static void* pacedThreadFunc(void *_arg) {
 	int reqdOutboundSize = latency;
 	long destNanos;
+	long performanceTotal = 0;
 	timespec t;
 	
 	list<char> latestFrameData;
@@ -836,13 +838,17 @@ static void* pacedThreadFunc(void *_arg) {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
 		{
-			int drawMicros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
-			int flipMicros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
-			int physMicros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
-			micro_hist_ix = (micro_hist_ix+1)%micro_hist_num;
-			historical_draw_micros[micro_hist_ix] = drawMicros;
-			historical_flip_micros[micro_hist_ix] = flipMicros;
-			historical_phys_micros[micro_hist_ix] = physMicros;
+			draw_micros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
+			flip_micros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
+			phys_micros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
+			if (performanceFrames) {
+				performanceFrames--;
+				performanceTotal += phys_micros;
+				if (!performanceFrames) {
+					printf("perf: %ld\n", performanceTotal);
+					performanceTotal = 0;
+				}
+			}
 		}
 
 		// if `serverLead == 0` here, I *think* that means the server has sent us the packet for this frame, but nothing extra yet
