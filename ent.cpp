@@ -639,26 +639,27 @@ static void doTick(gamestate *gs, ent *e, int type) {
 }
 
 void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
-	range(i, e->numSliders) {
-		//sliders are "sticky", i.e. don't reset if left alone
-		if (e->sliders[i].max < e->sliders[i].min) continue;
-		e->sliders[i].v = (e->sliders[i].max + e->sliders[i].min)/2;
-		e->sliders[i].max = INT32_MIN;
-		e->sliders[i].min = INT32_MAX;
-	}
+	if (e->fullFlush) {
+		e->fullFlush = 0;
+		range(i, e->numSliders) {
+			//sliders are "sticky", i.e. don't reset if left alone
+			if (e->sliders[i].max < e->sliders[i].min) continue;
+			e->sliders[i].v = (e->sliders[i].max + e->sliders[i].min)/2;
+			e->sliders[i].max = INT32_MIN;
+			e->sliders[i].min = INT32_MAX;
+		}
 
-	if (e->newTypeMask != e->typeMask || e->collideMask != e->newCollideMask) {
-		e->typeMask = e->newTypeMask;
-		e->collideMask = e->newCollideMask;
-		fixHasVelbox(gs, e);
-	}
+		if (e->newTypeMask != e->typeMask || e->collideMask != e->newCollideMask) {
+			e->typeMask = e->newTypeMask;
+			e->collideMask = e->newCollideMask;
+			fixHasVelbox(gs, e);
+		}
 
-	range(i, 3) {
-		e->d_center[i] += parent_d_center[i];
-		e->center[i] += e->d_center[i];
-
-		e->d_vel[i] += parent_d_vel[i];
-		e->vel[i] += e->d_vel[i];
+		range(i, e->wiresAdd.num) {
+			ent *w = e->wiresAdd[i];
+			if (!e->wires.has(w)) e->wires.add(w);
+		}
+		e->wiresAdd.num = 0;
 	}
 
 	// We have a "rule" that the order of wires doesn't matter;
@@ -674,12 +675,14 @@ void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int3
 		}
 	}
 	e->wiresRm.num = 0;
-	range(i, e->wiresAdd.num) {
-		ent *w = e->wiresAdd[i];
-		// Not actually sure if the `dead` check is necessary here, but it feels like a good idea
-		if (!e->wires.has(w) && !w->dead) e->wires.add(w);
+
+	range(i, 3) {
+		e->d_center[i] += parent_d_center[i];
+		e->center[i] += e->d_center[i];
+
+		e->d_vel[i] += parent_d_vel[i];
+		e->vel[i] += e->d_vel[i];
 	}
-	e->wiresAdd.num = 0;
 
 	ent *c;
 	for (c = e->holdee; c; c = c->LL.n) {
@@ -912,7 +915,7 @@ static ent* cloneEnt(ent *in) {
 	// Most of the fields we can just directly copy, no fuss no muss
 	*ret = *in;
 #ifndef NODEBUG
-	if (ret->collisionBuddy || ret->newHolder) {
+	if (ret->collisionBuddy || ret->newHolder || ret->fullFlush) {
 		fputs("One of the transient ent*'s wasn't null, so uhh... it's probably f*cked now\n", stderr);
 	}
 #endif

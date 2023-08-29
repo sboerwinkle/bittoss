@@ -100,11 +100,13 @@ void uSlider(ent *e, int ix, int32_t value) {
 #endif
 		return;
 	}
+	e->fullFlush = 1;
 	if (value > e->sliders[ix].max) e->sliders[ix].max = value;
 	if (value < e->sliders[ix].min) e->sliders[ix].min = value;
 }
 
 void uWire(ent *e, ent *w) {
+	e->fullFlush = 1;
 	e->wiresAdd.add(w);
 }
 
@@ -113,6 +115,7 @@ void uUnwire(ent *e, ent *w) {
 }
 
 void uMyTypeMask(ent *e, uint32_t mask) {
+	e->fullFlush = 1;
 	e->newTypeMask = mask;
 }
 
@@ -120,6 +123,7 @@ void uMyCollideMask(ent *e, uint32_t mask) {
 	if ((mask | T_COLLIDABLE) != T_COLLIDABLE) {
 		fprintf(stderr, "collideMask %d surpasses T_COLLIDABLE, this needs to be fixed\n", mask);
 	}
+	e->fullFlush = 1;
 	e->newCollideMask = mask;
 }
 

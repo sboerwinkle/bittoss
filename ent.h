@@ -144,6 +144,7 @@ typedef struct ent {
 		struct ent *n, *p;
 	} ll, LL;
 	char dead, dead_max[2];
+	char fullFlush;
 
 	// Many, many event handlers.
 	whoMoves_t whoMoves;
