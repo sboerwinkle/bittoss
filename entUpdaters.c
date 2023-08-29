@@ -117,7 +117,7 @@ void uMyTypeMask(ent *e, uint32_t mask) {
 }
 
 void uMyCollideMask(ent *e, uint32_t mask) {
-	if (mask | T_COLLIDABLE != T_COLLIDABLE) {
+	if ((mask | T_COLLIDABLE) != T_COLLIDABLE) {
 		fprintf(stderr, "collideMask %d surpasses T_COLLIDABLE, this needs to be fixed\n", mask);
 	}
 	e->newCollideMask = mask;

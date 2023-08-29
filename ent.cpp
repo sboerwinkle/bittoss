@@ -75,11 +75,11 @@ static char needsVelbox(ent *e) {
 	return e->collideMask || (e->typeMask & T_COLLIDABLE);
 }
 
-static char fixHasVelbox(gamestate *gs, ent *e) {
+static void fixHasVelbox(gamestate *gs, ent *e) {
 	char needsBox = needsVelbox(e);
 	if (needsBox == (e->myBox != NULL)) return;
 	if (needsBox) {
-		assignVelbox(e, getRelBox(e->holder));
+		assignVelbox(e, getRelBox(gs, e->holder));
 	} else {
 		box *b = e->myBox;
 		velbox_remove(b);
@@ -104,7 +104,7 @@ void assignVelbox(ent *e, box *relBox) {
 }
 
 void addEnt(gamestate *gs, ent *e, ent *relative) {
-	if (needsVelbox(e)) assignVelbox(e, getRelBox(relative));
+	if (needsVelbox(e)) assignVelbox(e, getRelBox(gs, relative));
 
 	if (gs->ents) gs->ents->ll.p = e;
 	e->ll.n = gs->ents;

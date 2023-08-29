@@ -58,7 +58,7 @@ void initEnt(
 	e->newCollideMask = collideMask;
 	e->numSliders = numSliders;
 	e->sliders = (slider*) calloc(numSliders, sizeof(slider));
-	flushMisc(e, zeroVec, zeroVec);
+	flushMisc(gs, e, zeroVec, zeroVec);
 	memcpy(e->center, c, sizeof(e->center));
 	memcpy(e->vel, v, sizeof(e->vel));
 	memcpy(e->radius, r, sizeof(e->radius));

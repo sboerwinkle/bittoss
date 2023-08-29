@@ -41,13 +41,13 @@ static void radiusFix(ent *e) {
 	velbox_remove(b);
 }
 
-static void setNumSliders(ent *e, int sliders) {
+static void setNumSliders(gamestate *gs, ent *e, int sliders) {
 	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
 	int oldSliders = e->numSliders;
 	if (sliders > oldSliders) {
 		// Reset all the sliders we added
 		bzero(e->sliders + oldSliders, sizeof(slider) * (sliders - oldSliders));
-		flushMisc(e, zeroVec, zeroVec);
+		flushMisc(gs, e, zeroVec, zeroVec);
 	}
 	e->numSliders = sliders;
 }
@@ -385,7 +385,7 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		setNumSliders(e, 0);
+		setNumSliders(gs, e, 0);
 	}
 }
 
@@ -406,7 +406,7 @@ void edit_t_logic(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC);
 		e->push = pushHandlers.get(PUSH_LOGIC);
-		setNumSliders(e, 2);
+		setNumSliders(gs, e, 2);
 	}
 }
 
@@ -418,7 +418,7 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->push = pushHandlers.get(PUSH_LOGIC);
-		setNumSliders(e, 2);
+		setNumSliders(gs, e, 2);
 	}
 }
 
@@ -430,7 +430,7 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_DOOR);
 		e->tickHeld = tickHandlers.get(TICK_DOOR);
 		e->push = pushHandlers.get(PUSH_NIL);
-		setNumSliders(e, 3);
+		setNumSliders(gs, e, 3);
 	}
 }
 
@@ -442,7 +442,7 @@ void edit_t_respawn(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_RESPAWN);
 		e->tickHeld = tickHandlers.get(TICK_RESPAWN);
 		e->push = pushHandlers.get(PUSH_NIL);
-		setNumSliders(e, 5);
+		setNumSliders(gs, e, 5);
 	}
 }
 
