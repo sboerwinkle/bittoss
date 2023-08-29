@@ -105,6 +105,7 @@ void assignVelbox(ent *e, box *relBox) {
 
 void addEnt(gamestate *gs, ent *e, ent *relative) {
 	if (needsVelbox(e)) assignVelbox(e, getRelBox(gs, relative));
+	else e->myBox = NULL;
 
 	if (gs->ents) gs->ents->ll.p = e;
 	e->ll.n = gs->ents;
