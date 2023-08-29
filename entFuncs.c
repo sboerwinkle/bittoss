@@ -54,11 +54,16 @@ void initEnt(
 	e->wiresRm.init();
 	e->wiresAdd.init();
 	flushCtrls(e);
-	e->newTypeMask = typeMask;
-	e->newCollideMask = collideMask;
+	e->newTypeMask = e->typeMask = typeMask;
+	e->newCollideMask = e->collideMask = collideMask;
+
 	e->numSliders = numSliders;
 	e->sliders = (slider*) calloc(numSliders, sizeof(slider));
-	flushMisc(gs, e, zeroVec, zeroVec);
+	range(i, numSliders) {
+		e->sliders[i].max = INT32_MIN;
+		e->sliders[i].min = INT32_MAX;
+	}
+
 	memcpy(e->center, c, sizeof(e->center));
 	memcpy(e->vel, v, sizeof(e->vel));
 	memcpy(e->radius, r, sizeof(e->radius));
