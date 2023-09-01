@@ -59,7 +59,7 @@ struct inputs {
 	char textBuffer[TEXT_BUF_LEN];
 	char sendInd;
 };
-inputs activeInputs = {0}, stableInputs = {0};
+inputs activeInputs = {0}, sharedInputs = {0};
 
 static int typingLen = -1;
 
@@ -246,16 +246,16 @@ static void sendControls(int frame) {
 
 	lock(outboundMutex);
 
-	const char *const k = stableInputs.basic.p1Keys;
+	const char *const k = sharedInputs.basic.p1Keys;
 
 	// Size will go in 0-3, we populate it in a minute
 	out[4] = (char) frame;
 	// Other buttons also go here, once they exist; bitfield
-	out[5] = k[4] + 2*k[5] + 4*stableInputs.basic.mouseBtnDown + 8*stableInputs.basic.mouseSecondaryDown;
+	out[5] = k[4] + 2*k[5] + 4*sharedInputs.basic.mouseBtnDown + 8*sharedInputs.basic.mouseSecondaryDown;
 
 	int axis1 = k[1] - k[0];
 	int axis2 = k[3] - k[2];
-	double angle = stableInputs.basic.viewYaw;
+	double angle = sharedInputs.basic.viewYaw;
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	if (axis1 || axis2) {
@@ -271,7 +271,7 @@ static void sendControls(int frame) {
 	} else {
 		out[6] = out[7] = 0;
 	}
-	double pitchRadians = stableInputs.basic.viewPitch;
+	double pitchRadians = sharedInputs.basic.viewPitch;
 	double pitchCos = cos(pitchRadians);
 	cosine *= pitchCos;
 	sine *= pitchCos;
@@ -290,9 +290,9 @@ static void sendControls(int frame) {
 		out.add((char)BIN_CMD_LOAD);
 		out.addAll(syncData);
 		syncData.num = 0;
-	} else if (stableInputs.sendInd) {
-		stableInputs.sendInd = 0;
-		const char *const text = stableInputs.textBuffer;
+	} else if (sharedInputs.sendInd) {
+		sharedInputs.sendInd = 0;
+		const char *const text = sharedInputs.textBuffer;
 		if (isCmd(text, "/help")) {
 			puts(
 				"Available commands:\n"
@@ -368,13 +368,13 @@ static void cleanupDeadHeroes(gamestate *gs) {
 	}
 }
 
-void stabilizeInputs() {
+void shareInputs() {
 	lock(outboundMutex);
-	stableInputs.basic = activeInputs.basic;
-	if (!stableInputs.sendInd && activeInputs.sendInd) {
+	sharedInputs.basic = activeInputs.basic;
+	if (!sharedInputs.sendInd && activeInputs.sendInd) {
 		activeInputs.sendInd = 0;
-		stableInputs.sendInd = 1;
-		strcpy(stableInputs.textBuffer, activeInputs.textBuffer);
+		sharedInputs.sendInd = 1;
+		strcpy(sharedInputs.textBuffer, activeInputs.textBuffer);
 	}
 	unlock(outboundMutex);
 }
@@ -1043,7 +1043,7 @@ static void* inputThreadFunc(void *_arg) {
 				if (x == -1) running = 0;
 				break;
 		}
-		stabilizeInputs();
+		shareInputs();
 	}
 	return NULL;
 }
@@ -1224,9 +1224,9 @@ int main(int argc, char **argv) {
 	// We make it so the player automatically sends the "syncme" command on their first frame,
 	// which just displays a message to anybody else already in-game
 	activeInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
-	stableInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
-	strcpy(stableInputs.textBuffer, "/syncme");
-	stableInputs.sendInd = 1;
+	sharedInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
+	strcpy(sharedInputs.textBuffer, "/syncme");
+	sharedInputs.sendInd = 1;
 
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = loopbackCommandBuffer[0] = '\0';
 
