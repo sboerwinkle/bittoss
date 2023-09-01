@@ -38,7 +38,7 @@ static ALLEGRO_EVENT customEvent;
 
 #define numKeys 6
 
-static char globalRunning = 1;
+char globalRunning = 1;
 
 static list<player> players, phantomPlayers;
 static int myPlayer;
@@ -46,9 +46,25 @@ static int myPlayer;
 static int32_t defaultColors[8] = {0xFFAA00, 0x00AA00, 0xFF0055, 0xFFFF00, 0xAA0000, 0x00FFAA, 0xFF5555, 0x55FF55};
 
 int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
-char p1Keys[numKeys];
-static char mouseBtnDown = 0;
-static char mouseSecondaryDown = 0;
+
+#define TEXT_BUF_LEN 200
+struct inputs {
+	struct {
+		char p1Keys[numKeys];
+		char mouseBtnDown = 0;
+		char mouseSecondaryDown = 0;
+		double viewYaw = 0;
+		double viewPitch = 0;
+	} basic;
+	char textBuffer[TEXT_BUF_LEN];
+	char sendInd;
+};
+inputs activeInputs = {0}, stableInputs = {0};
+
+static int typingLen = -1;
+
+static char chatBuffer[TEXT_BUF_LEN];
+static char loopbackCommandBuffer[TEXT_BUF_LEN];
 
 static gamestate *rootState, *phantomState;
 
@@ -57,8 +73,6 @@ static ALLEGRO_EVENT_QUEUE *evntQueue;
 
 #define mouseSensitivity 0.0025
 
-static double viewYaw = 0;
-static double viewPitch = 0;
 static int mouseX = 0;
 static int mouseY = 0;
 static char thirdPerson = 1;
@@ -70,13 +84,6 @@ static int wheelIncr = 100;
 //static int32_t cx = (displayWidth / 2) * PTS_PER_PX;
 //static int32_t cy = (displayHeight / 2) * PTS_PER_PX;
 
-// At the moment we use a byte to give the network message length, so this has to be fairly small
-#define TEXT_BUF_LEN 200
-static char chatBuffer[TEXT_BUF_LEN];
-static char inputTextBuffer[TEXT_BUF_LEN];
-static char loopbackCommandBuffer[TEXT_BUF_LEN];
-static int bufferedTextLen = 0;
-static int textInputMode = 0; // 0 - idle; 1 - typing; 2 - queued; 3 - queued + wants to type again
 
 static int phys_micros = 0;
 static int draw_micros = 0;
@@ -112,10 +119,8 @@ static char startFrame;
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
-char syncReady;
 char syncNeeded = 0;
 pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t outboundCond = PTHREAD_COND_INITIALIZER;
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
@@ -131,7 +136,12 @@ static void outerSetupFrame(list<player> *ps) {
 	} else {
 		up = forward = 0;
 	}
-	setupFrame(-viewPitch, viewYaw, up, forward);
+	// It's a different thread that writes the pitch/yaw values, and I just realized access
+	// has been unsynchronized for a while. It's possible that `double` writes are effectively
+	// atomic on modern processors, but whatever the case:
+	// A) Nobody's complained about weirdness here
+	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
+	setupFrame(-activeInputs.basic.viewPitch, activeInputs.basic.viewYaw, up, forward);
 	if (p) {
 		frameOffset[0] = -p->center[0];
 		frameOffset[1] = -p->center[1];
@@ -151,7 +161,9 @@ static void drawHud(list<player> *ps) {
 	setupText();
 	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
 	drawHudText(drawMe, 1, 1, 1, hudColor);
-	if (textInputMode) drawHudText(inputTextBuffer, 1, 3, 1, hudColor);
+	// The very last char of this buffer is always and forever '\0',
+	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
+	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 1, 3, 1, hudColor);
 
 	float f1 = (double) draw_micros / micros_per_frame;
 	float f2 = (double) flip_micros / micros_per_frame;
@@ -221,34 +233,29 @@ static void doInputs(ent *e, char *data) {
 	}
 }
 
-static void setupTyping() {
-	inputTextBuffer[1] = '\0';
-	inputTextBuffer[0] = '_';
-	bufferedTextLen = 0;
-}
-
 static char isCmd(const char* input, const char *cmd) {
 	int l = strlen(cmd);
 	return !strncmp(input, cmd, l) && (input[l] == ' ' || input[l] == '\0');
 }
 
 static void sendControls(int frame) {
-	// This is a cheap trick which I need to codify as a method.
-	// It's a threadsafe way to get what the next `add` will be, assuming we're the only
-	// thread that ever calls `add`.
-	list<char> &out = outboundData.items[outboundData.end];
+	list<char> &out = outboundData.add();
 
 	out.setMaxUp(11); // 4 size + 1 frame + 6 input data
 	out.num = 11;
 
+	lock(outboundMutex);
+
+	const char *const k = stableInputs.basic.p1Keys;
+
 	// Size will go in 0-3, we populate it in a minute
 	out[4] = (char) frame;
 	// Other buttons also go here, once they exist; bitfield
-	out[5] = p1Keys[4] + 2*p1Keys[5] + 4*mouseBtnDown + 8*mouseSecondaryDown;
+	out[5] = k[4] + 2*k[5] + 4*stableInputs.basic.mouseBtnDown + 8*stableInputs.basic.mouseSecondaryDown;
 
-	int axis1 = p1Keys[1] - p1Keys[0];
-	int axis2 = p1Keys[3] - p1Keys[2];
-	double angle = viewYaw;
+	int axis1 = k[1] - k[0];
+	int axis2 = k[3] - k[2];
+	double angle = stableInputs.basic.viewYaw;
 	double cosine = cos(angle);
 	double sine = sin(angle);
 	if (axis1 || axis2) {
@@ -264,7 +271,7 @@ static void sendControls(int frame) {
 	} else {
 		out[6] = out[7] = 0;
 	}
-	double pitchRadians = viewPitch;
+	double pitchRadians = stableInputs.basic.viewPitch;
 	double pitchCos = cos(pitchRadians);
 	cosine *= pitchCos;
 	sine *= pitchCos;
@@ -279,12 +286,14 @@ static void sendControls(int frame) {
 	out[9] = round(-cosine / divisor);
 	out[10] = round(pitchSine / divisor);
 
-	char loopbackCommand = 0;
-	if (syncReady == 2) {
+	if (syncData.num) {
 		out.add((char)BIN_CMD_LOAD);
 		out.addAll(syncData);
-	} else if (textInputMode >= 2) {
-		if (isCmd(inputTextBuffer, "/help")) {
+		syncData.num = 0;
+	} else if (stableInputs.sendInd) {
+		stableInputs.sendInd = 0;
+		const char *const text = stableInputs.textBuffer;
+		if (isCmd(text, "/help")) {
 			puts(
 				"Available commands:\n"
 				"/save [FILE] - save to file, default file is \"savegame\"\n"
@@ -296,54 +305,44 @@ static void sendControls(int frame) {
 				"/c COLOR - Sets the player color to COLOR, a 6-digit hex code or a CSS4 color name\n"
 				"/help - display this help\n"
 			);
-		} else if (isCmd(inputTextBuffer, "/incr")) {
+		} else if (isCmd(text, "/incr")) {
 			int32_t x;
-			const char *c = inputTextBuffer;
+			const char *c = text;
 			if (getNum(&c, &x)) wheelIncr = x;
 			else printf("incr: %d\n", wheelIncr);
-		} else if (isCmd(inputTextBuffer, "/perf")) {
+		} else if (isCmd(text, "/perf")) {
 			performanceFrames = 60;
-		} else if (isCmd(inputTextBuffer, "/load")) {
+		} else if (isCmd(text, "/load")) {
 			const char *file = "savegame";
-			if (bufferedTextLen > 6) file = inputTextBuffer + 6;
+			if (text[5]) file = text + 6;
 			out.add((char)BIN_CMD_LOAD);
 			readFile(file, &out);
-		} else if (!strncmp(inputTextBuffer, "/import ", 8)) {
+		} else if (!strncmp(text, "/import ", 8)) {
 			out.add((char)BIN_CMD_IMPORT);
-			readFile(inputTextBuffer + 8, &out);
-		} else if (isCmd(inputTextBuffer, "/save") || isCmd(inputTextBuffer, "/export")) {
+			readFile(text + 8, &out);
+		} else if (isCmd(text, "/save") || isCmd(text, "/export")) {
 			// These commands should only affect the local filesystem, and not game state -
 			// therefore, they don't need to be synchronized.
 			// What's more, we don't really want to trust the server about such things.
-			// So, those commands are only processed from the loopbackCommandBuffer,
-			// which is our threadsafe way to communicate from the input thread to the paced thread.
-			loopbackCommand = 1;
+			// So, those commands are only processed from the loopbackCommandBuffer.
+			strcpy(loopbackCommandBuffer, text);
+			// We could probably process them right here,
+			// but it's less to worry about if the serialization out happens at the same
+			// point in the tick cycle as the deserialization in.
 		} else {
 			int start = out.num;
-			out.num += bufferedTextLen;
+			int len = strlen(text);
+			out.num += len;
 			out.setMaxUp(out.num);
-			memcpy(out.items + start, inputTextBuffer, bufferedTextLen);
+			memcpy(out.items + start, text, len);
 		}
 	}
+	unlock(outboundMutex);
+
 	*(int32_t*)out.items = htonl(out.num - 4);
 	sendData(out.items, out.num);
 
-	lock(outboundMutex);
-	if (loopbackCommand && !*loopbackCommandBuffer) {
-		strcpy(loopbackCommandBuffer, inputTextBuffer);
-	}
-	if (syncReady == 2) syncReady = 0;
-	outboundData.add();
-	signal(outboundCond);
-	unlock(outboundMutex);
 	// Todo: Maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
-
-	if (textInputMode >= 2) {
-		// loopbackCommandBuffer still needs to look at the inputTextBuffer inside the locked section,
-		// so this last bit of cleanup has to wait until after.
-		textInputMode -= 2;
-		if (textInputMode == 1) setupTyping();
-	}
 }
 
 static void mkHeroes(gamestate *gs) {
@@ -355,10 +354,6 @@ static void mkHeroes(gamestate *gs) {
 			p->entity = mkHero(gs, i, numPlayers);
 			p->entity->color = p->color;
 			p->reviveCounter = 0;
-			if (i == myPlayer) {
-				viewPitch = M_PI_2;
-				viewYaw = 0;
-			}
 		}
 	}
 }
@@ -369,19 +364,26 @@ static void cleanupDeadHeroes(gamestate *gs) {
 		player *p = &(*gs->players)[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
-			if (i == myPlayer) {
-				viewPitch = M_PI_4 / 2;
-				viewYaw = 0;
-			}
 		}
 	}
+}
+
+void stabilizeInputs() {
+	lock(outboundMutex);
+	stableInputs.basic = activeInputs.basic;
+	if (!stableInputs.sendInd && activeInputs.sendInd) {
+		activeInputs.sendInd = 0;
+		stableInputs.sendInd = 1;
+		strcpy(stableInputs.textBuffer, activeInputs.textBuffer);
+	}
+	unlock(outboundMutex);
 }
 
 char handleKey(int code, char pressed) {
 	int i;
 	for (i = numKeys-1; i >= 0; i--) {
 		if (p1Codes[i] == code) {
-			p1Keys[i] = pressed;
+			activeInputs.basic.p1Keys[i] = pressed;
 			return true;
 		}
 	}
@@ -391,12 +393,18 @@ char handleKey(int code, char pressed) {
 }
 
 static void handleMouseMove(int dx, int dy) {
+	double viewYaw = activeInputs.basic.viewYaw;
+	double viewPitch = activeInputs.basic.viewPitch;
+
 	viewYaw += dx * mouseSensitivity;
 	if (viewYaw >= M_PI) viewYaw -= 2*M_PI;
 	else if (viewYaw < -M_PI) viewYaw += 2*M_PI;
 	viewPitch += dy * mouseSensitivity;
 	if (viewPitch > M_PI_2) viewPitch = M_PI_2;
 	else if (viewPitch < -M_PI_2) viewPitch = -M_PI_2;
+
+	activeInputs.basic.viewYaw = viewYaw;
+	activeInputs.basic.viewPitch = viewPitch;
 }
 
 static void updateMedianTime() {
@@ -521,17 +529,14 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		edit_import(gs, p->entity, &fakeList);
 		return;
 	}
-	// Message could get lost here if multiple people send on the same frame,
-	// but it will at least be consistent? Maybe fixing this is a TODO
 	if (chars < TEXT_BUF_LEN) {
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
 		char wasCommand = 1;
 		if (isCmd(chatBuffer, "/sync")) {
-			if (isMe && isReal && !syncReady) {
+			if (isMe && isReal) {
 				syncData.num = 0;
 				serialize(rootState, &syncData);
-				syncReady = 1;
 			}
 		} else if (isCmd(chatBuffer, "/data")) {
 			const char* c = chatBuffer + 5;
@@ -567,7 +572,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 					}
 				}
 			}
-		} else if (isCmd(chatBuffer, "/i")) { // TODO This is rapidly getting unwieldy, move to another file? Maybe even make a lookup table??? Or at least check for '/' and bypass all this otherwise...
+		} else if (isCmd(chatBuffer, "/i")) {
 			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) {
@@ -621,6 +626,8 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 
 	char clientLate = 0;
 
+	const char isReal = !data2;
+
 	range(i, numPlayers) {
 		char isMe = i == myPlayer;
 		char *toProcess;
@@ -650,9 +657,13 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		// Some edit commands depend on the player's view direction,
 		// so especially if they missed last frame we really want to
 		// process the command *after* we process their inputs.
-		if (size > 7 && (isMe || !data2)) {
-			processCmd(state, &players[i], toProcess + 11, size - 7, isMe, !data2);
+		if (size > 7 && (isMe || isReal)) {
+			processCmd(state, &players[i], toProcess + 11, size - 7, isMe, isReal);
 		}
+	}
+	if (isReal && *loopbackCommandBuffer) {
+		processLoopbackCommand(state);
+		*loopbackCommandBuffer = '\0';
 	}
 
 	doUpdates(state);
@@ -691,10 +702,10 @@ static void cloneToPhantom() {
 }
 
 static void* pacedThreadFunc(void *_arg) {
-	int reqdOutboundSize = latency;
 	long destNanos;
 	long performanceTotal = 0;
 	timespec t;
+	int outboundFrame = startFrame;
 	
 	list<char> latestFrameData;
 	{
@@ -754,10 +765,10 @@ static void* pacedThreadFunc(void *_arg) {
 			t.tv_nsec = destNanos;
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
-		al_emit_user_event(&customSrc, &customEvent, NULL);
-		reqdOutboundSize++;
 
-		// Begin setting up the tick, including some hard-coded things like gravity / lava
+		sendControls(outboundFrame);
+		outboundFrame = (outboundFrame + 1) % FRAME_ID_MAX;
+
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		outerSetupFrame(&phantomPlayers);
 		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity;
@@ -799,40 +810,18 @@ static void* pacedThreadFunc(void *_arg) {
 			expectedFrame = (expectedFrame+1)%FRAME_ID_MAX;
 		}
 
-		lock(outboundMutex);
-		while (outboundData.size() < reqdOutboundSize) {
-			if (!globalRunning) {
-				unlock(outboundMutex);
-				goto paced_exit;
-			}
-			wait(outboundCond, outboundMutex);
-		}
 		outboundData.multipop(framesProcessed);
-		reqdOutboundSize -= framesProcessed;
-		if (syncReady == 1) syncReady = 2;
-		if (*loopbackCommandBuffer) {
-			// This part is kind of slow for us to keep the mutex locked;
-			// maybe fix this later if it's actually a problem
-			processLoopbackCommand(rootState);
-			*loopbackCommandBuffer = '\0';
-		}
-		unlock(outboundMutex);
 
+		int outboundSize = outboundData.size();
 		int outboundStart;
 		if (framesProcessed) {
 			cloneToPhantom();
 			outboundStart = 0;
 		} else {
-			outboundStart = reqdOutboundSize - 1;
+			outboundStart = outboundSize - 1;
 		}
-		while (outboundStart < reqdOutboundSize) {
-			// TODO Is all this locking and re-locking even necessary?
-			// I don't think it's even going to try to re-lock until we tell it to send again,
-			// so we're just wasting effort. Maybe should expand this to be one big
-			// continuation of the previous lock.
-			lock(outboundMutex);
+		while (outboundStart < outboundSize) {
 			char *myData = outboundData.peek(outboundStart++).items;
-			unlock(outboundMutex);
 			doWholeStep(phantomState, latestFrameData.items, myData, 0);
 		}
 
@@ -865,7 +854,6 @@ static void* pacedThreadFunc(void *_arg) {
 	}
 #undef printLateStats
 
-	paced_exit:;
 	latestFrameData.destroy();
 	return NULL;
 }
@@ -873,7 +861,6 @@ static void* pacedThreadFunc(void *_arg) {
 static void* inputThreadFunc(void *_arg) {
 	char mouse_grabbed = 0;
 	char running = 1;
-	int frame = startFrame;
 	// Could use an Allegro timer here, but we expect the delay to be updated moment-to-moment so this is easier
 	//ALLEGRO_TIMEOUT timeout;
 	ALLEGRO_EVENT evnt;
@@ -897,16 +884,12 @@ static void* inputThreadFunc(void *_arg) {
 				lock(timingMutex);
 				signal(timingCond);
 				unlock(timingMutex);
-				// Could also be waiting here, we just want it to wake up so it knows it's time to leave
-				lock(outboundMutex);
-				signal(outboundCond);
-				unlock(outboundMutex);
 				break;
 			case ALLEGRO_EVENT_KEY_UP:
 				handleKey(evnt.keyboard.keycode, 0);
 				break;
 			case ALLEGRO_EVENT_KEY_DOWN:
-				if (textInputMode == 1) break;
+				if (typingLen >= 0) break;
 				if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
 					al_ungrab_mouse();
 					al_show_mouse_cursor(display);
@@ -916,58 +899,62 @@ static void* inputThreadFunc(void *_arg) {
 				break;
 			case ALLEGRO_EVENT_KEY_CHAR:
 				if (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL) {
+					char *const t = activeInputs.textBuffer;
 					if (evnt.keyboard.keycode == ALLEGRO_KEY_R) {
-						strcpy(inputTextBuffer, "/sync");
+						strcpy(t, "/sync");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_E) {
-						strcpy(inputTextBuffer, "/p");
+						strcpy(t, "/p");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_K) {
-						strcpy(inputTextBuffer, "/save");
+						strcpy(t, "/save");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_L) {
-						strcpy(inputTextBuffer, "/load");
+						strcpy(t, "/load");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_C) {
-						strcpy(inputTextBuffer, "/copy");
+						strcpy(t, "/copy");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_F) {
-						strcpy(inputTextBuffer, "/hl");
+						strcpy(t, "/hl");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_B) {
-						strcpy(inputTextBuffer, "/b 200 200 200");
+						strcpy(t, "/b 200 200 200");
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_I) {
-						if (p1Keys[5]) {
-							strcpy(inputTextBuffer, "/inside 2");
+						if (activeInputs.basic.p1Keys[5]) {
+							strcpy(t, "/inside 2");
 						} else {
-							strcpy(inputTextBuffer, "/inside");
+							strcpy(t, "/inside");
 						}
 					} else {
 						break;
 					}
-					bufferedTextLen = strlen(inputTextBuffer);
-					textInputMode |= 2;
-				} else if (textInputMode == 1) {
+					activeInputs.sendInd = 1;
+					typingLen = -1;
+				} else if (typingLen >= 0) {
 					int c = evnt.keyboard.unichar;
-					if (c >= 0x20 && c <= 0xFE && bufferedTextLen+2 < TEXT_BUF_LEN) {
-						inputTextBuffer[bufferedTextLen+2] = '\0';
-						inputTextBuffer[bufferedTextLen+1] = '_';
-						inputTextBuffer[bufferedTextLen] = c;
-						bufferedTextLen++;
+					char *const t = activeInputs.textBuffer;
+					if (c >= 0x20 && c <= 0xFE && typingLen+2 < TEXT_BUF_LEN) {
+						t[typingLen+2] = '\0';
+						t[typingLen+1] = '_';
+						t[typingLen] = c;
+						typingLen++;
 					} else if (c == '\r') {
-						inputTextBuffer[bufferedTextLen] = '\0';
-						textInputMode = 2;
+						t[typingLen] = '\0';
+						activeInputs.sendInd = 1;
+						typingLen = -1;
 					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
-						textInputMode = 0;
-					} else if (c == '\b' && bufferedTextLen) {
-						inputTextBuffer[bufferedTextLen] = '\0';
-						inputTextBuffer[bufferedTextLen-1] = '_';
-						bufferedTextLen--;
+						typingLen = -1;
+					} else if (c == '\b' && typingLen) {
+						t[typingLen] = '\0';
+						t[typingLen-1] = '_';
+						typingLen--;
 					}
-				} else {
+				} else if (!activeInputs.sendInd) {
+					char *const t = activeInputs.textBuffer;
 					if (evnt.keyboard.keycode == ALLEGRO_KEY_T) {
-						if (textInputMode == 0) setupTyping();
-						textInputMode |= 1;
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_SLASH && !textInputMode) {
-						inputTextBuffer[0] = '/';
-						inputTextBuffer[1] = '_';
-						inputTextBuffer[2] = '\0';
-						bufferedTextLen = 1;
-						textInputMode = 1;
+						t[1] = '\0';
+						t[0] = '_';
+						typingLen = 0;
+					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_SLASH) {
+						t[2] = '\0';
+						t[1] = '_';
+						t[0] = '/';
+						typingLen = 1;
 					}
 				}
 				break;
@@ -980,8 +967,8 @@ static void* inputThreadFunc(void *_arg) {
 				}
 				{
 					int btn = evnt.mouse.button;
-					if (btn == 1) mouseBtnDown = 1;
-					else if (btn == 2) mouseSecondaryDown = 1;
+					if (btn == 1) activeInputs.basic.mouseBtnDown = 1;
+					else if (btn == 2) activeInputs.basic.mouseSecondaryDown = 1;
 				}
 				break;
 			case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
@@ -992,15 +979,15 @@ static void* inputThreadFunc(void *_arg) {
 				// (fall-thru into next block)
 			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
 				mouse_grabbed = 0;
-				mouseBtnDown = 0;
-				mouseSecondaryDown = 0;
+				activeInputs.basic.mouseBtnDown = 0;
+				activeInputs.basic.mouseSecondaryDown = 0;
 				al_show_mouse_cursor(display);
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
 				{
 					int btn = evnt.mouse.button;
-					if (btn == 1) mouseBtnDown = 0;
-					else if (btn == 2) mouseSecondaryDown = 0;
+					if (btn == 1) activeInputs.basic.mouseBtnDown = 0;
+					else if (btn == 2) activeInputs.basic.mouseSecondaryDown = 0;
 				}
 				break;
 			case ALLEGRO_EVENT_MOUSE_AXES:
@@ -1011,10 +998,10 @@ static void* inputThreadFunc(void *_arg) {
 					// (yes, even accounting for the separate warp event)
 					int x = evnt.mouse.x;
 					int y = evnt.mouse.y;
-					if (evnt.mouse.dz && !(textInputMode & 2) && ctrlPressed) {
+					if (evnt.mouse.dz && !activeInputs.sendInd && ctrlPressed) {
 						const char *c;
 						char pos;
-						if (p1Keys[5]) {
+						if (activeInputs.basic.p1Keys[5]) {
 							// Pressing LShift changes it from "resize" to "move"
 							c = "p";
 							pos = evnt.mouse.dz > 0;
@@ -1022,9 +1009,15 @@ static void* inputThreadFunc(void *_arg) {
 							c = "s";
 							pos = evnt.mouse.dz < 0;
 						}
-						snprintf(inputTextBuffer, TEXT_BUF_LEN, "/%s %d", c, pos ? wheelIncr : -wheelIncr);
-						bufferedTextLen = strlen(inputTextBuffer);
-						textInputMode |= 2;
+						snprintf(
+							activeInputs.textBuffer,
+							TEXT_BUF_LEN,
+							"/%s %d",
+							c,
+							pos ? wheelIncr : -wheelIncr
+						);
+						activeInputs.sendInd = 1;
+						typingLen = -1;
 					}
 					if (mouse_grabbed) {
 						handleMouseMove(x - mouseX, y - mouseY);
@@ -1048,16 +1041,14 @@ static void* inputThreadFunc(void *_arg) {
 			case CUSTOM_EVT_TYPE:
 				int x = (int) evnt.user.data1;
 				if (x == -1) running = 0;
-				else sendControls(frame);
-				frame = (frame + 1) % FRAME_ID_MAX;
 				break;
 		}
+		stabilizeInputs();
 	}
 	return NULL;
 }
 
 static void setupPlayers(gamestate *gs, int numPlayers) {
-	memset(p1Keys, 0, sizeof(p1Keys));
 	gs->players->setMaxUp(numPlayers);
 	gs->players->num = numPlayers;
 	resetPlayers(gs);
@@ -1231,11 +1222,12 @@ int main(int argc, char **argv) {
 
 	// Setup text buffers.
 	// We make it so the player automatically sends the "syncme" command on their first frame,
-	// which is how we're eventually get "sync on join" to work
-	inputTextBuffer[TEXT_BUF_LEN-1] = '\0';
-	strcpy(inputTextBuffer, "/syncme");
-	bufferedTextLen = strlen(inputTextBuffer);
-	textInputMode = 2;
+	// which just displays a message to anybody else already in-game
+	activeInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
+	stableInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
+	strcpy(stableInputs.textBuffer, "/syncme");
+	stableInputs.sendInd = 1;
+
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = loopbackCommandBuffer[0] = '\0';
 
 	// Pre-populate timing buffer, set `startSec`

@@ -6,6 +6,8 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 
+#include "main.h"
+
 #define BUF_SIZE 4096
 
 // ofc this would all be in a struct or something in a perfect OO world
@@ -65,11 +67,17 @@ char readData(void *dst_arg, int len) {
 		dst += available;
 		int ret = recv(sockfd, buf, BUF_SIZE, 0);
 		if (ret == 0) {
-			puts("Remote host closed connection.");
+			if (globalRunning) puts("Remote host closed connection.");
 			return 1;
 		}
 		if (ret < 0) {
-			printf("Error encountered while reading from socket, errno is %d\n\t(hint: `errno` is a command that can help!)\n", errno);
+			if (globalRunning) {
+				printf(
+					"Error encountered while reading from socket, errno is %d\n"
+					"\t(hint: `errno` is a command that can help!)\n",
+					errno
+				);
+			}
 			return 1;
 		}
 		buf_len = ret;
