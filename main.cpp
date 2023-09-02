@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <allegro5/allegro.h>
-#include <allegro5/allegro_opengl.h>
+#include <GLFW/glfw3.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 
@@ -30,12 +29,6 @@
 #include "entUpdaters.h"
 #include "entGetters.h"
 
-// Allegro's "custom events" are kinda a trashfire, but oh well.
-// Eventually I should probably abandon Allegro entirely...
-#define CUSTOM_EVT_TYPE 1025
-static ALLEGRO_EVENT_SOURCE customSrc;
-static ALLEGRO_EVENT customEvent;
-
 #define numKeys 6
 
 char globalRunning = 1;
@@ -45,7 +38,7 @@ static int myPlayer;
 
 static int32_t defaultColors[8] = {0xFFAA00, 0x00AA00, 0xFF0055, 0xFFFF00, 0xAA0000, 0x00FFAA, 0xFF5555, 0x55FF55};
 
-int p1Codes[numKeys] = {ALLEGRO_KEY_A, ALLEGRO_KEY_D, ALLEGRO_KEY_W, ALLEGRO_KEY_S, ALLEGRO_KEY_SPACE, ALLEGRO_KEY_LSHIFT};
+int p1Codes[numKeys] = {GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT};
 
 #define TEXT_BUF_LEN 200
 struct inputs {
@@ -68,21 +61,16 @@ static char loopbackCommandBuffer[TEXT_BUF_LEN];
 
 static gamestate *rootState, *phantomState;
 
-static ALLEGRO_DISPLAY *display;
-static ALLEGRO_EVENT_QUEUE *evntQueue;
+static GLFWwindow *display;
 
 #define mouseSensitivity 0.0025
 
-static int mouseX = 0;
-static int mouseY = 0;
+static double mouseX = 0;
+static double mouseY = 0;
 static char thirdPerson = 1;
 static char ctrlPressed = 0;
 static int wheelIncr = 100;
-
-//static ALLEGRO_VERTEX vertices[4];
-//const int indices[6] = {0, 1, 2, 3, 2, 1};
-//static int32_t cx = (displayWidth / 2) * PTS_PER_PX;
-//static int32_t cy = (displayHeight / 2) * PTS_PER_PX;
+static char mouseGrabbed = 0;
 
 
 static int phys_micros = 0;
@@ -208,17 +196,6 @@ static void saveGame(const char *name) {
 }
 
 static void doInputs(ent *e, char *data) {
-		/* Old joystick code
-		ALLEGRO_JOYSTICK_STATE status;
-		al_get_joystick_state(p->js, &status);
-		if (status.button[0]) pushBtn1(p->entity);
-		int i;
-		for (i = 0; i < 2; i++) {
-			dv[i] = axisMaxis * 1.25 * (status.stick[0].axis[i] - p->center[i]);
-			if (dv[i] > axisMaxis) dv[i] = axisMaxis;
-			else if (dv[i] < -axisMaxis) dv[i] = -axisMaxis;
-		}
-		*/
 	if (data[0] & 1) pushBtn(e, 0);
 	if (data[0] & 2) pushBtn(e, 1);
 	if (data[0] & 4) pushBtn(e, 2);
@@ -387,12 +364,12 @@ char handleKey(int code, char pressed) {
 			return true;
 		}
 	}
-	if (pressed && code == ALLEGRO_KEY_TAB) thirdPerson ^= 1;
-	else if (code == ALLEGRO_KEY_LCTRL || code == ALLEGRO_KEY_RCTRL) ctrlPressed = pressed;
+	if (pressed && code == GLFW_KEY_TAB) thirdPerson ^= 1;
+	else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) ctrlPressed = pressed;
 	return false;
 }
 
-static void handleMouseMove(int dx, int dy) {
+static void handleMouseMove(double dx, double dy) {
 	double viewYaw = activeInputs.basic.viewYaw;
 	double viewPitch = activeInputs.basic.viewPitch;
 
@@ -702,6 +679,8 @@ static void cloneToPhantom() {
 }
 
 static void* pacedThreadFunc(void *_arg) {
+	glfwMakeContextCurrent(display);
+
 	long destNanos;
 	long performanceTotal = 0;
 	timespec t;
@@ -776,7 +755,7 @@ static void* pacedThreadFunc(void *_arg) {
 		drawHud(&phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-		al_flip_display();
+		glfwSwapBuffers(display);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
 		int framesProcessed = 0;
@@ -858,191 +837,168 @@ static void* pacedThreadFunc(void *_arg) {
 	return NULL;
 }
 
+static char handleCtrlBind(int key) {
+	char *const t = activeInputs.textBuffer;
+	if (key == GLFW_KEY_R) {
+		strcpy(t, "/sync");
+	} else if (key == GLFW_KEY_E) {
+		strcpy(t, "/p");
+	} else if (key == GLFW_KEY_K) {
+		strcpy(t, "/save");
+	} else if (key == GLFW_KEY_L) {
+		strcpy(t, "/load");
+	} else if (key == GLFW_KEY_C) {
+		strcpy(t, "/copy");
+	} else if (key == GLFW_KEY_F) {
+		strcpy(t, "/hl");
+	} else if (key == GLFW_KEY_B) {
+		strcpy(t, "/b 200 200 200");
+	} else if (key == GLFW_KEY_I) {
+		// TODO Really this should be `shiftPressed`, since keys[5] is only *left* shift
+		if (activeInputs.basic.p1Keys[5]) {
+			strcpy(t, "/inside 2");
+		} else {
+			strcpy(t, "/inside");
+		}
+	} else {
+		return 0;
+	}
+	activeInputs.sendInd = 1;
+	typingLen = -1;
+	return 1;
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (typingLen >= 0) {
+		if (action == GLFW_PRESS) {
+			if (key == GLFW_KEY_ESCAPE) {
+				typingLen = -1;
+			} else if (key == GLFW_KEY_BACKSPACE && typingLen) {
+				activeInputs.textBuffer[typingLen] = '\0';
+				activeInputs.textBuffer[typingLen-1] = '_';
+				typingLen--;
+			} else if (key == GLFW_KEY_ENTER) {
+				activeInputs.textBuffer[typingLen] = '\0';
+				activeInputs.sendInd = 1;
+				typingLen = -1;
+			}
+		}
+		// Typing mode primarily handles char input, not key input.
+		// Nothing else is handled here.
+		return;
+	}
+
+	if (action == GLFW_PRESS) {
+		if (ctrlPressed && handleCtrlBind(key)) return;
+		if (key == GLFW_KEY_ESCAPE) {
+			glfwSetInputMode(display, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			mouseGrabbed = 0;
+		} else {
+			handleKey(key, 1);
+		}
+	} else if (action == GLFW_RELEASE) {
+		handleKey(key, 0);
+	} else if (action == GLFW_REPEAT) {
+		if (ctrlPressed) handleCtrlBind(key);
+	}
+}
+
+static void character_callback(GLFWwindow* window, unsigned int c) {
+	if (typingLen < 0) {
+		// Maybe we start typing, but nothing else
+		if (!activeInputs.sendInd) {
+			char *const t = activeInputs.textBuffer;
+			if (c == 't') {
+				t[1] = '\0';
+				t[0] = '_';
+				typingLen = 0;
+			} else if (c == '/') {
+				t[2] = '\0';
+				t[1] = '_';
+				t[0] = '/';
+				typingLen = 1;
+			}
+		}
+		return;
+	}
+
+	char *const t = activeInputs.textBuffer;
+	// `c` is the unicode codepoint
+	if (c >= 0x20 && c <= 0xFE && typingLen+2 < TEXT_BUF_LEN) {
+		t[typingLen+2] = '\0';
+		t[typingLen+1] = '_';
+		t[typingLen] = c;
+		typingLen++;
+	}
+}
+
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+	if (mouseGrabbed) {
+		handleMouseMove(xpos - mouseX, ypos - mouseY);
+		// GLFW has glfwSetCursorPos,
+		// but the docs are very adamant that you not mess with that when you're
+		// locking the cursor. I suppose it's unlikely that we'll reach the limits
+		// on where a double can't represent a single unit of change, anyway.
+	}
+	mouseX = xpos;
+	mouseY = ypos;
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (!mouseGrabbed) {
+		if (action == GLFW_PRESS) {
+			glfwSetInputMode(display, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			mouseGrabbed = 1;
+		}
+		return;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		activeInputs.basic.mouseBtnDown = (action == GLFW_PRESS);
+	} else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+		activeInputs.basic.mouseSecondaryDown = (action == GLFW_PRESS);
+	}
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	if (yoffset && !activeInputs.sendInd && ctrlPressed) {
+		const char *c;
+		char sign;
+		if (activeInputs.basic.p1Keys[5]) {
+			// Pressing LShift changes it from "resize" to "move"
+			c = "p";
+			sign = yoffset > 0;
+		} else {
+			c = "s";
+			sign = yoffset < 0;
+		}
+		snprintf(
+			activeInputs.textBuffer,
+			TEXT_BUF_LEN,
+			"/%s %d",
+			c,
+			sign ? wheelIncr : -wheelIncr
+		);
+		activeInputs.sendInd = 1;
+		typingLen = -1;
+	}
+}
+
+static void window_focus_callback(GLFWwindow* window, int focused) {
+	if (!focused) {
+		glfwSetInputMode(display, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		mouseGrabbed = 0;
+	}
+}
+
 static void* inputThreadFunc(void *_arg) {
-	char mouse_grabbed = 0;
-	char running = 1;
-	// Could use an Allegro timer here, but we expect the delay to be updated moment-to-moment so this is easier
-	//ALLEGRO_TIMEOUT timeout;
-	ALLEGRO_EVENT evnt;
-	evnt.type = 0;
-	while (running) {
-		/*
-		if (evnt.type != CUSTOM_EVT_TYPE) al_init_timeout(&timeout, 1); // 1.0 seconds from now
-		bool hasEvent = al_wait_for_event_until(evntQueue, &evnt, &timeout);
-		if (!hasEvent) {
-			evnt.type = 0;
-			puts("Boo");
-			continue;
-		}
-		*/
-		al_wait_for_event(evntQueue, &evnt);
-		switch(evnt.type) {
-			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				// Make sure the main thread knows to stop, it will handle the others (including this thread)
-				globalRunning = 0;
-				// It could potentially be waiting on this condition
-				lock(timingMutex);
-				signal(timingCond);
-				unlock(timingMutex);
-				break;
-			case ALLEGRO_EVENT_KEY_UP:
-				handleKey(evnt.keyboard.keycode, 0);
-				break;
-			case ALLEGRO_EVENT_KEY_DOWN:
-				if (typingLen >= 0) break;
-				if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
-					al_ungrab_mouse();
-					al_show_mouse_cursor(display);
-					mouse_grabbed = 0;
-				}
-				handleKey(evnt.keyboard.keycode, 1);
-				break;
-			case ALLEGRO_EVENT_KEY_CHAR:
-				if (evnt.keyboard.modifiers & ALLEGRO_KEYMOD_CTRL) {
-					char *const t = activeInputs.textBuffer;
-					if (evnt.keyboard.keycode == ALLEGRO_KEY_R) {
-						strcpy(t, "/sync");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_E) {
-						strcpy(t, "/p");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_K) {
-						strcpy(t, "/save");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_L) {
-						strcpy(t, "/load");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_C) {
-						strcpy(t, "/copy");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_F) {
-						strcpy(t, "/hl");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_B) {
-						strcpy(t, "/b 200 200 200");
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_I) {
-						if (activeInputs.basic.p1Keys[5]) {
-							strcpy(t, "/inside 2");
-						} else {
-							strcpy(t, "/inside");
-						}
-					} else {
-						break;
-					}
-					activeInputs.sendInd = 1;
-					typingLen = -1;
-				} else if (typingLen >= 0) {
-					int c = evnt.keyboard.unichar;
-					char *const t = activeInputs.textBuffer;
-					if (c >= 0x20 && c <= 0xFE && typingLen+2 < TEXT_BUF_LEN) {
-						t[typingLen+2] = '\0';
-						t[typingLen+1] = '_';
-						t[typingLen] = c;
-						typingLen++;
-					} else if (c == '\r') {
-						t[typingLen] = '\0';
-						activeInputs.sendInd = 1;
-						typingLen = -1;
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_ESCAPE) {
-						typingLen = -1;
-					} else if (c == '\b' && typingLen) {
-						t[typingLen] = '\0';
-						t[typingLen-1] = '_';
-						typingLen--;
-					}
-				} else if (!activeInputs.sendInd) {
-					char *const t = activeInputs.textBuffer;
-					if (evnt.keyboard.keycode == ALLEGRO_KEY_T) {
-						t[1] = '\0';
-						t[0] = '_';
-						typingLen = 0;
-					} else if (evnt.keyboard.keycode == ALLEGRO_KEY_SLASH) {
-						t[2] = '\0';
-						t[1] = '_';
-						t[0] = '/';
-						typingLen = 1;
-					}
-				}
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-				if (!mouse_grabbed) {
-					if ( (mouse_grabbed = al_grab_mouse(display)) ) {
-						al_hide_mouse_cursor(display);
-					}
-					break;
-				}
-				{
-					int btn = evnt.mouse.button;
-					if (btn == 1) activeInputs.basic.mouseBtnDown = 1;
-					else if (btn == 2) activeInputs.basic.mouseSecondaryDown = 1;
-				}
-				break;
-			case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-				// This doesn't actually fire if you switch out via keyboard,
-				// because Allegro is a useless POS I should have abandoned a long time ago.
-				// However, that sounds like work, so we'll just do this for now and hope
-				// it helps a little somehow.
-				// (fall-thru into next block)
-			case ALLEGRO_EVENT_MOUSE_LEAVE_DISPLAY:
-				mouse_grabbed = 0;
-				activeInputs.basic.mouseBtnDown = 0;
-				activeInputs.basic.mouseSecondaryDown = 0;
-				al_show_mouse_cursor(display);
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-				{
-					int btn = evnt.mouse.button;
-					if (btn == 1) activeInputs.basic.mouseBtnDown = 0;
-					else if (btn == 2) activeInputs.basic.mouseSecondaryDown = 0;
-				}
-				break;
-			case ALLEGRO_EVENT_MOUSE_AXES:
-				{
-					// Allegro promises to track dx and dy,
-					// but sadly those numbers are just plain wrong
-					// if you add in requests to warp the mouse
-					// (yes, even accounting for the separate warp event)
-					int x = evnt.mouse.x;
-					int y = evnt.mouse.y;
-					if (evnt.mouse.dz && !activeInputs.sendInd && ctrlPressed) {
-						const char *c;
-						char pos;
-						if (activeInputs.basic.p1Keys[5]) {
-							// Pressing LShift changes it from "resize" to "move"
-							c = "p";
-							pos = evnt.mouse.dz > 0;
-						} else {
-							c = "s";
-							pos = evnt.mouse.dz < 0;
-						}
-						snprintf(
-							activeInputs.textBuffer,
-							TEXT_BUF_LEN,
-							"/%s %d",
-							c,
-							pos ? wheelIncr : -wheelIncr
-						);
-						activeInputs.sendInd = 1;
-						typingLen = -1;
-					}
-					if (mouse_grabbed) {
-						handleMouseMove(x - mouseX, y - mouseY);
-						// No idea if these are sensible criteria for warping the mouse,
-						// but it makes sense to meeeee
-						if (
-							abs(x - displayWidth/2) > displayWidth * 0.2
-							|| abs(y - displayHeight/2) > displayHeight * 0.2
-						) {
-							al_set_mouse_xy(display, displayWidth/2, displayHeight/2);
-						}
-					}
-					mouseX = x;
-					mouseY = y;
-				}
-				break;
-			case ALLEGRO_EVENT_MOUSE_WARPED:
-				mouseX = evnt.mouse.x;
-				mouseY = evnt.mouse.y;
-				break;
-			case CUSTOM_EVT_TYPE:
-				int x = (int) evnt.user.data1;
-				if (x == -1) running = 0;
-				break;
-		}
+	glfwSetKeyCallback(display, key_callback);
+	glfwSetCharCallback(display, character_callback);
+	glfwSetCursorPosCallback(display, cursor_position_callback);
+	glfwSetMouseButtonCallback(display, mouse_button_callback);
+	glfwSetScrollCallback(display, scroll_callback);
+	glfwSetWindowFocusCallback(display, window_focus_callback);
+	while (!glfwWindowShouldClose(display)) {
+		glfwWaitEvents();
 		shareInputs();
 	}
 	return NULL;
@@ -1135,36 +1091,21 @@ int main(int argc, char **argv) {
 	init_registrar();
 	init_entFuncs();
 
-	// Set up allegro stuff
-	if (!al_install_system(ALLEGRO_VERSION_INT, NULL)) {
-		fputs("Couldn't init Allegro\n", stderr);
+	if (!glfwInit()) {
+		fputs("Couldn't init GLFW\n", stderr);
 		return 1;
 	}
-	/* Joystick code is still laying around places, but it's all out of date,
-	   and I had some comment about how they "don't account for yaw when sending inputs".
-	   TODO maybe?
-	if (al_install_joystick()) {
-		numPlayers = al_get_num_joysticks() + 1;
-	} else {
-		numPlayers = 1;
-		fputs("Couldn't install joystick driver\n", stderr);
-	}
-	 */
-	al_set_new_display_flags(ALLEGRO_OPENGL);
-	al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
-	display = al_create_display(displayWidth, displayHeight);
+	// glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	display = glfwCreateWindow(displayWidth, displayHeight, "Bittoss", NULL, NULL);
 	if (!display) {
 		fputs("Couldn't create our display\n", stderr);
 		return 1;
 	}
-	if (!al_install_keyboard()) {
-		fputs("No keyboard support, which would make the game unplayable\n", stderr);
-		return 1;
-	}
-	if (!al_install_mouse()) {
-		fputs("No mouse support.\n", stderr);
-	}
+
+	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())
+	glfwMakeContextCurrent(NULL);
+
 	colors_init();
 	velbox_init();
 	ent_init();
@@ -1207,19 +1148,6 @@ int main(int argc, char **argv) {
 	// Not 100% sure this part is necessary, but it's simpler if we know the phantom state is also in a valid state.
 	cloneToPhantom();
 
-	// Allegro Events
-	//ALLEGRO_TIMER *timer = al_create_timer(ALLEGRO_BPS_TO_SECS(FRAMERATE));
-	al_init_user_event_source(&customSrc);
-	evntQueue = al_create_event_queue();
-	al_register_event_source(evntQueue, &customSrc);
-	al_register_event_source(evntQueue, al_get_display_event_source(display));
-	//al_register_event_source(queue, al_get_timer_event_source(timer));
-	al_register_event_source(evntQueue, al_get_keyboard_event_source());
-	if (al_is_mouse_installed()) {
-		al_register_event_source(evntQueue, al_get_mouse_event_source());
-		// For now, don't capture mouse on startup. Might prevent mouse warpiness in first frame, idk, feel free to mess around
-	}
-
 	// Setup text buffers.
 	// We make it so the player automatically sends the "syncme" command on their first frame,
 	// which just displays a message to anybody else already in-game
@@ -1241,28 +1169,34 @@ int main(int argc, char **argv) {
 		}
 		medianTime = firstFrame;
 	}
-	customEvent.user.type = CUSTOM_EVT_TYPE;
-	customEvent.user.data1 = 0;
 
 
 	//Main loop
-	pthread_t inputThread;
+	pthread_t pacedThread;
 	pthread_t netThread;
 	{
-		int ret = pthread_create(&inputThread, NULL, inputThreadFunc, NULL);
+		int ret = pthread_create(&pacedThread, NULL, pacedThreadFunc, NULL);
 		if (ret) {
-			printf("pthread_create returned %d for inputThread\n", ret);
+			printf("pthread_create returned %d for pacedThread\n", ret);
 			return 1;
 		}
 		ret = pthread_create(&netThread, NULL, netThreadFunc, NULL);
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
-			pthread_cancel(inputThread); // No idea if this works, this is a failure case anyway
+			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
 	}
 	// Main thread lives in here until the program exits
-	pacedThreadFunc(NULL);
+	inputThreadFunc(NULL);
+
+	// Generally signal that there's a shutdown in progress
+	// (if the inputThread isn't the main thread we'd want to set the GLFW "should exit" flag and push an empty event through)
+	globalRunning = 0;
+	// Somebody could potentially be waiting on this condition
+	lock(timingMutex);
+	signal(timingCond);
+	unlock(timingMutex);
 
 	puts("Beginning cleanup.");
 	puts("Cancelling network thread...");
@@ -1272,14 +1206,12 @@ int main(int argc, char **argv) {
 		if (ret) printf("Error while joining pacing thread: %d\n", ret);
 	}
 	puts("Done.");
-	puts("Cancelling input thread...");
+	puts("Cancelling paced thread...");
 	{
-		customEvent.user.data1 = -1;
-		al_emit_user_event(&customSrc, &customEvent, NULL);
 		//int ret = pthread_cancel(inputThread);
 		//if (ret) printf("Error cancelling input thread: %d\n", ret);
-		int ret = pthread_join(inputThread, NULL);
-		if (ret) printf("Error while joining input thread: %d\n", ret);
+		int ret = pthread_join(pacedThread, NULL);
+		if (ret) printf("Error while joining paced thread: %d\n", ret);
 	}
 	puts("Done.");
 	puts("Cleaning up game objects...");
@@ -1299,12 +1231,8 @@ int main(int argc, char **argv) {
 	velbox_destroy();
 	colors_destroy();
 	puts("Done.");
-	puts("Cleaning up Allegro...");
-	al_unregister_event_source(evntQueue, &customSrc);
-	al_destroy_user_event_source(&customSrc);
-	al_destroy_event_queue(evntQueue);
-	al_destroy_display(display);
-	al_uninstall_system();
+	puts("Cleaning up GLFW...");
+	glfwTerminate();
 	puts("Done.");
 	puts("Final misc cleanup...");
 	players.destroy();
