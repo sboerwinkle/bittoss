@@ -67,9 +67,21 @@ TODO:
 			This operation can fail since object widths are always even!
 	- Documentation for all this edit stuff dear god
 / Friction as a concept native to the engine?
-- Rework handler registrar again so module load order isn't so closely tied to the handler's ID
+/ Rework handler registrar again so module load order isn't so closely tied to the handler's ID
 	Probably a big header with enums is the way to go here, so handlers have an ID rather than a name
 	Could still associate the ID with a name of course
+- more circuit components
+	- delay
+	- randomizer
+- Magic steppy legs
+- Figure out how the heck vehicles are going to work
+	I'd like to make "controls" (except for the clicky bits) go away
+		But that makes, like, aiming a vehicle be a whole hassle
+		who knows honestly
+	So it would need to be more... hands-on somehow
+	This would also require a complete rework of how weapons were going to function... hm
+		Unless they also only read A/B signals?
+		With decor for targeting?
 
 - CTF scoring plz
 

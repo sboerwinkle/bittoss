@@ -85,6 +85,7 @@ enum {
 	WHOMOVES_WOOD,
 	WHOMOVES_NUM
 };
+// Did you include your module in "modules.c"?
 
 enum {
 	TICK_NIL,
@@ -97,13 +98,16 @@ enum {
 	TICK_PLAYER,
 	TICK_EYE,
 	TICK_HELD_EYE,
-	TICK_LOGIC = TICK_HELD_EYE + 2,
+	TICK_gap1, // Unused
+	TICK_LOGIC,
 	TICK_LOGIC_DEBUG,
 	TICK_DOOR,
 	TICK_CURSED,
 	TICK_RESPAWN,
+	TICK_LEGG,
 	TICK_NUM
 };
+// Did you include your module in "modules.c"?
 
 enum {
 	CRUSH_NIL,
@@ -111,15 +115,20 @@ enum {
 	CRUSH_PLATFORM,
 	CRUSH_NUM
 };
+// Did you include your module in "modules.c"?
 
 enum {
 	PUSHED_NIL,
-	PUSHED_EXPLOSION = 2,
+	PUSHED_gap1, // Unused
+	PUSHED_EXPLOSION,
 	PUSHED_FLAG,
 	PUSHED_THUMBTACK,
 	PUSHED_PLAYER,
-	PUSHED_NUM = PUSHED_PLAYER + 2
+	PUSHED_gap2, // Unused
+	PUSHED_LEGG,
+	PUSHED_NUM
 };
+// Did you include your module in "modules.c"?
 
 enum {
 	PUSH_NIL,
@@ -127,3 +136,4 @@ enum {
 	PUSH_LOGIC,
 	PUSH_NUM
 };
+// Did you include your module in "modules.c"?

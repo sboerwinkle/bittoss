@@ -406,6 +406,7 @@ void edit_t_logic(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -418,6 +419,7 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -430,7 +432,21 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_DOOR);
 		e->tickHeld = tickHandlers.get(TICK_DOOR);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		setNumSliders(gs, e, 3);
+	}
+}
+
+void edit_t_legg(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_NIL); //Leggs don't do anything if not held
+		e->tickHeld = tickHandlers.get(TICK_LEGG);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_LEGG);
+		setNumSliders(gs, e, 6);
 	}
 }
 
