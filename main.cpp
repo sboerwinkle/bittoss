@@ -288,7 +288,7 @@ static void sendControls(int frame) {
 			);
 		} else if (isCmd(text, "/incr")) {
 			int32_t x;
-			const char *c = text;
+			const char *c = text + 5;
 			if (getNum(&c, &x)) wheelIncr = x;
 			else printf("incr: %d\n", wheelIncr);
 		} else if (isCmd(text, "/perf")) {
