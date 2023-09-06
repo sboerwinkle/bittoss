@@ -26,25 +26,9 @@ void boundVec(int32_t *values, int32_t bound, int32_t len) {
 }
 
 void flushCtrls(ent *who) {
-	int i;
-	for (i = 0; i < 4; i++) {
+	range(i, 4) {
 		who->ctrl.btns[i].v = who->ctrl.btns[i].v2;
 		who->ctrl.btns[i].v2 = 0;
-	}
-
-	for (i = 0; i < 2; i++) {
-		who->ctrl.axis1.v[i] = (who->ctrl.axis1.max[i] + who->ctrl.axis1.min[i]) / 2;
-		who->ctrl.axis1.min[i] = axisMaxis;
-		who->ctrl.axis1.max[i] = -axisMaxis;
-	}
-	// Don't both updating the look direction unless there's been some input;
-	// it will not reset to 0 on its own the same way the axis will
-	if (who->ctrl.look.min[0] != axisMaxis || who->ctrl.look.max[0] != -axisMaxis) {
-		for (i = 0; i < 3; i++) {
-			who->ctrl.look.v[i] = (who->ctrl.look.max[i] + who->ctrl.look.min[i]) / 2;
-			who->ctrl.look.min[i] = axisMaxis;
-			who->ctrl.look.max[i] = -axisMaxis;
-		}
 	}
 }
 

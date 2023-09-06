@@ -1,6 +1,4 @@
 extern void pushBtn(ent *who, int ix);
-extern void pushAxis1(ent *who, int *x);
-extern void pushEyes(ent *who, int *x);
 extern void uCenter(ent *e, int32_t *p);
 extern void uVel(ent *e, int32_t *a);
 extern void uDead(gamestate *gs, ent *e);

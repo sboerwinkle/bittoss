@@ -5,6 +5,8 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "player.h"
+
 static const int32_t eyeSize[3] = {100, 100, 100};
 static const int32_t eyeInset = 50;
 

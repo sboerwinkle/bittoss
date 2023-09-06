@@ -102,14 +102,6 @@ typedef struct ent {
 		struct {
 			char v, v2;
 		} btns[4];
-		struct {
-			signed char min[2], max[2];
-			signed char v[2];
-		} axis1;
-		struct {
-			signed char min[3], max[3];
-			signed char v[3];
-		} look;
 	} ctrl;
 
 	//TODO: Orientation

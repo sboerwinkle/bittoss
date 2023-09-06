@@ -105,12 +105,13 @@ static void getMedian(int32_t *dest) {
 }
 
 static void getAxis(ent *e, int *axis, int *dir) {
+	int32_t look[3];
+	getLook(look, e);
 	range(i, 3) {
 		// This is a little messy,
 		// but we absolutely want to grab the player's controls
 		// from *this* frame (or weird stuff will happen if they missed last frame).
-		int32_t x = e->ctrl.look.min[i];
-		if (!x) x = e->ctrl.look.max[i];
+		int32_t x = look[i];
 		if (abs(x) == axisMaxis) {
 			*axis = i;
 			*dir = x / axisMaxis;

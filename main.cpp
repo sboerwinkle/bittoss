@@ -29,6 +29,8 @@
 #include "entUpdaters.h"
 #include "entGetters.h"
 
+#include "modules/player.h"
+
 #define numKeys 6
 
 char globalRunning = 1;
@@ -164,7 +166,7 @@ static void drawHud(list<player> *ps) {
 	// Draw ammo bars if applicable
 	ent *p = (*ps)[myPlayer].entity;
 	if (!p) return;
-	int charge = p->sliders[3].v;
+	int charge = p->sliders[8].v;
 	float x = 0.5 - 3.0/128;
 	while (charge >= 60) {
 		drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
@@ -200,13 +202,15 @@ static void doInputs(ent *e, char *data) {
 	if (data[0] & 2) pushBtn(e, 1);
 	if (data[0] & 4) pushBtn(e, 2);
 	if (data[0] & 8) pushBtn(e, 3);
-	if (data[1] || data[2]) {
-		int axis[2] = {data[1], data[2]};
-		pushAxis1(e, axis);
-	}
-	if (data[3] || data[4] || data[5]) {
-		int look[3] = {data[3], data[4], data[5]};
-		pushEyes(e, look);
+	int32_t axis[2] = {data[1], data[2]};
+	setAxis(e, axis);
+	int32_t look[3] = {data[3], data[4], data[5]};
+	setLook(e, look);
+}
+
+static void doDefaultInputs(ent *e) {
+	range(i, 4) {
+		if (getButton(e, i)) pushBtn(e, i);
 	}
 }
 
@@ -541,10 +545,10 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;
 			if (e) {
-				int edit = !getSlider(e, 6);
+				int edit = !getSlider(e, PLAYER_EDIT_SLIDER);
 				// Reach in and tweak internal state to toggle edit mode
 				if (!edit || (gs->gamerules & RULE_EDIT)) {
-					uSlider(e, 6, edit);
+					uSlider(e, PLAYER_EDIT_SLIDER, edit);
 					if (isReal && isMe) {
 						printf("Your edit toolset is %s\n", edit ? "ON" : "OFF");
 					}
@@ -583,10 +587,6 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 }
 
 static char doWholeStep(gamestate *state, char *inputData, char *data2, char expectedFrame) {
-	// TODO: If view direction ever matters, that should carry over rather than have a constant default
-	// (buttons, move_x, move_y, look_x, look_y, look_z)
-	static char defaultData[6] = {0, 0, 0, 0, 0, 0};
-
 	unsigned char numPlayers = *inputData++;
 	list<player> &players = *state->players;
 	players.setMaxUp(numPlayers);
@@ -619,16 +619,14 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		inputData += 4 + size;
 
 		size = ntohl(*(int32_t*)toProcess);
-		char *data;
-		if (size == 0) {
-			data = defaultData;
-			if (isMe) clientLate = 1;
-		} else {
-			data = toProcess + 5;
-			if (isMe && expectedFrame != toProcess[4]) clientLate = 1;
-		}
-		if (players[i].entity != NULL) {
-			doInputs(players[i].entity, data);
+		if (isMe && (size == 0 || expectedFrame != toProcess[4])) clientLate = 1;
+		ent *e = players[i].entity;
+		if (e != NULL) {
+			if (size) {
+				doInputs(e, toProcess + 5);
+			} else {
+				doDefaultInputs(e);
+			}
 		} else {
 			players[i].reviveCounter++;
 		}

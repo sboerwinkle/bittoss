@@ -28,17 +28,6 @@ char getTrigger(ent *e, int i) {
 	return e->ctrl.btns[i+2].v;
 }
 
-void getAxis(int32_t *dest, ent *e) {
-	dest[0] = e->ctrl.axis1.v[0];
-	dest[1] = e->ctrl.axis1.v[1];
-}
-
-void getLook(int32_t *dest, ent *e) {
-	range(i, 3) {
-		dest[i] = e->ctrl.look.v[i];
-	}
-}
-
 void getPos(int *dest, ent *a, ent *b) {
 	range(i, 3) {
 		dest[i] = b->center[i] - a->center[i];

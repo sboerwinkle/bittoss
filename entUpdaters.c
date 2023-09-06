@@ -5,48 +5,6 @@
 
 void pushBtn(ent *who, int ix) {who->ctrl.btns[ix].v2 = 1;}
 
-void pushAxis1(ent *who, int *x) {
-	int i;
-	for (i = 0; i < 2; i++) {
-		if (x[i] > who->ctrl.axis1.max[i]) {
-			who->ctrl.axis1.max[i] = x[i];
-#ifndef NODEBUG_SCRIPT
-			if (x[i] > axisMaxis) {
-				printf("Invalid axis component %d on dimension %c\n", x[i], "XY"[i]);
-			}
-#endif
-		}
-		if (x[i] < who->ctrl.axis1.min[i]) {
-			who->ctrl.axis1.min[i] = x[i];
-#ifndef NODEBUG_SCRIPT
-			if (x[i] < -axisMaxis) {
-				printf("Invalid axis component %d on dimension %c\n", x[i], "XY"[i]);
-			}
-#endif
-		}
-	}
-}
-void pushEyes(ent *who, int *x) {
-	int i;
-	for (i = 0; i < 3; i++) {
-		if (x[i] > who->ctrl.look.max[i]) {
-			who->ctrl.look.max[i] = x[i];
-#ifndef NODEBUG_SCRIPT
-			if (x[i] > axisMaxis) {
-				printf("Invalid look component %d on dimension %d\n", x[i], i);
-			}
-#endif
-		}
-		if (x[i] < who->ctrl.look.min[i]) {
-			who->ctrl.look.min[i] = x[i];
-#ifndef NODEBUG_SCRIPT
-			if (x[i] < -axisMaxis) {
-				printf("Invalid axis component %d on dimension %d\n", x[i], i);
-			}
-#endif
-		}
-	}
-}
 
 void uCenter(ent *e, int32_t *d) {
 	range(i, 3) {
