@@ -11,8 +11,11 @@ catalog<tick_t> tickHandlers;
 catalog<crush_t> crushHandlers;
 catalog<pushed_t> pushedHandlers;
 catalog<push_t> pushHandlers;
+catalog<entPair_t> entPairHandlers;
 
 static void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
+
+static void entPairDefault(gamestate *gs, ent *me, ent *him) {}
 
 void init_registrar() {
 	whoMovesHandlers.init(WHOMOVES_NUM);
@@ -20,8 +23,15 @@ void init_registrar() {
 	crushHandlers.init(CRUSH_NUM);
 	pushedHandlers.init(PUSHED_NUM);
 	pushHandlers.init(PUSH_NUM);
+	entPairHandlers.init(ENTPAIR_NUM);
 
+	// All the entries are initialized to NULL,
+	// we only have to update the NIL entry if it's
+	// something else.
+	// Serialization assumes that the default handlers (as set by initEnt)
+	// live in position 0, FOO_NIL.
 	pushHandlers.reg(PUSH_NIL, onPushDefault);
+	entPairHandlers.reg(ENTPAIR_NIL, entPairDefault);
 }
 
 void destroy_registrar() {

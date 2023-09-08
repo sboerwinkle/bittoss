@@ -7,23 +7,7 @@
 
 // TODO I think a lot of these defaults can go away
 
-/*
-void onTickHeldDefault(ent *me) {}
-*/
-
 int tickTypeDefault(ent *a, ent *b) {return 1;}
-
-/*
-void onCrushDefault(ent *me) {}
-*/
-
-void onFumbleDefault(ent *me, ent *him) {}
-
-void onFumbledDefault(ent *me, ent *im) {}
-
-void onPickUpDefault(ent *me, ent *him) {}
-
-void onPickedUpDefault(ent *me, ent *him) {}
 
 char okayFumbleDefault(ent *me, ent *him) {
 	return 0;
@@ -34,6 +18,7 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 }
 
 static push_t defaultPush;
+static entPair_t defaultEntPair;
 
 void initEnt(
 	ent *e,
@@ -76,10 +61,10 @@ void initEnt(
 	e->crush = NULL;
 	e->push = defaultPush;
 	e->pushed = NULL;
-	e->onFumble = onFumbleDefault;
-	e->onFumbled = onFumbledDefault;
-	e->onPickUp = onPickUpDefault;
-	e->onPickedUp = onPickedUpDefault;
+	e->onFumble = defaultEntPair;
+	e->onFumbled = defaultEntPair;
+	e->onPickUp = defaultEntPair;
+	e->onPickedUp = defaultEntPair;
 	e->okayFumble = okayFumbleDefault;
 	e->okayFumbleHim = okayFumbleHimDefault;
 	addEnt(gs, e, relative);
@@ -102,4 +87,5 @@ ent *initEnt(
 
 void init_entFuncs() {
 	defaultPush = pushHandlers.get(PUSH_NIL);
+	defaultEntPair = entPairHandlers.get(ENTPAIR_NIL);
 }

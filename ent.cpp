@@ -125,8 +125,8 @@ static void fumble(gamestate *gs, ent *h) {
 	h->needsCollision = 1;
 	//For now at least, flushDrops and flushDeaths don't work from roots, which means t
 	// ...hese are restricted in what they can actually access.
-	(a->onFumble)(a, h);
-	(h->onFumbled)(h, a);
+	(a->onFumble)(gs, a, h);
+	(h->onFumbled)(gs, h, a);
 	int i;
 	ent *x, *y;
 	for (i = 0; i < 3; i++) {
@@ -157,23 +157,19 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 	x->holdee = y;
 	y->holder = x;
 	recursiveHoldRoot(y, x->holdRoot);
-	y->holdFlags = holdFlags;
-	/*
-	// Zeroes relative velocity when something's picked up.
-	// Don't need this any more, but I could see the need coming back
-	// depending on how pickups are used in the future.
-	// If so, we'd want it to be some flag in `holdFlags` that gets
-	// consumed here (not set on object, so it doesn't get reprocessed
-	// during save-load cycle)
-	range(i, 3) {
-		y->d_vel[i] = x->vel[i] - y->vel[i];
+	y->holdFlags = HOLD_MASK & holdFlags;
+
+	if (holdFlags & HOLD_FREEZE) {
+		// Zeroes relative velocity.
+		range(i, 3) {
+			y->d_vel[i] = x->vel[i] - y->vel[i];
+		}
 	}
-	*/
 }
 
 static void pickup(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
-	x->onPickUp(x, y);
-	y->onPickedUp(y, x);
+	x->onPickUp(gs, x, y);
+	y->onPickedUp(gs, y, x);
 	pickupNoHandlers(gs, x, y, holdFlags);
 }
 

@@ -56,7 +56,7 @@ typedef void (*tick_t)(struct gamestate *gs, struct ent*);
 typedef void (*crush_t)(struct gamestate *gs, struct ent*);
 typedef char (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
-
+typedef void (*entPair_t)(struct gamestate *gs, struct ent*, struct ent*);
 
 typedef struct {
 	int32_t v, min, max;
@@ -151,12 +151,12 @@ typedef struct ent {
 	pushed_t pushed;
 
 	// Called first
-	void (*onFumble)(struct ent *me, struct ent *him);
-	void (*onFumbled)(struct ent *me, struct ent *him);
+	entPair_t onFumble;
+	entPair_t onFumbled;
 	// Should be called before onPickedUp. Sets his center, for cases such as turrets, which know where the gunner's seat position is. It's okay to cop out and just keep it where it is on screen.
 	//TODO: These can't access holder / holdee information for any external references they might have.
-	void (*onPickUp)(struct ent *me, struct ent *him);
-	void (*onPickedUp)(struct ent *me, struct ent *him);
+	entPair_t onPickUp;
+	entPair_t onPickedUp;
 	//void (*onDrop)(struct ent *me, int holdee);
 	//void (*onDropped)(struct ent *me);
 	char (*okayFumble)(struct ent *me, struct ent *him);
@@ -246,6 +246,12 @@ none			| me	| him	| both	| none
 #define HOLD_PASS 0
 #define HOLD_DROP 1
 #define HOLD_MOVE 2
+#define HOLD_MASK 3
+// Things outside the mask may be used when processing pickups,
+// but aren't stored on the resulting connection
+#define HOLD_FREEZE 4
+// TODO This should actually do something, I know how it'll work I just haven't done it yet
+#define HOLD_SINGLE 8
 
 
 //Collisions are slippery, but objects can update their internal vel's to create friction if'n they so choose
@@ -263,6 +269,7 @@ none			| me	| him	| both	| none
 #define T_NO_DRAW_FP 128
 #define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)
+#define T_INPUTS (1<<11)
 // T_ACTIVE used to be 2048, that really had no reason to be a type flag and is now gone.
 
 // This is kind of messy, but not all type flags necessarily require an ent to do collision checking.

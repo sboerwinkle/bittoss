@@ -26,6 +26,7 @@
 #include "modules/legg.h"
 #include "modules/wood.h"
 #include "modules/respawn.h"
+#include "modules/seat.h"
 
 void initMods() {
 	module_common();
@@ -42,4 +43,5 @@ void initMods() {
 	module_legg();
 	module_wood();
 	module_respawn();
+	module_seat();
 }

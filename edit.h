@@ -18,6 +18,7 @@ extern void edit_t_logic_debug(gamestate *gs, ent *me);
 extern void edit_t_door(gamestate *gs, ent *me);
 extern void edit_t_legg(gamestate *gs, ent *me);
 extern void edit_t_respawn(gamestate *gs, ent *me);
+extern void edit_t_seat(gamestate *gs, ent *me);
 extern void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);

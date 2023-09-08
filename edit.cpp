@@ -386,6 +386,8 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 0);
 	}
 }
@@ -408,6 +410,8 @@ void edit_t_logic(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_LOGIC);
 		e->push = pushHandlers.get(PUSH_LOGIC);
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -421,6 +425,8 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->push = pushHandlers.get(PUSH_LOGIC);
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -434,6 +440,8 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_DOOR);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 3);
 	}
 }
@@ -447,6 +455,8 @@ void edit_t_legg(gamestate *gs, ent *me) {
 		e->tickHeld = tickHandlers.get(TICK_LEGG);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->pushed = pushedHandlers.get(PUSHED_LEGG);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 6);
 	}
 }
@@ -459,7 +469,23 @@ void edit_t_respawn(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_RESPAWN);
 		e->tickHeld = tickHandlers.get(TICK_RESPAWN);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 5);
+	}
+}
+
+void edit_t_seat(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_SEAT);
+		e->tickHeld = tickHandlers.get(TICK_SEAT);
+		e->push = pushHandlers.get(PUSH_SEAT);
+		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
+		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
+		setNumSliders(gs, e, 0);
 	}
 }
 

@@ -270,7 +270,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 		gs, NULL,
 		pos, vel, playerSize,
 		s_num,
-		T_OBSTACLE + (team*TEAM_BIT), T_OBSTACLE + T_TERRAIN
+		T_OBSTACLE + (team*TEAM_BIT) + T_INPUTS, T_OBSTACLE + T_TERRAIN
 	);
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_PLAYER);
 	ret->color = 0xFFFFFF;

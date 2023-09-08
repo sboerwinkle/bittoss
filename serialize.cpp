@@ -8,8 +8,8 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam3";
-#define VERSION 3
+static const char* version_string = "gam4";
+#define VERSION 4
 static int version; // TODO global state is bad, use a context object during deserialization
 
 static const int32_t dummyPos[3] = {0, 0, 0};
@@ -29,15 +29,16 @@ static const int32_t dummyR[3] = {1<<27, 1<<27, 1<<27};
 	/* We're not handling any of the fields related to pending changes, */\
 	/* so the serialization might not be totally faithful in the event */\
 	/* that something doesn't get flushed all the way (is that possible?)*/\
-	check(132); \
-	/* Don't remember right now if controls roll over between frames -*/\
-	/* for now we're not going to bother.*/\
-	handler(e->whoMoves, whoMovesHandlers); \
-	handler(e->tick, tickHandlers); \
-	handler(e->tickHeld, tickHandlers); \
-	handler(e->crush, crushHandlers); \
-	handler(e->push, pushHandlers); \
-	handler(e->pushed, pushedHandlers); \
+	handler(e->whoMoves, whoMovesHandlers, 0); \
+	handler(e->tick, tickHandlers, 1); \
+	handler(e->tickHeld, tickHandlers, 2); \
+	handler(e->crush, crushHandlers, 3); \
+	handler(e->push, pushHandlers, 4); \
+	handler(e->pushed, pushedHandlers, 5); \
+	handler(e->onPickUp, entPairHandlers, 6); \
+	handler(e->onPickedUp, entPairHandlers, 7); \
+	handler(e->onFumble, entPairHandlers, 8); \
+	handler(e->onFumbled, entPairHandlers, 9); \
 	check(133)
 
 static void write32Raw(list<char> *data, int offset, int32_t v) {
@@ -49,6 +50,13 @@ void write32(list<char> *data, int32_t v) {
 	data->setMaxUp(n + 4);
 	write32Raw(data, n, v);
 	data->num = n + 4;
+}
+
+int reserve32(list<char> *data) {
+	int n = data->num;
+	data->setMaxUp(n + 4);
+	data->num = n + 4;
+	return n;
 }
 
 static void writeEntRef(list<char> *data, ent *e) {
@@ -79,10 +87,17 @@ static char buttonByte(ent *e) {
 	return ret;
 }
 
+template <typename T>
+static int32_t writeHandler(list<char> *data, T x, catalog<T> *y, int bit) {
+	if (x == y->get(0)) return 0;
+	write32(data, y->reverseLookup(x));
+	return (int32_t)1 << bit;
+}
+
 static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 #define check(x) data->add(x)
 #define i32(x) write32(data, x)
-#define handler(x, y) write32(data, y.reverseLookup(x))
+#define handler(x, y, i) handlersBitfield |= writeHandler(data, x, &y, i)
 #define wire(w) write32(data, w->clone.ix)
 	check(128);
 	range(i, 3) i32(e->center[i] - c_offset[i]);
@@ -107,7 +122,13 @@ static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, cons
 		if (ix != -1) i32(ix);
 	}
 
+	check(132);
+
+	int handlersIx = reserve32(data);
+	int32_t handlersBitfield = 0;
 	processEnt(e);
+	write32Raw(data, handlersIx, handlersBitfield);
+
 	writeEntRef(data, e->holder);
 	i32(e->holdFlags);
 #undef wire
@@ -123,7 +144,6 @@ static void serializeEnts(ent *e, list<char> *data, const int32_t *c_offset, con
 }
 
 void writeHeader(list<char> *data) {
-	// First 8 bytes are 'gam0'
 	data->setMaxUp(data->num + 4);
 	memcpy(&(*data)[data->num], version_string, 4);
 	data->num += 4;
@@ -199,7 +219,7 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 
 #define check(x) checksum(data, ix, x)
 #define i32(x) x = read32(data, ix)
-#define handler(x, y) x = y.get(read32(data, ix))
+#define handler(x, y, i) if (handlersBitfield & (1 << i)) x = y.get(read32(data, ix))
 #define wire(x) x = ents[read32(data, ix)]
 	check(128);
 	range(i, 3) c[i] = read32(data, ix) + c_offset[i];
@@ -221,11 +241,12 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	check(130);
 	i32(e->color);
 	handleButtons(data, ix, e);
-	//flushCtrls(e);
 	range(i, e->numSliders) i32(e->sliders[i].v);
 	check(131);
 	range(i, numWires) wire(e->wires[i]);
 
+	check(132);
+	int32_t handlersBitfield = (version >= 4) ? read32(data, ix) : 63;
 	processEnt(e);
 #undef wire
 #undef i32
@@ -265,8 +286,9 @@ int verifyHeader(const list<char> *data, int *ix) {
 	}
 	*ix = 4;
 	int32_t numEnts = read32(data, ix);
-	if (data->num < numEnts * 80) {
-		// 80 isn't exact, and it doesn't have to be since we're careful when reading data out of that list.
+	if (data->num < numEnts * 60) {
+		// size multipler here isn't exact,
+		// and it doesn't have to be since we're careful when reading data out of that list.
 		// We just want a sanity check so we don't allocate 0x80808080 entities...
 		fputs("Not enough data in file to deserialize!\n", stderr);
 		return -1;

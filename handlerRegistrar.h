@@ -74,6 +74,7 @@ extern catalog<tick_t> tickHandlers;
 extern catalog<crush_t> crushHandlers;
 extern catalog<pushed_t> pushedHandlers;
 extern catalog<push_t> pushHandlers;
+extern catalog<entPair_t> entPairHandlers;
 
 enum {
 	WHOMOVES_NIL,
@@ -105,6 +106,7 @@ enum {
 	TICK_CURSED,
 	TICK_RESPAWN,
 	TICK_LEGG,
+	TICK_SEAT,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?
@@ -134,6 +136,15 @@ enum {
 	PUSH_NIL,
 	PUSH_PLAYER,
 	PUSH_LOGIC,
+	PUSH_SEAT,
 	PUSH_NUM
+};
+// Did you include your module in "modules.c"?
+
+enum {
+	ENTPAIR_NIL,
+	PICKUP_SEAT,
+	FUMBLE_SEAT,
+	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?
