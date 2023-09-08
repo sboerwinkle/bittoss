@@ -74,6 +74,8 @@ static char ctrlPressed = 0;
 static int wheelIncr = 100;
 static char mouseGrabbed = 0;
 
+static tick_t seat_tick;
+
 
 static int phys_micros = 0;
 static int draw_micros = 0;
@@ -118,13 +120,23 @@ pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
 static void outerSetupFrame(list<player> *ps) {
-	ent *p = (*ps)[myPlayer].entity;
-	float up, forward;
-	if (p && thirdPerson) {
-		up = 32*PTS_PER_PX;
-		forward = -64*PTS_PER_PX;
-	} else {
-		up = forward = 0;
+	ent *e = (*ps)[myPlayer].entity;
+	float up = 0, forward = 0;
+	if (e) {
+		ent *h = e->holder;
+		// Checking the values of handlers to determine type is sort of frowned upon for
+		// interactions between ents, but I think it's more fine for UI stuff
+		char piloting = (h && h->tick == seat_tick);
+		if (piloting) e = h; // This centers the camera on the seat
+		if (thirdPerson) {
+			if (piloting) {
+				up = getSlider(h, 0);
+				forward = -getSlider(h, 1);
+			} else {
+				up = 32*PTS_PER_PX;
+				forward = -64*PTS_PER_PX;
+			}
+		}
 	}
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
@@ -132,10 +144,10 @@ static void outerSetupFrame(list<player> *ps) {
 	// A) Nobody's complained about weirdness here
 	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
 	setupFrame(-activeInputs.basic.viewPitch, activeInputs.basic.viewYaw, up, forward);
-	if (p) {
-		frameOffset[0] = -p->center[0];
-		frameOffset[1] = -p->center[1];
-		frameOffset[2] = -p->center[2];
+	if (e) {
+		frameOffset[0] = -e->center[0];
+		frameOffset[1] = -e->center[1];
+		frameOffset[2] = -e->center[2];
 	} else {
 		frameOffset[0] = 0;
 		frameOffset[1] = -15000;
@@ -444,7 +456,8 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/tree", edit_selectHeldRecursive(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
 
-	cmd("/weight", edit_m_weight(gs, me));
+	cmd("/weight", edit_m_weight(gs, me, chatBuffer + 7));
+	cmd("/fpdraw", edit_m_fpdraw(gs, me, chatBuffer + 7));
 	cmd("/paper", edit_m_paper(gs, me));
 	cmd("/wood", edit_m_wood(gs, me));
 	cmd("/stone", edit_m_stone(gs, me));
@@ -465,7 +478,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/flip", edit_flip(gs, me));
 	cmd("/turn", edit_rotate(gs, me, verbose));
 	cmd("/scale", edit_scale(gs, me, chatBuffer + 6, verbose));
-	cmd("/scale!", edit_scale_force(gs, me, chatBuffer + 6, verbose));
+	cmd("/scale!", edit_scale_force(gs, me, chatBuffer + 7, verbose));
 
 	cmd("/pickup", edit_pickup(gs, me, chatBuffer + 7));
 	cmd("/drop", edit_drop(gs, me));
@@ -751,7 +764,7 @@ static void* pacedThreadFunc(void *_arg) {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		outerSetupFrame(&phantomPlayers);
-		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity;
+		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity->holdRoot;
 		doDrawing(phantomState, inhabit);
 		drawHud(&phantomPlayers);
 
@@ -1115,6 +1128,7 @@ int main(int argc, char **argv) {
 	frameData.init();
 	outboundData.init();
 	syncData.init();
+	seat_tick = tickHandlers.get(TICK_SEAT);
 
 	// Other general game setup, including networking
 	puts("Connecting to host...");

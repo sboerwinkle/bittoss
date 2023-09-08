@@ -311,13 +311,30 @@ void edit_rm(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_m_weight(gamestate *gs, ent *me) {
+static void typeFlag(gamestate *gs, ent *me, const char* argsStr, int32_t flag) {
 	if (!me) return;
 	getLists(me);
+	parseArgs(argsStr);
+	int mode = 2;
+	// Weird coincidence, both "weight" and "fpdraw" are expressed via the
+	// absence of a flag.
+	if (args.num) mode = !args[0];
 	range(i, a.num) {
 		ent *e = a[i];
-		uMyTypeMask(e, T_WEIGHTLESS ^ e->typeMask);
+		int32_t t = e->typeMask;
+		if (mode == 0) t &= ~flag;
+		else if (mode == 1) t |= flag;
+		else t ^= flag;
+		uMyTypeMask(e, t);
 	}
+}
+
+void edit_m_weight(gamestate *gs, ent *me, const char* argsStr) {
+	typeFlag(gs, me, argsStr, T_WEIGHTLESS);
+}
+
+void edit_m_fpdraw(gamestate *gs, ent *me, const char* argsStr) {
+	typeFlag(gs, me, argsStr, T_NO_DRAW_FP);
 }
 
 void edit_m_paper(gamestate *gs, ent *me) {
@@ -485,7 +502,7 @@ void edit_t_seat(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_SEAT);
 		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
 		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
-		setNumSliders(gs, e, 0);
+		setNumSliders(gs, e, 2);
 	}
 }
 

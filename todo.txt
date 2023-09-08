@@ -76,10 +76,9 @@ TODO:
 - Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
 - edit thumbtacks disappear in-flight if you clear their buffer
-- no_draw_fp should be independently editable, like weightlessness
-- weightlessness should accept an optional 1/0 arg, to override default toggle behavior
-- Seats should let you set a view distance when active
-	This is going to be messy and stretch the stupid "types and sliders" system to the limit of stupidity
+/ no_draw_fp should be independently editable, like weightlessness
+/ weightlessness should accept an optional 1/0 arg, to override default toggle behavior
+/ Seats should let you set a view distance when active
 / Figure out how the heck vehicles are going to work
 	I'd like to make "controls" (except for the clicky bits) go away
 		But that makes, like, aiming a vehicle be a whole hassle
