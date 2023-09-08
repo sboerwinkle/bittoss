@@ -34,6 +34,26 @@ static void eye_tick_held(gamestate *gs, ent *me) {
 	uCenter(me, vec);
 }
 
+static void vehicle_eye_tick_held(gamestate *gs, ent *me) {
+	int32_t vec[3] = {0, 0, 0};
+	int32_t tmp[3];
+	// It's assumed we're wired to a seat, which is wired to (at most) an ent w/ an axis
+	wiresAnyOrder(w, me) {
+		wiresAnyOrder(e, w) {
+			getAxis(tmp, e);
+			range(i, 2) vec[i] += tmp[i];
+		}
+	}
+
+	ent *p = me->holder;
+	getPos(tmp, p, me);
+	range(i, 3) {
+		vec[i] = vec[i] * p->radius[i] / axisMaxis - tmp[i];
+	}
+
+	uCenter(me, vec);
+}
+
 ent* mkEye(gamestate *gs, ent *parent) {
 	ent *ret = initEnt(
 		gs, parent,
@@ -53,4 +73,5 @@ ent* mkEye(gamestate *gs, ent *parent) {
 void module_eyes() {
 	tickHandlers.reg(TICK_EYE, eye_tick);
 	tickHandlers.reg(TICK_HELD_EYE, eye_tick_held);
+	tickHandlers.reg(TICK_HELD_VEH_EYE, vehicle_eye_tick_held);
 }

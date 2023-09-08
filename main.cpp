@@ -459,6 +459,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/legg", edit_t_legg(gs, me));
 	cmd("/respawner", edit_t_respawn(gs, me));
 	cmd("/seat", edit_t_seat(gs, me));
+	cmd("/veheye", edit_m_t_veh_eye(gs, me));
 
 	cmd("/copy", edit_copy(gs, me));
 	cmd("/flip", edit_flip(gs, me));
