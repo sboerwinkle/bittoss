@@ -16,7 +16,7 @@ extern void createDebris(gamestate *gs);
 
 #define RULE_HELP_STR "Rules available are:\n"\
 	"0 - enforce boundary\n"\
-	"1 - enforce boundary at double distance\n"\
+	"1 - enforce much bigger boundary\n"\
 	"2 - spawn incoming blocks\n"\
 	"3 - gravity\n"\
 	"4 - enforce lower boundary\n"\
