@@ -1,23 +1,6 @@
-
-extern void onTickDefault(ent *me);
-
-extern void onTickHeldDefault(ent *me);
+#define DEFAULT_FRICTION 4
 
 extern int tickTypeDefault(ent *a, ent *b);
-
-extern void onDrawDefault(ent *me, int layer);
-
-extern void onCrushDefault(ent *me);
-
-extern void onPushedDefault(ent *cd, ent *me, ent *leaf, ent *him);
-
-extern void onFumbleDefault(ent *me, ent *him);
-
-extern void onFumbledDefault(ent *me);
-
-extern void onPickUpDefault(ent *me, ent *him);
-
-extern void onPickedUpDefault(ent *me, ent *him);
 
 extern char okayFumbleDefault(ent *me);
 

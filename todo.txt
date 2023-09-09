@@ -75,6 +75,11 @@ TODO:
 	- randomizer
 - Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
+	- Rework leggs
+. friction configurable
+- Make Escort Cube
+- factory
+- soccer 2.0
 / edit thumbtacks disappear in-flight if you clear their buffer
 / no_draw_fp should be independently editable, like weightlessness
 / weightlessness should accept an optional 1/0 arg, to override default toggle behavior

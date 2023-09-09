@@ -532,7 +532,7 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	// We know one of the components is 0 at this point,
 	// so we could just `boundVec` the other two, but rearranging them to always be contiguous
 	// probably isn't worth the effort
-	boundVec(dv, 4, 3);
+	boundVec(dv, e->friction, 3);
 
 	// Velocity transfer in the direction of the collision
 	int32_t accel = (o->vel[axis] - e->vel[axis])*dir;

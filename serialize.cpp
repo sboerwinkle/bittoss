@@ -127,6 +127,10 @@ static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, cons
 	int handlersIx = reserve32(data);
 	int32_t handlersBitfield = 0;
 	processEnt(e);
+	if (e->friction != DEFAULT_FRICTION) {
+		handlersBitfield |= (1<<31);
+		i32(e->friction);
+	}
 	write32Raw(data, handlersIx, handlersBitfield);
 
 	writeEntRef(data, e->holder);
@@ -248,6 +252,9 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	check(132);
 	int32_t handlersBitfield = (version >= 4) ? read32(data, ix) : 63;
 	processEnt(e);
+	if (handlersBitfield & (1<<31)) {
+		i32(e->friction);
+	}
 #undef wire
 #undef i32
 #undef handler

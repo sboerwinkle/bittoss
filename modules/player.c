@@ -81,14 +81,6 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 		// It won't report as 0 yet, because the collision isn't finished,
 		// but we know it will be 0.
 		vel[axis] = 0;
-		// A little boost, to make up for friction.
-		// Most of the actual moving we do in the tick handler (so it's centralized),
-		// but friction is applied per collision (e.g. 2x in corners) so we counter it
-		// per collision as well.
-		int32_t up[3];
-		up[0] = up[1] = 0;
-		up[2] = -3;
-		uVel(me, up);
 	}
 	uSlider(me, s_vel, vel[0]);
 	uSlider(me, s_vel1, vel[1]);
@@ -162,9 +154,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	}
 	// In the air, our efforts only yield half the impulse
 	int divisor = grounded ? 1 : 2;
-	boundVec(vel, 28 / divisor, 2);
-	vel[0] /= 2;
-	vel[1] /= 2;
+	boundVec(vel, 14 / divisor, 2);
 	range(i, 2) {
 		uSlider(me, s_vel + i, sliders[i] + vel[i]*divisor);
 	}
@@ -277,6 +267,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	ret->pushed = pushedHandlers.get(PUSHED_PLAYER);
 	ret->push = pushHandlers.get(PUSH_PLAYER);
 	ret->tick = tickHandlers.get(TICK_PLAYER);
+	ret->friction = 0;
 	return ret;
 }
 

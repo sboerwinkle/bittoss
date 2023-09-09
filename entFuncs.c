@@ -5,7 +5,7 @@
 #include "main.h"
 #include "handlerRegistrar.h"
 
-// TODO I think a lot of these defaults can go away
+#include "entFuncs.h"
 
 int tickTypeDefault(ent *a, ent *b) {return 1;}
 
@@ -58,6 +58,7 @@ void initEnt(
 	e->tickHeld = NULL;
 	e->tickType = tickTypeDefault;
 	e->color = -1;
+	e->friction = DEFAULT_FRICTION;
 	e->crush = NULL;
 	e->push = defaultPush;
 	e->pushed = NULL;

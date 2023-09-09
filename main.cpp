@@ -458,6 +458,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 
 	cmd("/weight", edit_m_weight(gs, me, chatBuffer + 7));
 	cmd("/fpdraw", edit_m_fpdraw(gs, me, chatBuffer + 7));
+	cmd("/friction", edit_m_friction(gs, me, chatBuffer + 9));
 	cmd("/paper", edit_m_paper(gs, me));
 	cmd("/wood", edit_m_wood(gs, me));
 	cmd("/stone", edit_m_stone(gs, me));

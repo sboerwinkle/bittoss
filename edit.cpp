@@ -337,6 +337,16 @@ void edit_m_fpdraw(gamestate *gs, ent *me, const char* argsStr) {
 	typeFlag(gs, me, argsStr, T_NO_DRAW_FP);
 }
 
+void edit_m_friction(gamestate *gs, ent *me, const char* argsStr) {
+	if (!me) return;
+	getLists(me);
+	parseArgs(argsStr);
+	int32_t f = args.num ? args[0] : DEFAULT_FRICTION;
+	range(i, a.num) {
+		a[i]->friction = f;
+	}
+}
+
 void edit_m_paper(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
