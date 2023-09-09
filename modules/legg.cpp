@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <math.h>
 
 #include "../util.h"
 #include "../ent.h"
@@ -9,6 +8,8 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "common.h"
+
 // Maybe this should be common?
 static int32_t max(int32_t a, int32_t b) {
 	// I'm being fancy here, maybe I should be dumb instead
@@ -17,31 +18,6 @@ static int32_t max(int32_t a, int32_t b) {
 static int32_t min(int32_t a, int32_t b) {
 	// I'm being fancy here, maybe I should be dumb instead
 	return (a + b - abs(a-b)) / 2;
-}
-
-static int32_t getApproachSpeed(int32_t d, int32_t a) {
-	// Avoid floating point exceptions (divide-by-zero, or negative sqrt).
-	// `d == 0` is actually okay, but we know the answer is 0 in that case anyway.
-	if (a <= 0 || d <= 0) return 0;
-
-	// If it decelerates at rate `a` on every subsequent turn,
-	// a velocity of `n*a+r` will come to rest in `n*(n+1)/2*a + r*(n+1)` units.
-	// The trick here is reversing `n*(n+1)/2`... Solve for x:
-	// x*(x+1)/2 = q
-	// x^2 + x = 2*q
-	// x^2 + x - 2*q = 0
-	// quadratic formula, a=1,b=1,c=-2q
-	// (-1 +- sqrt(1+8q)) / 2
-	// There will always be a negative and non-negative root here, we always want the non-negative one.
-	// We also want it truncated to an integer. We also don't lose anything by immediately truncating
-	// the result of `sqrt` to an integer - since we're scaling it down by 2 anyway, the fractional part
-	// only gets smaller (and stays < 1)
-
-	int32_t q = d / a;
-	int32_t n = (((int32_t)sqrt(1 + 8*q)) - 1) / 2;
-	// Now that we know the true value of `n`, we just solve for `r` in our original expression for stopping distance.
-	int32_t r = (d - n*(n+1)/2*a)/(n+1);
-	return n*a + r;
 }
 
 static void legg_tick(gamestate *gs, ent *me) {

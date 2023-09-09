@@ -459,7 +459,7 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		setNumSliders(gs, e, 3);
+		setNumSliders(gs, e, 2);
 	}
 }
 

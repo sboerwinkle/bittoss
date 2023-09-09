@@ -8,6 +8,8 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 
+#include "common.h"
+
 static void door_tick(gamestate *gs, ent *me) {
 	if (!me->wires.num) return;
 	int32_t pos[3], vel[3], tmp[3];
@@ -36,8 +38,8 @@ static void door_tick(gamestate *gs, ent *me) {
 	if (!numActive) numActive = me->wires.num;
 	int32_t speed = getSlider(me, 0);
 	int32_t accel = getSlider(me, 1);
-	int32_t ease = getSlider(me, 2);
-	if (ease > 1) range(i, 3) pos[i] = pos[i] / ease + (pos[i] > 0 ? 1 : (pos[i] < 0 ? -1 : 0));
+	int32_t dist = getMagnitude(pos, 3);
+	if (dist && getStoppingDist(speed, accel) > dist) speed = getApproachSpeed(dist, accel);
 	boundVec(pos, speed, 3);
 	// `pos` is now my desired velocity
 	range(i, 3) vel[i] = pos[i] + vel[i];
