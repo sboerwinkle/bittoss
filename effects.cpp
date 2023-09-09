@@ -147,7 +147,7 @@ void createDebris(gamestate *gs) {
 				T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
 			);
 			// Make it more platform-y
-			e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
+			e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 			e->color = color;
 		}
 	}

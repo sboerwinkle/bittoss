@@ -461,6 +461,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/paper", edit_m_paper(gs, me));
 	cmd("/wood", edit_m_wood(gs, me));
 	cmd("/stone", edit_m_stone(gs, me));
+	cmd("/metal", edit_m_metal(gs, me));
 	cmd("/wall", edit_m_wall(gs, me));
 	cmd("/ghost", edit_m_ghost(gs, me));
 

@@ -8,10 +8,6 @@
 
 #include "platform.h"
 
-static int platform_whoMoves(ent *a, ent *b, int axis, int dir) {
-	return (type(b) & T_TERRAIN) ? MOVE_ME : MOVE_HIM;
-}
-
 const int32_t platformSize[3] = {3200, 3200, 512};
 
 static void platform_tick(gamestate *gs, ent *me) {
@@ -44,9 +40,9 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, int32_t color) {
 		gs, owner,
 		pos, owner->vel, platformSize,
 		0,
-		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, T_TERRAIN
+		T_TERRAIN + T_WEIGHTLESS, T_TERRAIN
 	);
-	e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
+	e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	e->tick = tickHandlers.get(TICK_PLATFORM);
 	e->crush = crushHandlers.get(CRUSH_PLATFORM);
 	e->color = color;
@@ -55,7 +51,7 @@ ent* mkPlatform(gamestate *gs, ent *owner, int32_t *offset, int32_t color) {
 }
 
 void module_platform() {
-	whoMovesHandlers.reg(WHOMOVES_PLATFORM, platform_whoMoves);
+	whoMovesHandlers.reg(WHOMOVES_PLATFORM, whoMovesHandlers.get(WHOMOVES_ME));
 	tickHandlers.reg(TICK_PLATFORM, platform_tick);
 	crushHandlers.reg(CRUSH_PLATFORM, platform_crush);
 }

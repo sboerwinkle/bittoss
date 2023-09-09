@@ -364,7 +364,18 @@ void edit_m_stone(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
+		uMyTypeMask(e, T_TERRAIN + (e->typeMask & T_WEIGHTLESS));
+		uMyCollideMask(e, T_TERRAIN);
+	}
+}
+
+void edit_m_metal(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_METAL);
 		uMyTypeMask(e, T_TERRAIN + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN);
 	}
@@ -388,7 +399,7 @@ void edit_m_ghost(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.get(WHOMOVES_PLATFORM);
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
 	}

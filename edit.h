@@ -10,6 +10,7 @@ extern void edit_m_fpdraw(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_m_paper(gamestate *gs, ent *me);
 extern void edit_m_wood(gamestate *gs, ent *me);
 extern void edit_m_stone(gamestate *gs, ent *me);
+extern void edit_m_metal(gamestate *gs, ent *me);
 extern void edit_m_wall(gamestate *gs, ent *me);
 extern void edit_m_ghost(gamestate *gs, ent *me);
 extern void edit_t_dumb(gamestate *gs, ent *me);
