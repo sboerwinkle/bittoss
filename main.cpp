@@ -764,8 +764,11 @@ static void* pacedThreadFunc(void *_arg) {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		outerSetupFrame(&phantomPlayers);
-		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity->holdRoot;
+
+		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity;
+		if (inhabit) inhabit = inhabit->holdRoot;
 		doDrawing(phantomState, inhabit);
+
 		drawHud(&phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
