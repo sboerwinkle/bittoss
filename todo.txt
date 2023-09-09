@@ -76,8 +76,8 @@ TODO:
 - Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
 	- Rework leggs
-. friction configurable
-- Make Escort Cube
+/ friction configurable
+/ Make Escort Cube
 - factory
 - soccer 2.0
 / edit thumbtacks disappear in-flight if you clear their buffer
