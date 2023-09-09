@@ -108,6 +108,7 @@ enum {
 	TICK_LEGG,
 	TICK_SEAT,
 	TICK_HELD_VEH_EYE,
+	TICK_THUMBTACK,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

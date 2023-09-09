@@ -26,6 +26,15 @@ static void thumbtack_tick_held(gamestate *gs, ent *me) {
 	uDead(gs, me);
 }
 
+static void thumbtack_tick(gamestate *gs, ent *me) {
+	if (!me->wires.num) uDead(gs, me);
+	wiresAnyOrder(w, me) {
+		if (getButton(w, 1) && getTrigger(w, getSlider(me, 0))) {
+			uDead(gs, me);
+		}
+	}
+}
+
 static void bauble_tick_held(gamestate *gs, ent *me) {
 	if (me->wires.num != 1) {
 		uDrop(gs, me);
@@ -90,6 +99,7 @@ ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 	ret->color = 0x00FF33;
 	ret->pushed = pushedHandlers.get(PUSHED_THUMBTACK);
 	ret->tickHeld = tickHandlers.get(TICK_HELD_THUMBTACK);
+	ret->tick = tickHandlers.get(TICK_THUMBTACK);
 	// TODO: This is not how wires are supposed to be updated!
 	//       Direct updates make the game flow more dependent on the internal ordering of objects,
 	//       even if they won't cause desynchronization. It's fine in this case since it's freshly created.
@@ -107,4 +117,5 @@ void module_edittool() {
 
 	pushedHandlers.reg(PUSHED_THUMBTACK, thumbtack_pushed);
 	tickHandlers.reg(TICK_HELD_THUMBTACK, thumbtack_tick_held);
+	tickHandlers.reg(TICK_THUMBTACK, thumbtack_tick);
 }

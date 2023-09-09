@@ -75,7 +75,7 @@ TODO:
 	- randomizer
 - Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
-- edit thumbtacks disappear in-flight if you clear their buffer
+/ edit thumbtacks disappear in-flight if you clear their buffer
 / no_draw_fp should be independently editable, like weightlessness
 / weightlessness should accept an optional 1/0 arg, to override default toggle behavior
 / Seats should let you set a view distance when active
