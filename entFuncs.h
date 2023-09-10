@@ -6,6 +6,8 @@ extern char okayFumbleDefault(ent *me);
 
 extern char okayFumbleHimDefault(ent *me, ent *him);
 
+extern void prepNewSliders(ent *e);
+
 extern ent *initEnt(
 	gamestate *gs,
 	ent *relative,

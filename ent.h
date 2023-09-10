@@ -48,7 +48,6 @@ Physics loop
 */
 
 struct ent;
-struct entRef;
 struct gamestate;
 
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
@@ -194,7 +193,6 @@ extern void boundVec(int32_t *values, int32_t bound, int32_t len);
 
 extern void flushCtrls(ent *e);
 extern void flushPickups(gamestate *gs);
-extern void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel);
 
 //extern void moveRecursive(ent *who, int32_t *vel);
 

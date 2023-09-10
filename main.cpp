@@ -487,6 +487,8 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/wire", edit_wire(gs, me));
 	cmd("/unwire", edit_unwire(gs, me));
 
+	cmd("/factory", edit_factory(gs, me));
+
 	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
 	cmd("/p", edit_push(gs, me, chatBuffer + 2));
 	cmd("/s", edit_stretch(gs, me, chatBuffer + 2, verbose));
@@ -675,8 +677,9 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 	//   so it has to be between tick handlers and velocity flush / collisions.
 	// More specifically, flushing pickups / drops changes which ents are rootEnts (and are eligible for gravity),
 	//   so it has to be between pickup flush and velocity flush.
-	//   This leaves a single correct point for gravity to apply, unless we go shuffling around basic stuff.
-	// The division between prepPhysics and doPhysics is specifically so we can do stuff in that gap.
+	// Things also get weird if changes to weightlessness take effect on a different frame than changes in collisions,
+	//   so it has to be after flushing typeMask / collideMask.
+	// This doesn't leave a lot of space for where gravity has to go.
 	if (state->gamerules & EFFECT_GRAV) doGravity(state);
 
 	doPhysics(state); 

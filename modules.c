@@ -28,6 +28,7 @@
 #include "modules/metal.h"
 #include "modules/respawn.h"
 #include "modules/seat.h"
+#include "modules/factory.h"
 
 void initMods() {
 	module_common();
@@ -46,4 +47,5 @@ void initMods() {
 	module_metal();
 	module_respawn();
 	module_seat();
+	module_factory();
 }

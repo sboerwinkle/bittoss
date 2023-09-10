@@ -15,6 +15,7 @@
 #include "serialize.h"
 
 #include "modules/player.h"
+#include "modules/factory.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -44,12 +45,13 @@ static void radiusFix(ent *e) {
 static void setNumSliders(gamestate *gs, ent *e, int sliders) {
 	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
 	int oldSliders = e->numSliders;
+	e->numSliders = sliders;
 	if (sliders > oldSliders) {
 		// Reset all the sliders we added
 		bzero(e->sliders + oldSliders, sizeof(slider) * (sliders - oldSliders));
-		flushMisc(gs, e, zeroVec, zeroVec);
+		// This actually resets min/max on all sliders, may need to work on the name
+		prepNewSliders(e);
 	}
-	e->numSliders = sliders;
 }
 
 static char getLists(ent *e) {
@@ -840,6 +842,104 @@ void edit_unwire(gamestate *gs, ent *me) {
 			uUnwire(e2, e);
 		}
 	}
+}
+
+void edit_factory(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	range(i, a.num) {
+		ent *e = a[i];
+		// Move all extant sliders to the end
+		int oldSliders = e->numSliders;
+		setNumSliders(gs, e, oldSliders + FACT_SLIDERS);
+		for (int j = oldSliders - 1; j >= 0; j--) {
+			uSlider(e, j + FACT_SLIDERS, getSlider(e, j));
+		}
+
+		uSlider(e, FACT_VERSION, 0);
+
+		int32_t vel[3];
+		ent *h = e->holder;
+		if (h) {
+			getVel(vel, h, e);
+			range(j, 3) e->vel[j] = h->vel[j];
+		} else {
+			range(j, 3) vel[j] = 0;
+		}
+		range(j, 3) uSlider(e, FACT_VEL + j, vel[j]);
+
+		uSlider(e, FACT_TYPE, e->typeMask);
+		uSlider(e, FACT_COLLIDE, e->collideMask);
+		uMyTypeMask(e, T_WEIGHTLESS);
+		uMyCollideMask(e, 0);
+
+		uSlider(e, FACT_COLOR, e->color);
+		e->color = 0x808080;
+
+		int32_t misc = 0;
+		if (a.has(h)) misc |= FACT_MISC_HOLD;
+		range(j, 4) {
+			// Since buttons are flushed between "now" and the tick handlers,
+			// we have to look at the future value of these guys.
+			// Relatedly, we don't want any previous button presses going to the
+			// new factory logic.
+			if (e->ctrl.btns[j].v2) {
+				e->ctrl.btns[j].v2 = 0;
+				misc |= (1 << j);
+			}
+		}
+		uSlider(e, FACT_MISC, misc);
+
+		// Now all the handlers... oof.
+		// Tempting to leave e.g. push/pushed intact on the factory,
+		// but there's no guarantee it'll stay as a ghost so we might need those.
+		uSlider(e, FACT_WHOMOVES, whoMovesHandlers.reverseLookup(e->whoMoves));
+		uSlider(e, FACT_TICK, tickHandlers.reverseLookup(e->tick));
+		uSlider(e, FACT_TICKHELD, tickHandlers.reverseLookup(e->tickHeld));
+		uSlider(e, FACT_CRUSH, crushHandlers.reverseLookup(e->crush));
+		uSlider(e, FACT_PUSH, pushHandlers.reverseLookup(e->push));
+		uSlider(e, FACT_PUSHED, pushedHandlers.reverseLookup(e->pushed));
+		uSlider(e, FACT_FUMBLE, entPairHandlers.reverseLookup(e->onFumble));
+		uSlider(e, FACT_FUMBLED, entPairHandlers.reverseLookup(e->onFumbled));
+		uSlider(e, FACT_PICKUP, entPairHandlers.reverseLookup(e->onPickUp));
+		uSlider(e, FACT_PICKEDUP, entPairHandlers.reverseLookup(e->onPickedUp));
+
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
+		e->tick = tickHandlers.get(TICK_FACTORY);
+		e->tickHeld = tickHandlers.get(TICK_FACTORY);
+		e->crush = crushHandlers.get(CRUSH_NIL);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onPickedUp = entPairHandlers.get(ENTPAIR_NIL);
+
+		// We have to go through all this rigamarole for wires
+		// because the new factory uses wires to keep track of
+		// what it's creating, so old wires have to be handled
+		// actually by a different ent
+		ent *wireFactory = NULL;
+		wiresAnyOrder(w, e) {
+			if (!a.has(w)) continue;
+			if (!wireFactory) {
+				wireFactory = mkFactoryWires(gs, e);
+				player_toggleBauble(gs, me, wireFactory, 0);
+			}
+			uWire(wireFactory, w);
+		}
+		e->wires.num = 0;
+
+		// d_vel, d_center, and others could potentially have pending updates,
+		// which would then be wrongly applied to the factory.
+		// That is probably pretty unlikely based on where we are in the cycle, however.
+		// More concerning is potential wires pointed to the factory'd ents.
+		//
+		// I could make new ents for the factory, rather than converting old ones,
+		// which would resolve these issues but require effort to reconstruct the holds + wire destinations.
+	}
+	fixNewBaubles(gs);
 }
 
 void edit_highlight(gamestate *gs, ent *me) {

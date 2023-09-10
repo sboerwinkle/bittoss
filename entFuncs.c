@@ -20,6 +20,13 @@ char okayFumbleHimDefault(ent *me, ent *him) {
 static push_t defaultPush;
 static entPair_t defaultEntPair;
 
+void prepNewSliders(ent *e) {
+	range(i, e->numSliders) {
+		e->sliders[i].max = INT32_MIN;
+		e->sliders[i].min = INT32_MAX;
+	}
+}
+
 void initEnt(
 	ent *e,
 	gamestate *gs,
@@ -44,10 +51,7 @@ void initEnt(
 
 	e->numSliders = numSliders;
 	e->sliders = (slider*) calloc(numSliders, sizeof(slider));
-	range(i, numSliders) {
-		e->sliders[i].max = INT32_MIN;
-		e->sliders[i].min = INT32_MAX;
-	}
+	prepNewSliders(e);
 
 	memcpy(e->center, c, sizeof(e->center));
 	memcpy(e->vel, v, sizeof(e->vel));

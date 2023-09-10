@@ -618,13 +618,16 @@ static void doTick(gamestate *gs, ent *e, int type) {
 	}
 }
 
-void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
+static void flushMisc(gamestate *gs, ent *e) {
 	if (e->fullFlush) {
 		e->fullFlush = 0;
 		range(i, e->numSliders) {
 			//sliders are "sticky", i.e. don't reset if left alone
 			if (e->sliders[i].max < e->sliders[i].min) continue;
-			e->sliders[i].v = (e->sliders[i].max + e->sliders[i].min)/2;
+			// Turns out getting the average of two int32_t's is actually
+			// kind of involved if you're worried about overflow, especially
+			// if you want consistent rounding behavior. int64_t handles this fine.
+			e->sliders[i].v = ((int64_t)e->sliders[i].max + e->sliders[i].min)/2;
 			e->sliders[i].max = INT32_MIN;
 			e->sliders[i].min = INT32_MAX;
 		}
@@ -655,6 +658,9 @@ void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int3
 		}
 	}
 	e->wiresRm.num = 0;
+}
+
+static void flushPosVel(gamestate *gs, ent *e, const int32_t *parent_d_center, const int32_t *parent_d_vel) {
 
 	range(i, 3) {
 		e->d_center[i] += parent_d_center[i];
@@ -666,7 +672,7 @@ void flushMisc(gamestate *gs, ent *e, const int32_t *parent_d_center, const int3
 
 	ent *c;
 	for (c = e->holdee; c; c = c->LL.n) {
-		flushMisc(gs, c, e->d_center, e->d_vel);
+		flushPosVel(gs, c, e->d_center, e->d_vel);
 	}
 	range(i, 3) {
 		e->d_center[i] = 0;
@@ -724,13 +730,14 @@ static void flush1(gamestate *gs) {
 	//or a death could schedule an add and a pickup for this guy on that add.
 	//flushAdds();
 	flushDrops(gs);
-	flushPickups(gs); // Pickups has to happen before these others because it's fairly likely that it will influence some of them.
+	flushPickups(gs); // Pickups has to happen before flushPosVel because it's fairly likely that it will influence some of that.
+	for (ent *e = gs->ents; e; e = e->ll.n) flushMisc(gs, e);
 }
 
 static void flush2(gamestate *gs) {
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
-		flushMisc(gs, i, zeroVec, zeroVec);
+		flushPosVel(gs, i, zeroVec, zeroVec);
 	}
 }
 

@@ -36,6 +36,7 @@ extern void edit_pickup(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_drop(gamestate *gs, ent *me);
 extern void edit_wire(gamestate *gs, ent *me);
 extern void edit_unwire(gamestate *gs, ent *me);
+extern void edit_factory(gamestate *gs, ent *me);
 extern void edit_highlight(gamestate *gs, ent *me);
 extern void edit_measure(gamestate *gs, ent *me);
 extern void edit_import(gamestate *gs, ent *me, list<char> *data);
