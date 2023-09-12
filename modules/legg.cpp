@@ -12,120 +12,110 @@
 
 // Maybe this should be common?
 static int32_t max(int32_t a, int32_t b) {
-	// I'm being fancy here, maybe I should be dumb instead
+	// I'm being fancy here, maybe I should be dumb instead.
+	// This won't work on sufficiently large numbers as `a-b` overflows.
 	return (a + b + abs(a-b)) / 2;
 }
 static int32_t min(int32_t a, int32_t b) {
-	// I'm being fancy here, maybe I should be dumb instead
+	// I'm being fancy here, maybe I should be dumb instead.
+	// This won't work on sufficiently large numbers as `a-b` overflows.
 	return (a + b - abs(a-b)) / 2;
 }
 
-static void legg_tick(gamestate *gs, ent *me) {
-	if (!me->holder) return;
-
-	int32_t v_offset = getSlider(me, 0);
-	int32_t max_speed = getSlider(me, 1);
-	int32_t max_accel = getSlider(me, 2);
-	int32_t height = getSlider(me, 3);
-	int32_t v_accel_limit = getSlider(me, 4);
-	int32_t state = getSlider(me, 5);
-	// State: 0 - reset; 1 - propel (no contact); 2 - propel (contact)
-
-	int32_t v1[3] = {0, 0, 0}, vel[3], acc[3];
-	// v1  - initially will be our desired offset from current position.
-	// vel - eventually, our current velocity
-	// acc - eventually, our desired acceleration
-
-	// Some things are reversed based on if the legg is coming or going
-	int flip;
-	if (state) {
-		flip = -1;
-	} else {
-		flip = 1;
-		height *= -1;
-	}
-
-	if (state != 2) {
-		// When not in contact, we give the leg some extra oomf.
-		// This helps multi-leg walk cycles smooth out to optimum,
-		// since legs just "following along" will fall out of sync faster.
-		max_accel += (max_accel+1) / 2;
-	}
-
+// `out` should have 2 elements, doesn't need to be initialized.
+static char getInput(ent *me, int32_t *out) {
+	out[0] = out[1] = 0;
+	int32_t tmp[3];
 	// We are expecting exactly one wire, and for wired ent to have a holder.
 	// This will still behave predictably if that doesn't hold, however.
 	wiresAnyOrder(w, me) {
 		if (!w->holder) continue;
-		// We're abusing `vel` since it's a vector we have handy.
-		// Don't worry, it'll actually represent velocity in a sec.
-		getPos(vel, w->holder, w);
-		range(i, 2) v1[i] += vel[i];
+		getPos(tmp, w->holder, w);
+		range(i, 2) out[i] += tmp[i];
 	}
-	char hasInput = 0; // We'll need this later
-	// Abusing `vel` again...
+	range(i, 2) if (out[i]) return 1;
+	return 0;
+}
+
+static void move(ent *me, int32_t *v1, int32_t s, int32_t a, int32_t v_s, int32_t v_a, int32_t tread) {
+	int32_t vel[3], acc[3];
+
+	// `vel` will be the actual velocity in a sec, but we need to borrow it
 	getPos(vel, me, me->holder);
-	range(i, 2) {
-		if (v1[i]) hasInput = 1;
-		v1[i] = vel[i] + flip * v1[i];
+	range(i, 3) {
+		v1[i] += vel[i];
 	}
-	v1[2] = vel[2];
+	// v1 has been transformed from goal position to goal offset
 
 	// Okay now `vel` is actually the vel
 	getVel(vel, me->holder, me);
 
 	int32_t dist = max(abs(v1[0]), abs(v1[1]));
-	int32_t speed_limit = min(max_speed, getApproachSpeed(dist, max_accel));
+	if (dist) s = min(s, getApproachSpeed(dist, a));
 
-	boundVec(v1, speed_limit, 2);
+	boundVec(v1, s, 2);
 	// `v1` is now my desired velocity, though v1[2] is still the goal offset
 
 	range(i, 2) acc[i] = v1[i] - vel[i];
-	boundVec(acc, max_accel, 2);
+	boundVec(acc, a, 2);
 
 	// Haven't been messing with the vertical components of our vectors yet, time to figure that out
-	int32_t old_speed = max(abs(vel[0]), abs(vel[1]));
 	int32_t new_speed = max(abs(vel[0] + acc[0]), abs(vel[1] + acc[1]));
+	// Remember, v1[2] is still a goal offset.
 	// This could be int overflow if we get titanically sized walkers, would have to go to int64_t
-	int32_t goal_height = height * new_speed / max_speed;
-	int32_t goal_climb = height * (new_speed - old_speed) / max_speed;
-	// v1[2] is still a goal offset, not a goal velocity
-	v1[2] += goal_height + v_offset;
-	// Unlike the horizontal motion, our destination may not be stationary (goal_climb),
-	// and we don't impose any restriction on our rate of climb (just acceleration).
-	// We do still want to calculate how fast we can go without overshooting, though.
-	int32_t v_speed = getApproachSpeed(abs(v1[2]), v_accel_limit);
+	if (s) v1[2] += tread * new_speed / s;
+	// We can skip this one if we're already at the goal elevation, which saves on `sqrt`s
+	if (v1[2]) v_s = min(v_s, getApproachSpeed(abs(v1[2]), v_a));
 	// Finish converting v1[2] from a desired offset to a desired velocity
-	v1[2] = goal_climb + (v1[2] > 0 ? v_speed : -v_speed);
-	acc[2] = bound(v1[2] - vel[2], v_accel_limit);
-	//printf("dist: %d; desired speed: %d; old speed: %d; new speed: %d\n", dist, speed_limit, old_speed, new_speed);
+	v1[2] = bound(v1[2], v_s);
+	acc[2] = bound(v1[2] - vel[2], v_a);
 
 	uVel(me, acc);
-
-	char complete = !dist && !new_speed;
-	// Now that that's out of the way...
-	// We need to determine our state transition.
-	// nonzero: propel. Flips when we *were* in contact (early reset) or the state is complete.
-	//                  Note that even if we try to leave "propel" state, we are set back before next
-	//                  tick if we're still in contact, so effectively we only leave once out of contact.
-	//    zero: reset.  Flips when state is complete (and we have a non-zero input, to avoid flipping every frame)
-	if (state) {
-		if (state == 2 || complete) {
-			uSlider(me, 5, 0);
-		}
-	} else {
-		if (complete && hasInput) {
-			uSlider(me, 5, 1);
-		}
-	}
 }
 
-static char legg_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	// Force this legg into "pushed (contact)" state
-	uSlider(me, 5, 2);
-	return 0;
+static void legg_tick(gamestate *gs, ent *me) {
+	if (!me->holder) return;
+
+	int32_t counter = getSlider(me, 0);
+	int32_t height = getSlider(me, 1);
+	int32_t stepHeight = getSlider(me, 2);
+	int32_t tread = getSlider(me, 3);
+	int32_t s = getSlider(me, 4);
+	int32_t a = getSlider(me, 5);
+	int32_t time = getSlider(me, 6);
+	int32_t v_time = getSlider(me, 7);
+
+	int32_t v1[3];
+	char hasInput = getInput(me, v1);
+	if (hasInput) {
+		counter++;
+		int32_t half = time + v_time;
+		while (counter >= 2*half) counter -= 2*half;
+		uSlider(me, 0, counter);
+
+		if (counter >= time) {
+			// phase 2,3,4: no tread.
+			tread = 0;
+			if (counter < half + time) {
+				// phase 2,3: legg goes high
+				height -= stepHeight;
+			}
+		}
+
+		if (counter < half) { // Phase 1 & 2, the foot goes backwards (so we go forwards)
+			range(i, 2) v1[i] *= -1;
+		}
+	} else {
+		// If no input, don't advance the counter, just have the leggs to go resting position.
+		// With no tread, which legg stays in contact is dependent on gross physics engine arbitration,
+		// but I'm not sure if we actually want to mess with like using a reverse tread or something here.
+		// KISS for now
+		tread = 0;
+	}
+	v1[2] = height;
+	move(me, v1, s, a, s, a, tread);
 }
 
 void module_legg() {
 	tickHandlers.reg(TICK_LEGG, legg_tick);
-	pushedHandlers.reg(PUSHED_LEGG, legg_pushed);
 }

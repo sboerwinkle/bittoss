@@ -132,7 +132,7 @@ enum {
 	PUSHED_THUMBTACK,
 	PUSHED_PLAYER,
 	PUSHED_gap2, // Unused
-	PUSHED_LEGG,
+	PUSHED_gap3,
 	PUSHED_NUM
 };
 // Did you include your module in "modules.c"?
