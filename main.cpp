@@ -584,12 +584,15 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 					printf("Game rule %d is now %s\n", rule, (gs->gamerules & mask) ? "ON" : "OFF");
 				}
 			} else if (isMe && isReal) {
-				puts(RULE_HELP_STR);
-				range(i, 7) {
-					putchar((gs->gamerules & (1<<i)) ? 'X' : '.');
+				char const * const * line = rulesHelp;
+				puts(*line++);
+				int32_t test = 1;
+				while (*line && test > 0) {
+					putchar((gs->gamerules & test) ? 'X' : '.');
+					putchar(' ');
+					puts(*line++);
+					test *= 2;
 				}
-				putchar('\n');
-				printf("Editing is %s\n", (gs->gamerules & RULE_EDIT) ? "ON" : "OFF");
 			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
 			int32_t color = edit_color(p->entity, chatBuffer + 3, !!(gs->gamerules & RULE_EDIT));

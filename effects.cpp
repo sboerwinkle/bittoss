@@ -8,11 +8,29 @@
 #include "handlerRegistrar.h"
 #include "colors.h"
 
+#include "effects.h"
+
 /*
 This file is intended to be world-level effects that are applied every tick.
-Probably at some point these will go into a registry (like the whoMoves handlers & co)
-so that they can be serialized.
+It also holds the help text of other game-level rules, even if there isn't a corresponding per-tick handler.
+For now they're serialized as a bitfield, so we're limited to 32 max...
 */
+
+char const * const rulesHelp[13] = {
+	"Rules available are:",
+	"0 - enforce boundary",
+	"1 - enforce much bigger boundary",
+	"2 - spawn incoming blocks",
+	"3 - gravity",
+	"4 - enforce lower boundary",
+	"5 - boundary that reflects platforms",
+	"6 - fixed respawn points",
+	"7 - disable default LMB (block)",
+	"8 - disable default RMB (platform)",
+	"...",
+	"10- enable edit functions",
+	NULL
+};
 
 void doGravity(gamestate *gs) {
 	int32_t grav[3] = {0, 0, 8};

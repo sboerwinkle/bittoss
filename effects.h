@@ -12,14 +12,8 @@ extern void createDebris(gamestate *gs);
 #define EFFECT_LAVA (1 << 4)
 #define EFFECT_BOUNCE (1 << 5)
 #define EFFECT_SPAWN (1 << 6)
+#define EFFECT_NO_BLOCK (1 << 7)
+#define EFFECT_NO_PLATFORM (1 << 8)
 #define RULE_EDIT (1 << 10)
 
-#define RULE_HELP_STR "Rules available are:\n"\
-	"0 - enforce boundary\n"\
-	"1 - enforce much bigger boundary\n"\
-	"2 - spawn incoming blocks\n"\
-	"3 - gravity\n"\
-	"4 - enforce lower boundary\n"\
-	"5 - boundary that reflects platforms\n"\
-	"6 - fixed respawn points\n"\
-	"10- enable edit functions\n"
+extern char const * const rulesHelp[13];

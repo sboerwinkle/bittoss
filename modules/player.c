@@ -9,6 +9,7 @@
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
 #include "../colors.h"
+#include "../effects.h"
 
 #include "stackem.h"
 #include "platform.h"
@@ -225,14 +226,14 @@ static void player_tick(gamestate *gs, ent *me) {
 				}
 			}
 		} else if (cooldown >= 10 && charge >= 60) {
-			if (fire) {
+			if (fire && !(gs->gamerules & EFFECT_NO_BLOCK)) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
 				ent* stackem = mkStackem(gs, me, look);
 				range(i, 3) { look[i] *= 7; }
 				uVel(stackem, look);
-			} else if (charge >= 180 && getTrigger(me, 1)) {
+			} else if (charge >= 180 && altFire && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
 				charge -= 180;
 				cooldown = 0;
 				getLook(look, me);
