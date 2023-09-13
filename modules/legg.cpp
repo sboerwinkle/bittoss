@@ -87,9 +87,9 @@ static void legg_tick(gamestate *gs, ent *me) {
 
 	int32_t v1[3];
 	char hasInput = getInput(me, v1);
-	if (hasInput) {
+	int32_t half = time + v_time;
+	if (hasInput && half) {
 		counter++;
-		int32_t half = time + v_time;
 		while (counter >= 2*half) counter -= 2*half;
 		uSlider(me, 0, counter);
 

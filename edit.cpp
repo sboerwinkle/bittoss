@@ -492,7 +492,7 @@ void edit_t_legg(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		setNumSliders(gs, e, 6);
+		setNumSliders(gs, e, 8);
 	}
 }
 
