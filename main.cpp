@@ -103,8 +103,8 @@ static int frameTimeIx = 0;
 static long medianTime;
 static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
 static int latency;
-static char startFrame;
-#define FRAME_ID_MAX 128
+static int32_t startFrame;
+#define FRAME_ID_MAX (1<<29)
 
 #define BIN_CMD_LOAD 128
 #define BIN_CMD_IMPORT 129
@@ -231,20 +231,20 @@ static char isCmd(const char* input, const char *cmd) {
 	return !strncmp(input, cmd, l) && (input[l] == ' ' || input[l] == '\0');
 }
 
-static void sendControls(int frame) {
+static void sendControls(int32_t frame) {
 	list<char> &out = outboundData.add();
 
-	out.setMaxUp(11); // 4 size + 1 frame + 6 input data
-	out.num = 11;
+	out.setMaxUp(14); // 4 size + 4 frame + 6 input data
+	out.num = 14;
 
 	lock(outboundMutex);
 
 	const char *const k = sharedInputs.basic.p1Keys;
 
 	// Size will go in 0-3, we populate it in a minute
-	out[4] = (char) frame;
+	*(int32_t*)(out.items + 4) = htonl(frame);
 	// Other buttons also go here, once they exist; bitfield
-	out[5] = k[4] + 2*k[5] + 4*sharedInputs.basic.mouseBtnDown + 8*sharedInputs.basic.mouseSecondaryDown;
+	out[8] = k[4] + 2*k[5] + 4*sharedInputs.basic.mouseBtnDown + 8*sharedInputs.basic.mouseSecondaryDown;
 
 	int axis1 = k[1] - k[0];
 	int axis2 = k[3] - k[2];
@@ -259,10 +259,10 @@ static void sendControls(int frame) {
 		// Normally messy properties of floating point division
 		// are mitigated by the fact that `axisMaxis` is a power of 2
 		double divisor = (mag_x > mag_y ? mag_x : mag_y) / axisMaxis;
-		out[6] = round(r_x / divisor);
-		out[7] = round(r_y / divisor);
+		out[9] = round(r_x / divisor);
+		out[10] = round(r_y / divisor);
 	} else {
-		out[6] = out[7] = 0;
+		out[9] = out[10] = 0;
 	}
 	double pitchRadians = sharedInputs.basic.viewPitch;
 	double pitchCos = cos(pitchRadians);
@@ -275,9 +275,9 @@ static void sendControls(int frame) {
 	mag2 = abs(pitchSine);
 	if (mag2 > mag) mag = mag2;
 	double divisor = mag / axisMaxis;
-	out[8] = round(sine / divisor);
-	out[9] = round(-cosine / divisor);
-	out[10] = round(pitchSine / divisor);
+	out[11] = round(sine / divisor);
+	out[12] = round(-cosine / divisor);
+	out[13] = round(pitchSine / divisor);
 
 	if (syncData.num) {
 		out.add((char)BIN_CMD_LOAD);
@@ -608,7 +608,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 	}
 }
 
-static char doWholeStep(gamestate *state, char *inputData, char *data2, char expectedFrame) {
+static char doWholeStep(gamestate *state, char *inputData, char *data2, int32_t expectedFrame) {
 	unsigned char numPlayers = *inputData++;
 	list<player> &players = *state->players;
 	players.setMaxUp(numPlayers);
@@ -641,11 +641,20 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		inputData += 4 + size;
 
 		size = ntohl(*(int32_t*)toProcess);
-		if (isMe && (size == 0 || expectedFrame != toProcess[4])) clientLate = 1;
+		if (isMe) {
+			if (size == 0) clientLate = 1;
+			else {
+				int32_t frame = ntohl(*(int32_t*)(toProcess+4));
+				if (expectedFrame != frame) {
+					//if (isReal) printf("%d, but saw %d\n", expectedFrame, frame);
+					clientLate = 1;
+				}
+			}
+		}
 		ent *e = players[i].entity;
 		if (e != NULL) {
 			if (size) {
-				doInputs(e, toProcess + 5);
+				doInputs(e, toProcess + 8);
 			} else {
 				doDefaultInputs(e);
 			}
@@ -655,8 +664,8 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, char exp
 		// Some edit commands depend on the player's view direction,
 		// so especially if they missed last frame we really want to
 		// process the command *after* we process their inputs.
-		if (size > 7 && (isMe || isReal)) {
-			processCmd(state, &players[i], toProcess + 11, size - 7, isMe, isReal);
+		if (size > 10 && (isMe || isReal)) {
+			processCmd(state, &players[i], toProcess + 14, size - 10, isMe, isReal);
 		}
 	}
 	if (isReal && *loopbackCommandBuffer) {
@@ -706,7 +715,7 @@ static void* pacedThreadFunc(void *_arg) {
 	long destNanos;
 	long performanceTotal = 0;
 	timespec t;
-	int outboundFrame = startFrame;
+	int32_t outboundFrame = startFrame;
 	
 	list<char> latestFrameData;
 	{
@@ -740,8 +749,8 @@ static void* pacedThreadFunc(void *_arg) {
 	int clientLateCount = -latency;
 	padding += paddingAdj * latency;
 
-#define printLateStats() printf("%.4f pad; %d vs %d (server late vs client late)\n", padding, serverLateCount, clientLateCount)
-	int expectedFrame = (FRAME_ID_MAX + startFrame - latency) % FRAME_ID_MAX;
+#define printLateStats() printf("%.4f pad; %d vs %d (server late vs client late) (%+d)\n", padding, serverLateCount, clientLateCount, serverLateCount - clientLateCount)
+	int32_t expectedFrame = (FRAME_ID_MAX + startFrame - latency) % FRAME_ID_MAX;
 
 	while (1) {
 		lock(timingMutex);
@@ -1036,10 +1045,11 @@ static void setupPlayers(gamestate *gs, int numPlayers) {
 }
 
 static void* netThreadFunc(void *_arg) {
-	char expectedFrame = startFrame;
+	int32_t expectedFrame = startFrame;
 	while (1) {
-		char frame;
-		if (readData(&frame, 1)) break;
+		int32_t frame;
+		if (readData(&frame, 4)) break;
+		frame = ntohl(frame);
 		if (frame != expectedFrame) {
 			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
 			break;
@@ -1063,7 +1073,7 @@ static void* netThreadFunc(void *_arg) {
 			int32_t netSize;
 			if (readData(&netSize, 4)) goto done;
 			int32_t size = ntohl(netSize);
-			if (size && size < 7) {
+			if (size && size < 10) {
 				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
 				goto done;
 			}
@@ -1146,18 +1156,18 @@ int main(int argc, char **argv) {
 	if (initSocket(srvAddr, port)) return 1;
 	puts("Done.");
 	puts("Awaiting setup info...");
-	char clientCounts[4];
-	if (readData(clientCounts, 4)) {
+	char initNetData[7];
+	if (readData(initNetData, 7)) {
 		puts("Error, aborting!");
 		return 1;
 	}
-	if (clientCounts[0] != (char)0x80) {
-		printf("Bad initial byte %hhd, aborting!\n", clientCounts[0]);
+	if (initNetData[0] != (char)0x80) {
+		printf("Bad initial byte %hhd, aborting!\n", initNetData[0]);
 		return 1;
 	}
-	myPlayer = clientCounts[1];
-	latency = clientCounts[2];
-	startFrame = clientCounts[3];
+	myPlayer = initNetData[1];
+	latency = initNetData[2];
+	startFrame = ntohl(*(int32_t*)(initNetData+3));
 	printf("Done, I am client #%d\n", myPlayer);
 
 	// `myPlayer + 1` is the minimum number where our index makes sense,

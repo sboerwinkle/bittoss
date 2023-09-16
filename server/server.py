@@ -11,17 +11,21 @@ import os
 HOST = '' 
 SOCKET_LIST = []
 RECV_BUFFER = 4096
-FRAME_ID_MAX = 128
+FRAME_ID_MAX = 1<<29
+BUF_SLOTS = 128
+if (FRAME_ID_MAX % BUF_SLOTS != 0):
+    print("Bad server configuration, please fix bugs.")
+    exit()
 
 EMPTY_MSG = b'\0\0\0\0'
 
-usage = "Usage: frame_latency [port] [starting_players]\nPort default is 15000\nlatency must be greater than 0, less than " + str(FRAME_ID_MAX//4) + "\nstarting_players is probably not an option you need"
+usage = "Usage: frame_latency [port] [starting_players]\nPort default is 15000\nlatency must be greater than 0, less than " + str(BUF_SLOTS//4) + "\nstarting_players is probably not an option you need"
 
 # TODO clients and buf are used, like, everywhere; maybe make them object members at some point?
 
 class Host:
     def __init__(self, latency, starting_players):
-        self.buf = [[EMPTY_MSG] * starting_players for _ in range(FRAME_ID_MAX)]
+        self.buf = [[EMPTY_MSG] * starting_players for _ in range(BUF_SLOTS)]
         self.frame = 0
         self.clients = [None] * starting_players
         self.latency = latency
@@ -71,12 +75,16 @@ async def handle_client(host, ix):
             recvd += data
             while True:
                 l = len(recvd)
-                if l < 5:
+                if l < 4:
                     break
                 end = 4 + int.from_bytes(recvd[:4], 'big')
+                if end < 8:
+                    print(f"Client {ix} sent too few bytes expecting minimum 4 for the frame ID")
+                    rm(host.clients, ix, cl)
+                    return
                 if l < end:
                     break
-                src_frame = recvd[4]
+                src_frame = int.from_bytes(recvd[4:8], 'big')
                 payload = recvd[:end]
                 recvd = recvd[end:]
 
@@ -87,13 +95,17 @@ async def handle_client(host, ix):
                 if delt > host.latency:
                     print(f"client {ix} delivered packet {delt-host.latency} frames late")
                     # If they're late, then at least we want them to have as little latency as possible
-                    # There shouldn't be anythig in the current frame's payload, so just assume we can overwrite it.
+                    # There shouldn't be anything in the current frame's payload, so just assume we can overwrite it.
                     dest_frame = host.frame
                 else:
                     if delt <= 0:
                         print(f"client {ix} delivered packet {1-delt} frames _early_?")
+                        # If it's too far in advance, we'd be writing it into a weird nonsense place
+                        if host.latency - delt >= BUF_SLOTS:
+                            print("    (discarding)")
+                            continue
                     dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
-                host.buf[dest_frame][ix] = payload
+                host.buf[dest_frame%BUF_SLOTS][ix] = payload
     except:
         # TODO Print exception
         print(f"Exception, closing socket {ix}")
@@ -185,8 +197,8 @@ async def loop(host, port, framerate = 30):
         # Considered sending the frame early if we got all the data in,
         # including a 4-byte "delay" entry in the header.
         # Haven't done that yet, not sure how much help it would be.
-        msg = bytes([frame, len(clients)])
-        pieces = host.buf[frame]
+        msg = frame.to_bytes(4, 'big') + len(clients).to_bytes(1, 'big')
+        pieces = host.buf[frame%BUF_SLOTS]
         for ix in range(len(clients)):
             msg += pieces[ix]
             pieces[ix] = EMPTY_MSG
@@ -201,8 +213,8 @@ async def loop(host, port, framerate = 30):
                 l = msg_len
             else:
                 cl.inited = True
-                m = bytes([0x80, ix, host.latency, frame]) + msg
-                l = 4 + msg_len
+                m = bytes([0x80, ix, host.latency]) + frame.to_bytes(4, 'big') + msg
+                l = 7 + msg_len
             if cl.sock.send(m) != l:
                 # Time to pay the piper for my shitty netcode,
                 # I think there's a good chance this will choke up if I try to send a couple KB at once...
