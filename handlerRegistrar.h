@@ -150,6 +150,7 @@ enum {
 	ENTPAIR_NIL,
 	PICKUP_SEAT,
 	FUMBLE_SEAT,
+	FUMBLED_DECOR,
 	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?

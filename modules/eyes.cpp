@@ -10,6 +10,7 @@
 static const int32_t eyeSize[3] = {100, 100, 100};
 static const int32_t eyeInset = 50;
 
+// Deprecated, you probably want FUMBLED_DECOR instead (/decor)
 static void eye_tick(gamestate *gs, ent *me) {
 	// First time we have a tick while *not* held, set to actually collide
 	// and then clear the tick handler as we have no further work
@@ -63,7 +64,7 @@ ent* mkEye(gamestate *gs, ent *parent) {
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = 0xFFFFFF;
 	ret->tickHeld = tickHandlers.get(TICK_HELD_EYE);
-	ret->tick = tickHandlers.get(TICK_EYE);
+	ret->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
 
 	uPickup(gs, parent, ret, HOLD_DROP);
 

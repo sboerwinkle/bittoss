@@ -53,7 +53,16 @@ static void cursed_tick(gamestate *gs, ent *me) {
 	uDead(gs, me);
 }
 
+static void decor_fumbled(gamestate *gs, ent *me, ent *him) {
+	// When dropped, make us collidable.
+	// Also clears this handler, since it isn't necessary anymore
+	uMyTypeMask(me, me->typeMask | T_DEBRIS);
+	uMyCollideMask(me, me->collideMask | T_TERRAIN | T_OBSTACLE | T_DEBRIS);
+	me->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
+}
+
 void module_common() {
 	whoMovesHandlers.reg(WHOMOVES_ME, move_me);
 	tickHandlers.reg(TICK_CURSED, cursed_tick);
+	entPairHandlers.reg(FUMBLED_DECOR, decor_fumbled);
 }

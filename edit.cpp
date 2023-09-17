@@ -349,6 +349,19 @@ void edit_m_friction(gamestate *gs, ent *me, const char* argsStr) {
 	}
 }
 
+void edit_m_decor(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
+		// Unlike some other _m_ functions, we unset T_WEIGHTLESS
+		uMyTypeMask(e, T_DECOR);
+		uMyCollideMask(e, 0);
+		e->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
+	}
+}
+
 void edit_m_paper(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -357,6 +370,7 @@ void edit_m_paper(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_OBSTACLE + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_OBSTACLE + T_TERRAIN);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -368,6 +382,7 @@ void edit_m_wood(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_WOOD);
 		uMyTypeMask(e, T_OBSTACLE + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN + T_OBSTACLE);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -379,6 +394,7 @@ void edit_m_stone(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_TERRAIN + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -390,6 +406,7 @@ void edit_m_metal(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_METAL);
 		uMyTypeMask(e, T_TERRAIN + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
 		uMyCollideMask(e, T_TERRAIN);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -403,6 +420,7 @@ void edit_m_wall(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -414,6 +432,7 @@ void edit_m_ghost(gamestate *gs, ent *me) {
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		uMyTypeMask(e, T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
 }
 
@@ -535,11 +554,12 @@ void edit_m_t_veh_eye(gamestate *gs, ent *me) {
 		uMyTypeMask(e, T_DECOR);
 		uMyCollideMask(e, 0);
 
-		e->tick = tickHandlers.get(TICK_EYE);
+		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_HELD_VEH_EYE);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
 		setNumSliders(gs, e, 0);
 	}
 }

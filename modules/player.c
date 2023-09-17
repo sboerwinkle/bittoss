@@ -79,9 +79,10 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 			uSlider(me, s_grounded, 1);
 		}
 	} else {
-		// It won't report as 0 yet, because the collision isn't finished,
-		// but we know it will be 0.
-		vel[axis] = 0;
+		// Argh.
+		int32_t currentSlide = getSlider(me, s_vel + axis);
+		vel[axis] = currentSlide + dir*dv;
+		if (dir*vel[axis] > 0) vel[axis] = 0;
 	}
 	uSlider(me, s_vel, vel[0]);
 	uSlider(me, s_vel1, vel[1]);
@@ -153,11 +154,11 @@ static void player_tick(gamestate *gs, ent *me) {
 	range(i, 2) {
 		vel[i] = 4*axis[i] - sliders[i];
 	}
-	// In the air, our efforts only yield half the impulse
+	// Push half as hard in the air
 	int divisor = grounded ? 1 : 2;
 	boundVec(vel, 14 / divisor, 2);
 	range(i, 2) {
-		uSlider(me, s_vel + i, sliders[i] + vel[i]*divisor);
+		uSlider(me, s_vel + i, sliders[i] + vel[i]);
 	}
 	uVel(me, vel);
 
