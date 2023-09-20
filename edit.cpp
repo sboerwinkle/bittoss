@@ -106,7 +106,7 @@ static void getMedian(int32_t *dest) {
 	}
 }
 
-static void getAxis(ent *e, int *axis, int *dir) {
+static void getEditAxis(ent *e, int *axis, int *dir) {
 	int32_t look[3];
 	getLook(look, e);
 	range(i, 3) {
@@ -629,7 +629,7 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 	} else {
 		int axis, dir;
 		int32_t amt;
-		getAxis(me, &axis, &dir);
+		getEditAxis(me, &axis, &dir);
 		if (args.num >= 1) {
 			amt = args[0];
 		} else {
@@ -668,7 +668,7 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		}
 	} else if (args.num >= 1) {
 		int axis, dir;
-		getAxis(me, &axis, &dir);
+		getEditAxis(me, &axis, &dir);
 		int32_t amt = args[0];
 		int32_t offset = amt * -dir;
 		range(i, a.num) {
@@ -732,7 +732,7 @@ void edit_copy(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	int axis, dir;
-	getAxis(me, &axis, &dir);
+	getEditAxis(me, &axis, &dir);
 	int32_t min, max;
 	getExtents(&a, axis, &min, &max);
 	int32_t center[3] = {0, 0, 0};
@@ -762,7 +762,7 @@ void edit_rotate(gamestate *gs, ent *me, char verbose) {
 	if (!me) return;
 	getLists(me);
 	int axis, dir;
-	getAxis(me, &axis, &dir);
+	getEditAxis(me, &axis, &dir);
 
 	axis = (axis + dir + 3) % 3;
 	int32_t min1, max1;
@@ -799,7 +799,7 @@ void edit_flip(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	int axis, dir;
-	getAxis(me, &axis, &dir);
+	getEditAxis(me, &axis, &dir);
 	int32_t min, max;
 	getExtents(&a, axis, &min, &max);
 	int32_t x = min + max; // Too tired to explain this eloquently, but yeah it works
@@ -967,7 +967,7 @@ void edit_measure(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	int axis, dir;
-	getAxis(me, &axis, &dir);
+	getEditAxis(me, &axis, &dir);
 	int32_t min, max;
 	getExtents(&a, axis, &min, &max);
 	int32_t d = max-min;
@@ -998,7 +998,7 @@ void edit_measure(gamestate *gs, ent *me) {
 void edit_import(gamestate *gs, ent *me, list<char> *data) {
 	if (!me) return;
 	int axis, dir;
-	getAxis(me, &axis, &dir);
+	getEditAxis(me, &axis, &dir);
 
 	ent *start = gs->ents;
 

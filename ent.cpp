@@ -217,7 +217,7 @@ static int arbitrateMovement(ent *a, ent *b, byte axis, int dir) {
 	return A?A:MOVE_BOTH;
 }
 
-int getAxisAndDir(ent *a, ent *b) {
+static int getAxisAndDir(ent *a, ent *b) {
 	int d1[3], d2[3], w[3];
 	int i;
 	for (i = 0; i < 3; i++) {

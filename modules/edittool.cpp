@@ -86,8 +86,9 @@ ent* mkThumbtack(gamestate *gs, ent *parent, int mode) {
 	int32_t look[3];
 	getLook(look, parent);
 	range(i, 3) {
+		// Hack: Once again using the raw look as an offset, that should be reasonably "small" given the size of axisMaxis
 		pos[i] = parent->center[i] + look[i];
-		look[i] = look[i] * 7 + parent->vel[i];
+		look[i] = (double)(32*7)/axisMaxis * look[i] + parent->vel[i];
 	}
 	ent *ret = initEnt(
 		gs, parent,

@@ -152,7 +152,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	int vel[3];
 	vel[2] = getButton(me, 0) && grounded ? -192 : 0;
 	range(i, 2) {
-		vel[i] = 4*axis[i] - sliders[i];
+		vel[i] = (128/axisMaxis)*axis[i] - sliders[i];
 	}
 	// Push half as hard in the air
 	int divisor = grounded ? 1 : 2;
@@ -217,8 +217,7 @@ static void player_tick(gamestate *gs, ent *me) {
 							uDrop(gs, h);
 							a[i] = 0;
 						} else {
-							// 0.03125 == 1 / axisMaxis
-							int32_t offset = (int)(look[i] * surface * 0.03125) - pos[i];
+							int32_t offset = (int)(look[i] * surface / (double)axisMaxis) - pos[i];
 							int32_t goalVel = bound(offset / 5, 64);
 							a[i] = bound(goalVel - vel[i], 12);
 						}
@@ -231,8 +230,9 @@ static void player_tick(gamestate *gs, ent *me) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
+				// Hack - not scaling `look` here, but that's fine for a "small" offset
 				ent* stackem = mkStackem(gs, me, look);
-				range(i, 3) { look[i] *= 7; }
+				range(i, 3) { look[i] *= (double)(7*32)/axisMaxis; }
 				uVel(stackem, look);
 			} else if (charge >= 180 && altFire && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
 				charge -= 180;
@@ -242,8 +242,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				uSlider(me, s_toggle, !colorToggle);
 				int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
-					// 0.040635 == 1.3 / axisMaxis
-					look[i] *= 0.040625 * (512 + platformSize[i]);
+					look[i] *= 1.25/axisMaxis * (512 + platformSize[i]);
 				}
 				mkPlatform(gs, me, look, color);
 			}

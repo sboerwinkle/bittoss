@@ -5,6 +5,9 @@
 #include "random.h"
 #include "box.h"
 
+// Largest power of 2 where both +/- fit inside a byte.
+// Can increase more if we set aside more space for player input in the network message layout.
+#define axisMaxis 64
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
 #define wiresAnyOrder(var, who) ent *var; for (int __i = 0; __i < who->wires.num && ((var = who->wires[__i]) || 1); __i++)
 // Despite the name, the iteration order is very much deterministic and boring.
@@ -96,7 +99,6 @@ typedef struct ent {
 	// Thing for custom R Tree impl
 	box *myBox;
 
-#define axisMaxis 32
 	struct {
 		struct {
 			char v, v2;
@@ -197,8 +199,6 @@ extern void flushPickups(gamestate *gs);
 //extern void moveRecursive(ent *who, int32_t *vel);
 
 //extern void accelRecursive(ent *who, int32_t *a);
-
-extern byte getAxis(ent *a, ent *b);
 
 extern void assignVelbox(ent *e, box *relBox);
 extern void addEnt(gamestate *gs, ent *e, ent *relative);
