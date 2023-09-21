@@ -154,9 +154,8 @@ static void player_tick(gamestate *gs, ent *me) {
 	range(i, 2) {
 		vel[i] = (128/axisMaxis)*axis[i] - sliders[i];
 	}
-	// Push half as hard in the air
-	int divisor = grounded ? 1 : 2;
-	boundVec(vel, 14 / divisor, 2);
+	// Can't push as hard in the air
+	boundVec(vel, grounded ? 14 : 4, 2);
 	range(i, 2) {
 		uSlider(me, s_vel + i, sliders[i] + vel[i]);
 	}
