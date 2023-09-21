@@ -23,7 +23,7 @@ static int32_t min(int32_t a, int32_t b) {
 }
 
 // `out` should have 2 elements, doesn't need to be initialized.
-static char getInput(ent *me, int32_t *out) {
+static void getInputOld(ent *me, int32_t *out) {
 	out[0] = out[1] = 0;
 	int32_t tmp[3];
 	// We are expecting exactly one wire, and for wired ent to have a holder.
@@ -33,8 +33,17 @@ static char getInput(ent *me, int32_t *out) {
 		getPos(tmp, w->holder, w);
 		range(i, 2) out[i] += tmp[i];
 	}
-	range(i, 2) if (out[i]) return 1;
-	return 0;
+}
+
+// `out` should have 2 elements, doesn't need to be initialized.
+static void getInput(ent *me, int32_t *out, int32_t width) {
+	out[0] = out[1] = 0;
+	// We are expecting exactly one wire,
+	// and for the wired ent to have at least 2 sliders (T_INPUT)
+	// This will still behave predictably if that doesn't hold, however.
+	wiresAnyOrder(w, me) {
+		range(i, 2) out[i] += getSlider(w, i) * width / axisMaxis;
+	}
 }
 
 static void move(ent *me, int32_t *v1, int32_t s, int32_t a, int32_t v_s, int32_t v_a, int32_t tread) {
@@ -73,20 +82,21 @@ static void move(ent *me, int32_t *v1, int32_t s, int32_t a, int32_t v_s, int32_
 	uVel(me, acc);
 }
 
-static void legg_tick(gamestate *gs, ent *me) {
-	if (!me->holder) return;
+static void inner_legg_tick(gamestate *gs, ent *me, int32_t *v1, int o) {
 
 	int32_t counter = getSlider(me, 0);
-	int32_t height = getSlider(me, 1);
-	int32_t stepHeight = getSlider(me, 2);
-	int32_t tread = getSlider(me, 3);
-	int32_t s = getSlider(me, 4);
-	int32_t a = getSlider(me, 5);
-	int32_t time = getSlider(me, 6);
-	int32_t v_time = getSlider(me, 7);
+	// Old and new versions differ about if there's a slider here,
+	// this is phrased in a way they can both use.
+	int32_t height = getSlider(me, o++);
+	int32_t stepHeight = getSlider(me, o++);
+	int32_t tread = getSlider(me, o++);
+	int32_t s = getSlider(me, o++);
+	int32_t a = getSlider(me, o++);
+	int32_t time = getSlider(me, o++);
+	int32_t v_time = getSlider(me, o++);
 
-	int32_t v1[3];
-	char hasInput = getInput(me, v1);
+	char hasInput = v1[0] || v1[1];
+
 	int32_t half = time + v_time;
 	if (hasInput && half) {
 		counter++;
@@ -116,6 +126,24 @@ static void legg_tick(gamestate *gs, ent *me) {
 	move(me, v1, s, a, s, a, tread);
 }
 
+static void legg_tick_old(gamestate *gs, ent *me) {
+	if (!me->holder) return;
+	int32_t v1[3];
+	getInputOld(me, v1);
+
+	inner_legg_tick(gs, me, v1, 1);
+}
+
+static void legg_tick(gamestate *gs, ent *me) {
+	if (!me->holder) return;
+	int32_t v1[3];
+	int32_t width = getSlider(me, 1);
+	getInput(me, v1, width);
+
+	inner_legg_tick(gs, me, v1, 2);
+}
+
 void module_legg() {
 	tickHandlers.reg(TICK_LEGG, legg_tick);
+	tickHandlers.reg(TICK_LEGG_OLD, legg_tick_old);
 }

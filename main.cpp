@@ -74,7 +74,7 @@ static char ctrlPressed = 0;
 static int wheelIncr = 100;
 static char mouseGrabbed = 0;
 
-static tick_t seat_tick;
+static tick_t seat_tick, seat_tick_old;
 
 
 static int phys_micros = 0;
@@ -126,12 +126,12 @@ static void outerSetupFrame(list<player> *ps) {
 		ent *h = e->holder;
 		// Checking the values of handlers to determine type is sort of frowned upon for
 		// interactions between ents, but I think it's more fine for UI stuff
-		char piloting = (h && h->tick == seat_tick);
+		char piloting = (h && (h->tick == seat_tick || h->tick == seat_tick_old));
 		if (piloting) e = h; // This centers the camera on the seat
 		if (thirdPerson) {
-			if (piloting) {
-				up = getSlider(h, 0);
-				forward = -getSlider(h, 1);
+			if (piloting && h->numSliders >= 2) {
+				up = getSlider(h, h->numSliders - 2);
+				forward = -getSlider(h, h->numSliders - 1);
 			} else {
 				up = 32*PTS_PER_PX;
 				forward = -64*PTS_PER_PX;
@@ -1151,6 +1151,7 @@ int main(int argc, char **argv) {
 	outboundData.init();
 	syncData.init();
 	seat_tick = tickHandlers.get(TICK_SEAT);
+	seat_tick_old = tickHandlers.get(TICK_SEAT_OLD);
 
 	// Other general game setup, including networking
 	puts("Connecting to host...");

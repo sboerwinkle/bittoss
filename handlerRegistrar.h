@@ -106,12 +106,14 @@ enum {
 	TICK_DOOR,
 	TICK_CURSED,
 	TICK_RESPAWN,
-	TICK_LEGG,
-	TICK_SEAT,
+	TICK_LEGG_OLD,
+	TICK_SEAT_OLD,
 	TICK_HELD_VEH_EYE,
 	TICK_THUMBTACK,
 	TICK_FACTORY,
 	TICK_FACTORY_WIRES,
+	TICK_LEGG,
+	TICK_SEAT,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?
@@ -149,8 +151,9 @@ enum {
 enum {
 	ENTPAIR_NIL,
 	PICKUP_SEAT,
-	FUMBLE_SEAT,
+	FUMBLE_SEAT_OLD,
 	FUMBLED_DECOR,
+	FUMBLE_SEAT,
 	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?

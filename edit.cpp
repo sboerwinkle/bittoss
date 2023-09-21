@@ -16,6 +16,8 @@
 
 #include "modules/player.h"
 #include "modules/factory.h"
+#include "modules/seat.h"
+#include "modules/legg.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -511,7 +513,7 @@ void edit_t_legg(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		setNumSliders(gs, e, 8);
+		setNumSliders(gs, e, M_LEGG_NUM_SLIDERS);
 	}
 }
 
@@ -539,7 +541,7 @@ void edit_t_seat(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_SEAT);
 		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
 		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
-		setNumSliders(gs, e, 2);
+		setNumSliders(gs, e, M_SEAT_NUM_SLIDERS);
 	}
 }
 
