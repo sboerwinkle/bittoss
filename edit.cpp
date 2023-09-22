@@ -610,7 +610,7 @@ void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		gs, me,
 		pos, zeroVec, size,
 		0,
-		T_WEIGHTLESS, 0
+		T_TERRAIN + T_HEAVY + T_WEIGHTLESS, 0
 	);
 	created->color = CLR_WHITE;
 	player_toggleBauble(gs, me, created, 0);
