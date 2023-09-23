@@ -23,6 +23,7 @@ static list<ent*> a, b;
 static list<int32_t> args;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
+static const char* nptr = NULL;
 
 static void fixNewBaubles(gamestate *gs) {
 	// Pretty sloppy, but whatever, edit functionality can afford to be an exception.
@@ -164,11 +165,21 @@ void edit_info(ent *e) {
 		e->color
 	);
 	if (e->numSliders) {
-		fputs("Sliders: ", stdout);
-		range(i, e->numSliders) {
-			printf("%d ", e->sliders[i].v);
+		puts("Sliders:");
+		char const * const * helps = &nptr;
+		char endl = 0;
+		if (e->tickHeld == tickHandlers.get(TICK_LEGG)) {
+			helps = M_LEGG_HELP;
 		}
-		putchar('\n');
+		range(i, e->numSliders) {
+			if (*helps) {
+				printf("%2d: %d - %s\n", i, e->sliders[i].v, *(helps++));
+			} else {
+				printf("%d ", e->sliders[i].v);
+				endl = 1;
+			}
+		}
+		if (endl) putchar('\n');
 	}
 	printf("Selected %d, %d\n", aNum, bNum);
 }

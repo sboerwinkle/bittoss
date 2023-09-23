@@ -10,6 +10,21 @@
 
 #include "common.h"
 
+#include "legg.h"
+
+char const * const * const M_LEGG_HELP = (char const * const[]){
+	"phase - where in the cycle it is. <= 2*time*v_time",
+	"width - distance from the center to step",
+	"height - distance below mount point to idle",
+	"stepHeight - how far to rise while stepping",
+	"tread - more or less, how deep to push while walking",
+	"speed - max speed relative to mount point",
+	"accel - acceleration relative to mount point",
+	"time - time (in frames) to spend on moving forward/backwards",
+	"v_time - time to spend moving up/down",
+	NULL
+};
+
 // Maybe this should be common?
 static int32_t max(int32_t a, int32_t b) {
 	// I'm being fancy here, maybe I should be dumb instead.
