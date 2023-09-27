@@ -269,6 +269,7 @@ none			| me	| him	| both	| none
 #define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)
 #define T_INPUTS (1<<11)
+#define T_EQUIP (1<<12)
 // T_ACTIVE used to be 2048, that really had no reason to be a type flag and is now gone.
 
 // This is kind of messy, but not all type flags necessarily require an ent to do collision checking.

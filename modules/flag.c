@@ -23,7 +23,7 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 		gs, owner,
 		owner->center, owner->vel, flagSize,
 		2,
-		T_FLAG + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
+		T_FLAG + T_EQUIP + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
 	);
 	// TODO Unsatisfied with how "modules" share stuff at the moment,
 	//      need some better way to do this. We do want to be sure that

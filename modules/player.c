@@ -28,7 +28,7 @@ enum {
 	s_grounded,
 	s_charge,
 	s_cooldown,
-	s_toggle,
+	s_equip_processed,
 	s_editmode,
 	s_num
 };
@@ -90,12 +90,13 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 }
 
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
-	if (getButton(me, 1) && (type(him) & T_FLAG)) {
-		// Skip if already any (non-decor) holdees
+	if (getButton(me, 1) && !getSlider(me, s_equip_processed) && (type(him) & T_EQUIP)) {
+		// Skip if already holding any equipment
 		holdeesAnyOrder(h, me) {
-			if (!(h->typeMask & T_DECOR)) return;
+			if (h->typeMask & T_EQUIP) return;
 		}
 		uPickup(gs, me, him, HOLD_MOVE);
+		uSlider(me, s_equip_processed, 1);
 	}
 }
 
@@ -167,10 +168,11 @@ static void player_tick(gamestate *gs, ent *me) {
 	int cooldown = getSlider(me, s_cooldown);
 	char fire = getTrigger(me, 0);
 	char altFire = getTrigger(me, 1);
+	char utility = getButton(me, 1);
 
 	// Controls edittool on/off, only manipulated externally by game commands
 	if (getSlider(me, s_editmode)) {
-		if (getButton(me, 1)) { // Shift pressed - clear or flip baubles
+		if (utility) { // Shift pressed - clear or flip baubles
 			if (fire) player_clearBaubles(gs, me, 0);
 			if (altFire) player_clearBaubles(gs, me, 1);
 			if (cooldown >= 5 && getButton(me, 0)) {
@@ -193,14 +195,16 @@ static void player_tick(gamestate *gs, ent *me) {
 			if (h->typeMask & T_DECOR) continue;
 			if (++numHoldees > 1) break; // Don't care about counting any higher than 2
 		}
+		if (!utility) uSlider(me, s_equip_processed, 0);
 		// We don't always need this but sometimes we do
 		int32_t look[3];
 		if (numHoldees) {
-			if (numHoldees > 1 || (cooldown >= 10 && fire)) {
+			if (numHoldees > 1 || (utility && !getSlider(me, s_equip_processed))) {
 				holdeesAnyOrder(h, me) {
 					if (h->typeMask & T_DECOR) continue;
 					uDrop(gs, h);
 				}
+				uSlider(me, s_equip_processed, 1);
 				cooldown = 0;
 			} else {
 				getLook(look, me);
@@ -237,9 +241,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				charge -= 180;
 				cooldown = 0;
 				getLook(look, me);
-				int colorToggle = getSlider(me, s_toggle);
-				uSlider(me, s_toggle, !colorToggle);
-				int32_t color = colorToggle ? CLR_WHITE : CLR_BLUE;
+				int32_t color = (random(gs) % 2) ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
 					look[i] *= 1.25/axisMaxis * (512 + platformSize[i]);
 				}
