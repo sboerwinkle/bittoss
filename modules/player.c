@@ -95,7 +95,15 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		holdeesAnyOrder(h, me) {
 			if (h->typeMask & T_EQUIP) return;
 		}
-		uPickup(gs, me, him, HOLD_MOVE);
+
+		// This is all a little dicey, since positions aren't finalized at the time we're handling a push.
+		// We could use wires here, so the pickup actually is requested next frame. That would probably have
+		// less impact, but requires us to dedicate player-wires to this purpose.
+		uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
+		int32_t offset[3];
+		getPos(offset, him, me);
+		uCenter(him, offset);
+		// Once we get HOLD_SINGLE working, maybe this doesn't happen until the pickup is processed?
 		uSlider(me, s_equip_processed, 1);
 	}
 }
@@ -199,15 +207,21 @@ static void player_tick(gamestate *gs, ent *me) {
 		// We don't always need this but sometimes we do
 		int32_t look[3];
 		if (numHoldees) {
+			getLook(look, me);
 			if (numHoldees > 1 || (utility && !getSlider(me, s_equip_processed))) {
+				int32_t vel[3];
+				range(i, 3) vel[i] = 100 * look[i] / axisMaxis;
 				holdeesAnyOrder(h, me) {
 					if (h->typeMask & T_DECOR) continue;
+					uVel(h, vel);
+					uCenter(h, vel);
 					uDrop(gs, h);
 				}
 				uSlider(me, s_equip_processed, 1);
 				cooldown = 0;
 			} else {
-				getLook(look, me);
+				/* Logic here for hovering the item where you're looking.
+				 * Might be useful later.
 				int32_t pos[3], vel[3], r[3], a[3];
 				holdeesAnyOrder(h, me) {
 					if (h->typeMask & T_DECOR) continue;
@@ -227,6 +241,7 @@ static void player_tick(gamestate *gs, ent *me) {
 					}
 					uVel(h, a);
 				}
+				*/
 			}
 		} else if (cooldown >= 10 && charge >= 60) {
 			if (fire && !(gs->gamerules & EFFECT_NO_BLOCK)) {
