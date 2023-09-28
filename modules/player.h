@@ -1,3 +1,5 @@
+#define PLAYER_CHARGE_SLIDER 8
+#define PLAYER_COOLDOWN_SLIDER 9
 #define PLAYER_EDIT_SLIDER 11
 extern void getAxis(int32_t *dest, ent *e);
 extern void getLook(int32_t *dest, ent *e);

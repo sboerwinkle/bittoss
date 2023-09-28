@@ -34,6 +34,8 @@ enum {
 };
 
 static_assert(s_editmode == PLAYER_EDIT_SLIDER);
+static_assert(s_charge == PLAYER_CHARGE_SLIDER);
+static_assert(s_cooldown == PLAYER_COOLDOWN_SLIDER);
 
 void getAxis(int32_t *dest, ent *e) {
         dest[0] = getSlider(e, s_axis);
