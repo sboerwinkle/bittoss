@@ -96,15 +96,24 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 			if (h->typeMask & T_EQUIP) return;
 		}
 
-		// This is all a little dicey, since positions aren't finalized at the time we're handling a push.
-		// We could use wires here, so the pickup actually is requested next frame. That would probably have
-		// less impact, but requires us to dedicate player-wires to this purpose.
 		uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
+
+		// A lot of the infrastructure I wrote was about making sure interactions were "symmetric",
+		// and which ent was "first" wouldn't matter. I still think this is a noble goal, but there
+		// are cracks. When picking up things we bump into, I started to wire up all this logic for
+		// HOLD_SINGLE so the pickup would fail if we requested it for multiple items in one frame.
+		// However, I honestly don't think it's worth it. We only care that one item is picked up,
+		// and we don't really care which one. Therefore, we do directly slider manipulation (which
+		// is usually taboo) so we only grab one even if they collide in the same frame.
+		me->sliders[s_equip_processed].v = 1;
+	}
+}
+
+static void player_pickup(gamestate *gs, ent *me, ent *him) {
+	if (type(him) & T_EQUIP) {
 		int32_t offset[3];
 		getPos(offset, him, me);
 		uCenter(him, offset);
-		// Once we get HOLD_SINGLE working, maybe this doesn't happen until the pickup is processed?
-		uSlider(me, s_equip_processed, 1);
 	}
 }
 
@@ -284,6 +293,7 @@ ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	ret->pushed = pushedHandlers.get(PUSHED_PLAYER);
 	ret->push = pushHandlers.get(PUSH_PLAYER);
 	ret->tick = tickHandlers.get(TICK_PLAYER);
+	ret->onPickUp = entPairHandlers.get(PICKUP_PLAYER);
 	ret->friction = 0;
 	return ret;
 }
@@ -293,4 +303,5 @@ void module_player() {
 	tickHandlers.reg(TICK_PLAYER, player_tick);
 	pushedHandlers.reg(PUSHED_PLAYER, player_pushed);
 	pushHandlers.reg(PUSH_PLAYER, player_push);
+	entPairHandlers.reg(PICKUP_PLAYER, player_pickup);
 }

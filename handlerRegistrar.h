@@ -154,6 +154,7 @@ enum {
 	FUMBLE_SEAT_OLD,
 	FUMBLED_DECOR,
 	FUMBLE_SEAT,
+	PICKUP_PLAYER,
 	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?
