@@ -29,6 +29,7 @@
 #include "modules/respawn.h"
 #include "modules/seat.h"
 #include "modules/factory.h"
+#include "modules/gun.h"
 
 void initMods() {
 	module_common();
@@ -48,4 +49,5 @@ void initMods() {
 	module_respawn();
 	module_seat();
 	module_factory();
+	module_gun();
 }

@@ -114,6 +114,7 @@ enum {
 	TICK_FACTORY_WIRES,
 	TICK_LEGG,
 	TICK_SEAT,
+	TICK_HELD_GUN,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

@@ -24,6 +24,7 @@
 #include "debugTree.h"
 #include "edit.h"
 #include "file.h"
+#include "hud.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -155,17 +156,17 @@ static void outerSetupFrame(list<player> *ps) {
 	}
 }
 
-static float hudColor[3] = {0.0, 0.5, 0.5};
+static float overlayColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
-static void drawHud(list<player> *ps) {
+static void drawOverlay(list<player> *ps) {
 	setupText();
 	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
-	drawHudText(drawMe, 1, 1, 1, hudColor);
+	drawHudText(drawMe, 1, 1, 1, overlayColor);
 	// The very last char of this buffer is always and forever '\0',
 	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
-	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 1, 3, 1, hudColor);
+	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 1, 3, 1, overlayColor);
 
 	float f1 = (double) draw_micros / micros_per_frame;
 	float f2 = (double) flip_micros / micros_per_frame;
@@ -175,17 +176,8 @@ static void drawHud(list<player> *ps) {
 	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, redColor);
 	drawHudRect(f1+f2, 1 - 1.0/64, f3, 1.0/64, grnColor);
 
-	// Draw ammo bars if applicable
-	ent *p = (*ps)[myPlayer].entity;
-	if (!p) return;
-	int charge = p->sliders[8].v;
-	float x = 0.5 - 3.0/128;
-	while (charge >= 60) {
-		drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
-		x += 1.0/64;
-		charge -= 60;
-	}
-	drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
+	// Draw actual hud elements
+	drawHud((*ps)[myPlayer].entity);
 }
 
 static void resetPlayer(gamestate *gs, int i) {
@@ -475,6 +467,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/legg", edit_t_legg(gs, me));
 	cmd("/respawner", edit_t_respawn(gs, me));
 	cmd("/seat", edit_t_seat(gs, me));
+	cmd("/gun", edit_t_gun(gs, me));
 	cmd("/veheye", edit_m_t_veh_eye(gs, me));
 
 	cmd("/copy", edit_copy(gs, me));
@@ -788,7 +781,7 @@ static void* pacedThreadFunc(void *_arg) {
 		if (inhabit) inhabit = inhabit->holdRoot;
 		doDrawing(phantomState, inhabit);
 
-		drawHud(&phantomPlayers);
+		drawOverlay(&phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 		glfwSwapBuffers(display);
@@ -1148,6 +1141,7 @@ int main(int argc, char **argv) {
 	ent_init();
 	edit_init();
 	initMods(); //Set up modules
+	hud_init();
 	frameData.init();
 	outboundData.init();
 	syncData.init();
@@ -1265,6 +1259,7 @@ int main(int argc, char **argv) {
 	outboundData.destroy();
 	destroyFont();
 	destroy_registrar();
+	hud_destroy();
 	edit_destroy();
 	ent_destroy();
 	velbox_destroy();

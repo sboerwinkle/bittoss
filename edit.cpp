@@ -18,6 +18,7 @@
 #include "modules/factory.h"
 #include "modules/seat.h"
 #include "modules/legg.h"
+#include "modules/gun.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -553,6 +554,22 @@ void edit_t_seat(gamestate *gs, ent *me) {
 		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
 		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
 		setNumSliders(gs, e, M_SEAT_NUM_SLIDERS);
+	}
+}
+
+void edit_t_gun(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_NIL);
+		e->tickHeld = tickHandlers.get(TICK_HELD_GUN);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		setNumSliders(gs, e, M_GUN_NUM_SLIDERS);
+		// TODO part of the type mask should belong to _t_ instead of _m_
+		uMyTypeMask(e, type(e) | T_EQUIP);
 	}
 }
 
