@@ -39,7 +39,11 @@ char globalRunning = 1;
 static list<player> players, phantomPlayers;
 static int myPlayer;
 
-static int32_t defaultColors[8] = {0xFFAA00, 0x00AA00, 0xFF0055, 0xFFFF00, 0xAA0000, 0x00FFAA, 0xFF5555, 0x55FF55};
+static char const * defaultColors[6] = {
+	"2.1", "1.1",
+	"2.2", "1.2",
+	"2.3", "1.3"
+};
 
 int p1Codes[numKeys] = {GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT};
 
@@ -74,6 +78,7 @@ static char thirdPerson = 1;
 static char ctrlPressed = 0;
 static int wheelIncr = 100;
 static char mouseGrabbed = 0;
+static int32_t ghostCenter[3] = {0, -15000, 16000};
 
 static tick_t seat_tick, seat_tick_old;
 
@@ -123,6 +128,10 @@ pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
 static void outerSetupFrame(list<player> *ps) {
 	ent *e = (*ps)[myPlayer].entity;
 	float up = 0, forward = 0;
+	if (thirdPerson) {
+		up = 32*PTS_PER_PX;
+		forward = -64*PTS_PER_PX;
+	}
 	if (e) {
 		ent *h = e->holder;
 		// Checking the values of handlers to determine type is sort of frowned upon for
@@ -133,9 +142,6 @@ static void outerSetupFrame(list<player> *ps) {
 			if (piloting && h->numSliders >= 2) {
 				up = getSlider(h, h->numSliders - 2);
 				forward = -getSlider(h, h->numSliders - 1);
-			} else {
-				up = 32*PTS_PER_PX;
-				forward = -64*PTS_PER_PX;
 			}
 		}
 	}
@@ -149,10 +155,9 @@ static void outerSetupFrame(list<player> *ps) {
 		frameOffset[0] = -e->center[0];
 		frameOffset[1] = -e->center[1];
 		frameOffset[2] = -e->center[2];
+		range(i, 3) ghostCenter[i] = e->center[i];
 	} else {
-		frameOffset[0] = 0;
-		frameOffset[1] = -15000;
-		frameOffset[2] = 500*PTS_PER_PX;
+		range(i, 3) frameOffset[i] = -ghostCenter[i];
 	}
 }
 
@@ -186,7 +191,7 @@ static void resetPlayer(gamestate *gs, int i) {
 	p->reviveCounter = 100000;
 	p->data = 0;
 	p->entity = NULL;
-	p->color = defaultColors[i % 8];
+	p->color = findColor(defaultColors[i % 6]);
 }
 
 static void resetPlayers(gamestate *gs) {

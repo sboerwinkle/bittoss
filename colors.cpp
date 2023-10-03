@@ -27,7 +27,13 @@ void colors_destroy() {
 }
 
 void colors_init() {
-	colors.init(151);
+	colors.init(157);
+	colors.add({.name="1.1", .value=0x00c000}); // Default colors, by team (green vs red)
+	colors.add({.name="1.2", .value=0xa0c000});
+	colors.add({.name="1.3", .value=0x00a080});
+	colors.add({.name="2.1", .value=0xc00000});
+	colors.add({.name="2.2", .value=0xc06000});
+	colors.add({.name="2.3", .value=0xa00060});
 	colors.add({.name="aliceblue", .value=0xf0f8ff});
 	colors.add({.name="antiquewhite", .value=0xfaebd7});
 	colors.add({.name="aqua", .value=0x00ffff});

@@ -122,6 +122,7 @@ static void player_pickup(gamestate *gs, ent *me, ent *him) {
 void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode) {
 	char found = 0;
 	holdeesAnyOrder(h, me) {
+		// TODO a more sane way to identify baubles
 		if ((h->typeMask & T_DECOR) && h->wires.num == 1 && mode == getSlider(h, 0)) {
 			range(j, h->wires.num) {
 				if (h->wires[j] == target) {
@@ -211,7 +212,7 @@ static void player_tick(gamestate *gs, ent *me) {
 		// This is fun block making stuff, i.e. not edittool
 		int numHoldees = 0;
 		holdeesAnyOrder(h, me) {
-			if (h->typeMask & T_DECOR) continue;
+			if (!(h->typeMask & T_EQUIP)) continue;
 			if (++numHoldees > 1) break; // Don't care about counting any higher than 2
 		}
 		if (!utility) uSlider(me, s_equip_processed, 0);
@@ -223,7 +224,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				int32_t vel[3];
 				range(i, 3) vel[i] = 100 * look[i] / axisMaxis;
 				holdeesAnyOrder(h, me) {
-					if (h->typeMask & T_DECOR) continue;
+					if (!(h->typeMask & T_EQUIP)) continue;
 					uVel(h, vel);
 					uCenter(h, vel);
 					uDrop(gs, h);

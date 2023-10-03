@@ -115,6 +115,8 @@ enum {
 	TICK_LEGG,
 	TICK_SEAT,
 	TICK_HELD_GUN,
+	TICK_BULLET,
+	TICK_HELD_BULLET,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?
@@ -136,6 +138,7 @@ enum {
 	PUSHED_PLAYER,
 	PUSHED_gap2, // Unused
 	PUSHED_gap3,
+	PUSHED_BULLET,
 	PUSHED_NUM
 };
 // Did you include your module in "modules.c"?
@@ -156,6 +159,7 @@ enum {
 	FUMBLED_DECOR,
 	FUMBLE_SEAT,
 	PICKUP_PLAYER,
+	PICKED_UP_BULLET,
 	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?

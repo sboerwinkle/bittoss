@@ -19,7 +19,7 @@ ent* mkHero(gamestate *gs, int n, int total) {
 	int32_t pos[3];
 	// X axis is major axis of arena, team determines spawn side.
 	pos[0] = 70000 * (3-team*2); // +/- 70K
-	pos[1] = n/2 * 1000; // Multiples of 1K, based on index within team
+	pos[1] = n/2 * 1024; // Multiples of 1K, based on index within team
 	pos[2] = -8000;
 
 	ent *p = mkPlayer(gs, pos, team);
