@@ -353,6 +353,14 @@ void edit_m_fpdraw(gamestate *gs, ent *me, const char* argsStr) {
 	typeFlag(gs, me, argsStr, T_NO_DRAW_FP);
 }
 
+static void typemask_m(ent *e, int32_t type) {
+	uMyTypeMask(e, (e->typeMask & (T_NO_DRAW_FP | T_WEIGHTLESS | T_EQUIP | TEAM_MASK | T_INPUTS)) | type);
+}
+
+static void typemask_t(ent *e, int32_t type) {
+	uMyTypeMask(e, (e->typeMask & ~(T_EQUIP | T_INPUTS)) | type);
+}
+
 void edit_m_friction(gamestate *gs, ent *me, const char* argsStr) {
 	if (!me) return;
 	getLists(me);
@@ -369,8 +377,11 @@ void edit_m_decor(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		// Unlike some other _m_ functions, we unset T_WEIGHTLESS
-		uMyTypeMask(e, T_DECOR);
+
+		typemask_m(e, T_DECOR);
+		// Unlike other _m_ functions, we unset T_WEIGHTLESS
+		uMyTypeMask(e, e->typeMask & ~T_WEIGHTLESS);
+
 		uMyCollideMask(e, 0);
 		e->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
 	}
@@ -382,7 +393,7 @@ void edit_m_paper(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		uMyTypeMask(e, T_OBSTACLE + (e->typeMask & T_WEIGHTLESS));
+		typemask_m(e, T_OBSTACLE);
 		uMyCollideMask(e, T_OBSTACLE + T_TERRAIN);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -394,7 +405,7 @@ void edit_m_wood(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_WOOD);
-		uMyTypeMask(e, T_OBSTACLE + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
+		typemask_m(e, T_OBSTACLE + T_HEAVY);
 		uMyCollideMask(e, T_TERRAIN + T_OBSTACLE);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -406,7 +417,7 @@ void edit_m_stone(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		uMyTypeMask(e, T_TERRAIN + (e->typeMask & T_WEIGHTLESS));
+		typemask_m(e, T_TERRAIN);
 		uMyCollideMask(e, T_TERRAIN);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -418,7 +429,7 @@ void edit_m_metal(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_METAL);
-		uMyTypeMask(e, T_TERRAIN + T_HEAVY + (e->typeMask & T_WEIGHTLESS));
+		typemask_m(e, T_TERRAIN + T_HEAVY);
 		uMyCollideMask(e, T_TERRAIN);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -432,7 +443,7 @@ void edit_m_wall(gamestate *gs, ent *me) {
 		// `whoMoves` actually shouldn't be called, since it has no collideMask.
 		// "real" walls actually leave it NULL, but I think this is better.
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		uMyTypeMask(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
+		typemask_m(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -444,7 +455,7 @@ void edit_m_ghost(gamestate *gs, ent *me) {
 	range(i, a.num) {
 		ent *e = a[i];
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		uMyTypeMask(e, T_WEIGHTLESS);
+		typemask_m(e, T_WEIGHTLESS);
 		uMyCollideMask(e, 0);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 	}
@@ -460,6 +471,7 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, 0);
 	}
 }
@@ -483,6 +495,7 @@ void edit_t_logic(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_LOGIC);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -497,6 +510,7 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_LOGIC);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -511,6 +525,7 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, 2);
 	}
 }
@@ -525,6 +540,7 @@ void edit_t_legg(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, M_LEGG_NUM_SLIDERS);
 	}
 }
@@ -539,6 +555,7 @@ void edit_t_respawn(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
 		setNumSliders(gs, e, 5);
 	}
 }
@@ -553,6 +570,7 @@ void edit_t_seat(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_SEAT);
 		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
 		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
+		typemask_t(e, T_INPUTS);
 		setNumSliders(gs, e, M_SEAT_NUM_SLIDERS);
 	}
 }
@@ -567,9 +585,8 @@ void edit_t_gun(gamestate *gs, ent *me) {
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, T_EQUIP);
 		setNumSliders(gs, e, M_GUN_NUM_SLIDERS);
-		// TODO part of the type mask should belong to _t_ instead of _m_
-		uMyTypeMask(e, type(e) | T_EQUIP);
 	}
 }
 
