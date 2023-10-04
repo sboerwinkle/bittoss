@@ -7,12 +7,25 @@
 #include "player.h"
 #include "eyes.h"
 
+#include "respawn.h"
+
+char const * const * const M_RESPAWN_HELP = (char const * const[]){
+	"mask - player data mask",
+	"value - req'd player data after masking",
+	"delay - how long they've been dead",
+	"cooldown - how long between spawns",
+	"counter - working memory for cooldown",
+	NULL
+};
+
 static void respawn_tick(gamestate *gs, ent *me) {
 	int32_t cooldown = getSlider(me, 4);
 	if (cooldown > 0) {
 		uSlider(me, 4, cooldown - 1);
 		return;
 	}
+	// Respawner can be suppressed with logic signal
+	if (getButton(me, 0)) return;
 
 	int32_t mask = getSlider(me, 0);
 	int32_t check = getSlider(me, 1);
@@ -34,8 +47,7 @@ static void respawn_tick(gamestate *gs, ent *me) {
 	toRevive->entity->color = toRevive->color;
 	uSlider(me, 4, getSlider(me, 3));
 
-	// Lets spawning tie into the logic wiring system,
-	// though for simplicity it's always just signal 0
+	// Emit logic pulse when it respawns someone
 	wiresAnyOrder(w, me) {
 		pushBtn(w, 0);
 	}

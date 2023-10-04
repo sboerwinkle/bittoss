@@ -19,6 +19,7 @@
 #include "modules/seat.h"
 #include "modules/legg.h"
 #include "modules/gun.h"
+#include "modules/respawn.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -171,6 +172,8 @@ void edit_info(ent *e) {
 		char endl = 0;
 		if (e->tickHeld == tickHandlers.get(TICK_LEGG)) {
 			helps = M_LEGG_HELP;
+		} else if (e->tickHeld == tickHandlers.get(TICK_RESPAWN)) {
+			helps = M_RESPAWN_HELP;
 		}
 		range(i, e->numSliders) {
 			if (*helps) {
