@@ -42,7 +42,7 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 		int32_t pos[3];
 		range(i, 3) {
 			pos[i] = me->center[i] + (32*vel[i]/axisMaxis);
-			vel[i] = me->vel[i] + (512*vel[i]/axisMaxis);
+			vel[i] = me->vel[i] + (1024*vel[i]/axisMaxis);
 		}
 		ent* bullet = initEnt(
 			gs, me,
@@ -52,7 +52,7 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 		);
 		uSlider(bullet, 0, 60);
 		bullet->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		bullet->color = 0x808080;
+		bullet->color = 0xC0C0C0;
 		bullet->pushed = pushedHandlers.get(PUSHED_BULLET);
 		bullet->tick = tickHandlers.get(TICK_BULLET);
 		bullet->tickHeld = tickHandlers.get(TICK_HELD_BULLET);
@@ -97,11 +97,30 @@ static void bullet_tick(gamestate *gs, ent *me) {
 static void bullet_tick_held(gamestate *gs, ent *me) {
 	int32_t ttl = getSlider(me, 0);
 	if (ttl <= -30 || ttl > 0) { // >0 shouldn't happen...
-		// TODO: bullet killing stuff logic
+		ent *h = me->holder;
+		int32_t t = type(h);
+		// I think with the current rate of fire and bullet TTL,
+		// standing perfectly still firing continuously maxes out at 6 concurrent hits.
+		// That 6th one might easily be one frame shy of registering, idk.
+		int hitsReqd;
+		if (t & T_DEBRIS) hitsReqd = 1;
+		else if (t & T_TERRAIN) hitsReqd = (t & T_HEAVY) ? 15 : 5;
+		else hitsReqd = 3;
+
+		holdeesAnyOrder(c, h) {
+			if (c->tickHeld == bullet_tick_held) {
+				hitsReqd--;
+				if (!hitsReqd) {
+					uDead(gs, h);
+					break;
+				}
+			}
+		}
+
 		uDead(gs, me);
 	} else {
 		ttl--;
-		me->color = 0x808080 - 0x10101 * (0x80*ttl/-30);
+		me->color = 0xC0C0C0 - 0x10101 * (0xC0*ttl/-30);
 		uSlider(me, 0, ttl);
 	}
 }
