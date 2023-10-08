@@ -19,7 +19,7 @@ if (FRAME_ID_MAX % BUF_SLOTS != 0):
 
 EMPTY_MSG = b'\0\0\0\0'
 
-usage = "Usage: frame_latency [port] [starting_players]\nPort default is 15000\nlatency must be greater than 0, less than " + str(BUF_SLOTS//4) + "\nstarting_players is probably not an option you need"
+usage = "Usage: frame_latency [port] [starting_players]\nlatency must be greater than 0, less than " + str(BUF_SLOTS//4) + "\nPort default is 15000\nstarting_players is probably not an option you need"
 
 # TODO clients and buf are used, like, everywhere; maybe make them object members at some point?
 
