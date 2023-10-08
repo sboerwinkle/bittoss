@@ -163,7 +163,7 @@ void edit_info(ent *e) {
 	printf(
 		"p (%d, %d, %d)\ns (%d, %d, %d)\nc %06X\n",
 		e->center[0], e->center[1], e->center[2],
-		e->radius[0], e->radius[1], e->radius[2],
+		e->radius[0] * 2, e->radius[1] * 2, e->radius[2] * 2,
 		e->color
 	);
 	if (e->numSliders) {
@@ -628,14 +628,13 @@ void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 }
 
 static int32_t adjustRadius(int32_t input, char verbose) {
-	if (input <= 0 || input > 10000000) {
-		int32_t n;
-		if (input <= 0) n = 1;
-		else n = 10000000;
-		if (verbose) fprintf(stderr, "Input radius %d was replaced with %d\n", input, n);
-		return n;
+	int32_t ret = input / 2;
+	if (ret <= 0) ret = 1;
+	else if (ret > 10000000) ret = 10000000;
+	if (ret * 2 != input && verbose) {
+		fprintf(stderr, "Input width %d was replaced with %d\n", input, ret * 2);
 	}
-	return input;
+	return ret;
 }
 
 void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
@@ -720,11 +719,11 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		int axis, dir;
 		getEditAxis(me, &axis, &dir);
 		int32_t amt = args[0];
-		int32_t offset = amt * -dir;
+		int32_t offset = amt/2 * -dir;
 		range(i, a.num) {
 			ent *e = a[i];
 			e->center[axis] += offset;
-			e->radius[axis] = adjustRadius(e->radius[axis] + amt, verbose);
+			e->radius[axis] = adjustRadius(2*e->radius[axis] + amt, verbose);
 
 			radiusFix(e);
 		}
@@ -1022,26 +1021,14 @@ void edit_measure(gamestate *gs, ent *me) {
 	getExtents(&a, axis, &min, &max);
 	int32_t d = max-min;
 
-	printf("Outer: %d", d);
-	if (d%2 == 0) {
-		printf(" (2*%d)", d/2);
-	}
-	putchar('\n');
+	printf("Outer: %d\n", d);
 
 	if (a.num == 2) {
 		d = abs(a[0]->center[axis] - a[1]->center[axis]);
-		printf("Centers: %d", d);
-		if (d%2 == 0) {
-			printf(" (2*%d)", d/2);
-		}
-		putchar('\n');
+		printf("Centers: %d\n", d);
 
 		d -= a[0]->radius[axis] + a[1]->radius[axis];
-		printf("Inner: %d", d);
-		if (d%2 == 0) {
-			printf(" (2*%d)", d/2);
-		}
-		putchar('\n');
+		printf("Inner: %d\n", d);
 	}
 }
 

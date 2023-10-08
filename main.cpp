@@ -76,7 +76,7 @@ static double mouseX = 0;
 static double mouseY = 0;
 static char thirdPerson = 1;
 static char ctrlPressed = 0;
-static int wheelIncr = 100;
+static int wheelIncr = 200;
 static char mouseGrabbed = 0;
 static int32_t ghostCenter[3] = {0, -15000, 16000};
 
@@ -886,7 +886,7 @@ static char handleCtrlBind(int key) {
 	} else if (key == GLFW_KEY_F) {
 		strcpy(t, "/hl");
 	} else if (key == GLFW_KEY_B) {
-		strcpy(t, "/b 200 200 200");
+		strcpy(t, "/b 400 400 400");
 	} else if (key == GLFW_KEY_I) {
 		// TODO Really this should be `shiftPressed`, since keys[5] is only *left* shift
 		if (activeInputs.basic.p1Keys[5]) {
@@ -911,7 +911,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 				activeInputs.textBuffer[typingLen] = '\0';
 				activeInputs.textBuffer[typingLen-1] = '_';
 				typingLen--;
-			} else if (key == GLFW_KEY_ENTER) {
+			} else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
 				activeInputs.textBuffer[typingLen] = '\0';
 				activeInputs.sendInd = 1;
 				typingLen = -1;
