@@ -1,6 +1,4 @@
 
-#define displayWidth 1000
-#define displayHeight 700
 #define fontSizePx 16
 #define PTS_PER_PX 32
 
@@ -15,6 +13,7 @@ extern int frameOffset[3];
 
 extern void initGraphics();
 
+extern void setDisplaySize(int width, int height);
 extern void setupFrame(float pitch, float yaw, float up, float forward);
 extern void setupText();
 

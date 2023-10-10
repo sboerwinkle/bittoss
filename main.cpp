@@ -1024,6 +1024,10 @@ static void window_focus_callback(GLFWwindow* window, int focused) {
 	}
 }
 
+static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+	setDisplaySize(width, height);
+}
+
 static void* inputThreadFunc(void *_arg) {
 	glfwSetKeyCallback(display, key_callback);
 	glfwSetCharCallback(display, character_callback);
@@ -1031,6 +1035,7 @@ static void* inputThreadFunc(void *_arg) {
 	glfwSetMouseButtonCallback(display, mouse_button_callback);
 	glfwSetScrollCallback(display, scroll_callback);
 	glfwSetWindowFocusCallback(display, window_focus_callback);
+	glfwSetFramebufferSizeCallback(display, framebuffer_size_callback);
 	while (!glfwWindowShouldClose(display)) {
 		glfwWaitEvents();
 		shareInputs();
@@ -1131,11 +1136,15 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	// glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	display = glfwCreateWindow(displayWidth, displayHeight, "Bittoss", NULL, NULL);
+	display = glfwCreateWindow(1000, 700, "Bittoss", NULL, NULL);
 	if (!display) {
 		fputs("Couldn't create our display\n", stderr);
 		return 1;
 	}
+	// Framebuffer size is not guaranteed to be equal to window size
+	int fbWidth,fbHeight;
+	glfwGetFramebufferSize(display, &fbWidth, &fbHeight);
+	setDisplaySize(fbWidth, fbHeight);
 
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())

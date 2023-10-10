@@ -7,6 +7,9 @@
 #include "graphics.h"
 #include "font.h"
 
+int displayWidth = 0;
+int displayHeight = 0;
+int displayChanged = 0;
 int frameOffset[3];
 
 // Might improve this later, for now we just send the updated coords to the graphics card
@@ -24,7 +27,6 @@ static GLint u_flat_scale_y_id = -1;
 static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
 static GLfloat cam_lens_ortho[16];
-static float fontMultX, fontMultY;
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
 static void printGLProgErrors(GLuint prog){
@@ -56,6 +58,13 @@ static void cerr(const char* msg){
 		if (!err) return;
 		printf("Error (%s): %d\n", msg, err);
 	}
+}
+
+void setDisplaySize(int width, int height){
+	displayWidth = width;
+	displayHeight = height;
+	// Everything meaningful must be done in the GL-context-having thread, so we only set a flag here.
+	displayChanged = 1;
 }
 
 static char* readFileContents(const char* path){
@@ -151,8 +160,6 @@ void initGraphics() {
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
 
 	glOrthoEquiv(cam_lens_ortho, 0, 1, 1, 0, -1, 1);
-	fontMultX = (float) fontSizePx / displayWidth;
-	fontMultY = (float) fontSizePx / displayHeight;
 
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
@@ -161,6 +168,10 @@ void initGraphics() {
 }
 
 void setupFrame(float pitch, float yaw, float up, float forward) {
+	if(displayChanged){
+		displayChanged = 0;
+		glViewport(0, 0, displayWidth, displayHeight);
+	}
 	glUseProgram(main_prog);
 	glBindVertexArray(vaos[0]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -193,6 +204,8 @@ void setupText() {
 }
 
 void drawHudText(const char* str, double x, double y, double scale, float* color){
+	float fontMultX = (float) fontSizePx / displayWidth;
+	float fontMultY = (float) fontSizePx / displayHeight;
 	x *= fontMultX;
 	y *= fontMultY;
 	glUniform1f(u_flat_scale_y_id, (float)(scale*myfont.invaspect) * fontMultY);
