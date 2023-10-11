@@ -8,3 +8,9 @@ You should be able to build the client with `build.sh`. It requires GLFW3, and s
 Once in-game, the controls are WASD, mouse (look/LMB/RMB), Space, Tab, and Left Shift. The default map is sort of capture-the-flag, though there's not proper scoring. There's _very_ limited text chat (T), but it's more fun if you're on an external voice call.
 
 There's some other stuff as well, but I'm not going to put effort into writing that all down when it still might change.
+
+*Contributors:*
+
+sboerwinkle: Yours truly, primary author
+
+mboerwinkle: Starter graphics code, as well as some graphical QoL improvements
