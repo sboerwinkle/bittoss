@@ -1,7 +1,6 @@
 
-#define displayWidth 1000
-#define displayHeight 700
 #define fontSizePx 16
+// TODO This constant is waaaay outdated, from back when this was a 2D game (!)
 #define PTS_PER_PX 32
 
 // Person cube radius is 16, and with a 90 deg FOV the closest
@@ -15,6 +14,7 @@ extern int frameOffset[3];
 
 extern void initGraphics();
 
+extern void setDisplaySize(int width, int height);
 extern void setupFrame(float pitch, float yaw, float up, float forward);
 extern void setupText();
 
