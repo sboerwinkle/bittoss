@@ -7,9 +7,9 @@
 #include "graphics.h"
 #include "font.h"
 
-int displayWidth = 0;
-int displayHeight = 0;
-int displayChanged = 0;
+static int displayWidth = 0;
+static int displayHeight = 0;
+
 int frameOffset[3];
 
 // Might improve this later, for now we just send the updated coords to the graphics card
@@ -63,8 +63,7 @@ static void cerr(const char* msg){
 void setDisplaySize(int width, int height){
 	displayWidth = width;
 	displayHeight = height;
-	// Everything meaningful must be done in the GL-context-having thread, so we only set a flag here.
-	displayChanged = 1;
+	glViewport(0, 0, displayWidth, displayHeight);
 }
 
 static char* readFileContents(const char* path){
@@ -168,10 +167,6 @@ void initGraphics() {
 }
 
 void setupFrame(float pitch, float yaw, float up, float forward) {
-	if(displayChanged){
-		displayChanged = 0;
-		glViewport(0, 0, displayWidth, displayHeight);
-	}
 	glUseProgram(main_prog);
 	glBindVertexArray(vaos[0]);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

@@ -58,6 +58,16 @@ struct inputs {
 	} basic;
 	char textBuffer[TEXT_BUF_LEN];
 	char sendInd;
+
+	// Since the "paced" thread draws the scene, it's also responsible for miscellaneous GL housekeeping.
+	// This includes notifying GL when the framebuffer changes resolution.
+	struct {
+		int width, height;
+		char changed;
+	} framebuffer;
+
+	// If this struct gets much bigger,
+	// may want to consider a `queue` of message objects or something...
 };
 inputs activeInputs = {0}, sharedInputs = {0};
 
@@ -118,7 +128,7 @@ queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
 char syncNeeded = 0;
-pthread_mutex_t outboundMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
@@ -228,13 +238,11 @@ static char isCmd(const char* input, const char *cmd) {
 	return !strncmp(input, cmd, l) && (input[l] == ' ' || input[l] == '\0');
 }
 
-static void sendControls(int32_t frame) {
-	list<char> &out = outboundData.add();
+static void serializeControls(int32_t frame, list<char> *_out) {
+	list<char> &out = *_out;
 
 	out.setMaxUp(14); // 4 size + 4 frame + 6 input data
 	out.num = 14;
-
-	lock(outboundMutex);
 
 	const char *const k = sharedInputs.basic.p1Keys;
 
@@ -327,12 +335,28 @@ static void sendControls(int32_t frame) {
 			memcpy(out.items + start, text, len);
 		}
 	}
-	unlock(outboundMutex);
 
 	*(int32_t*)out.items = htonl(out.num - 4);
-	sendData(out.items, out.num);
+}
 
-	// Todo: Maybe `pop` doesn't make it immediately available for reclamation, so both ends have some wiggle room?
+static void updateResolution() {
+	if (sharedInputs.framebuffer.changed) {
+		sharedInputs.framebuffer.changed = 0;
+		setDisplaySize(sharedInputs.framebuffer.width, sharedInputs.framebuffer.height);
+	}
+}
+
+static void handleSharedInputs(int outboundFrame) {
+	list<char> *out = &outboundData.add();
+
+	lock(sharedInputsMutex);
+
+	serializeControls(outboundFrame, out);
+	updateResolution();
+
+	unlock(sharedInputsMutex);
+
+	sendData(out->items, out->num);
 }
 
 static void mkHeroes(gamestate *gs) {
@@ -359,14 +383,18 @@ static void cleanupDeadHeroes(gamestate *gs) {
 }
 
 void shareInputs() {
-	lock(outboundMutex);
+	lock(sharedInputsMutex);
 	sharedInputs.basic = activeInputs.basic;
 	if (!sharedInputs.sendInd && activeInputs.sendInd) {
 		activeInputs.sendInd = 0;
 		sharedInputs.sendInd = 1;
 		strcpy(sharedInputs.textBuffer, activeInputs.textBuffer);
 	}
-	unlock(outboundMutex);
+	if (activeInputs.framebuffer.changed) {
+		sharedInputs.framebuffer = activeInputs.framebuffer;
+		activeInputs.framebuffer.changed = 0;
+	}
+	unlock(sharedInputsMutex);
 }
 
 char handleKey(int code, char pressed) {
@@ -726,7 +754,6 @@ static void* pacedThreadFunc(void *_arg) {
 		range(i, numPlayers*4) latestFrameData.add(0);
 	}
 
-	lock(outboundMutex);
 	range(i, latency) {
 		// Populate the initial `latency` frames with empty data,
 		// since we didn't have the chance to send anything there.
@@ -734,7 +761,6 @@ static void* pacedThreadFunc(void *_arg) {
 		tmp.num = 0;
 		range(j, 4) tmp.add(0); // 4 bytes size (all zero)
 	}
-	unlock(outboundMutex);
 
 	// Lower values (> 0) are better at handling long network latency,
 	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us).
@@ -776,7 +802,7 @@ static void* pacedThreadFunc(void *_arg) {
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
 
-		sendControls(outboundFrame);
+		handleSharedInputs(outboundFrame);
 		outboundFrame = (outboundFrame + 1) % FRAME_ID_MAX;
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
@@ -1025,7 +1051,9 @@ static void window_focus_callback(GLFWwindow* window, int focused) {
 }
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-	setDisplaySize(width, height);
+	activeInputs.framebuffer.width = width;
+	activeInputs.framebuffer.height = height;
+	activeInputs.framebuffer.changed = 1;
 }
 
 static void* inputThreadFunc(void *_arg) {
@@ -1141,10 +1169,13 @@ int main(int argc, char **argv) {
 		fputs("Couldn't create our display\n", stderr);
 		return 1;
 	}
-	// Framebuffer size is not guaranteed to be equal to window size
-	int fbWidth,fbHeight;
-	glfwGetFramebufferSize(display, &fbWidth, &fbHeight);
-	setDisplaySize(fbWidth, fbHeight);
+
+	{
+		// Framebuffer size is not guaranteed to be equal to window size
+		int fbWidth, fbHeight;
+		glfwGetFramebufferSize(display, &fbWidth, &fbHeight);
+		setDisplaySize(fbWidth, fbHeight);
+	}
 
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())

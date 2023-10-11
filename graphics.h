@@ -1,5 +1,6 @@
 
 #define fontSizePx 16
+// TODO This constant is waaaay outdated, from back when this was a 2D game (!)
 #define PTS_PER_PX 32
 
 // Person cube radius is 16, and with a 90 deg FOV the closest
