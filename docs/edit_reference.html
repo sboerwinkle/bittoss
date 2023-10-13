@@ -1,0 +1,186 @@
+<html>
+<body>
+<h2>This Document</h2>
+This document describes how the in-game editing works. Like everything else, it is not finalized and may contain inaccuracies.
+<p/>
+This is intended as more of an in-depth technical reference. Consider also the <a href="edit_guide.html">Edit Starter Guide Follow-Along Tutorial Thing</a>, which lets you get started with less reading and more doing. It contains links back to this document. If you're a "more reading" kind of person, you can start here just as well.
+
+<h2>About Editing</h2>
+
+<!-- TODO links to relevant sections -->
+<!-- TODO no invalid links exist -->
+<h3 id="game_state">Game State</h3>
+Editing is changing state. There's a lot of it, but the interesting bits break down like so:
+<ul>
+	<li>
+		Block state:
+		<ul>
+			<li>position, size, velocity, color, etc</li>
+			<li>type - represents the "logic" of blocks that "do things"</li>
+			<li><a href="#material">material</a> - how it interacts when it hits another block</li>
+			<li>sliders - integers used to store internal state. Number and meaning is determined by the type.</li>
+			<li>wires - set of one-way connections to other blocks. Meaning is determined by the type.</li>
+			<li>holder - blocks which are "connected" have a parent-child relationship, so a group of connected blocks will form a tree.</li>
+		</ul>
+	</li>
+	<li>
+		Player state:
+		<ul>
+			<li><pre>/data</pre>, mostly used for team selection at the moment</li>
+			<li>color</li>
+			<li>respawn counter</li>
+		</ul>
+	</li>
+	<li>
+		Misc:
+		<ul>
+			<li>gamerules - grab bag of on/off flags</li>
+			<li>random seed<li>
+		</ul>
+	</li>
+</ul>
+<p/>
+For the block state, it's worth noting that "type" and "material" are abstractions. Internally, these are some event handlers and flags.
+While it's useful to mentally divide that information into "type" and "material", you'll see some commands that don't follow that distinction exactly.
+
+<h3 id="edit_interface">Edit Interface</h3>
+Editing is done from the normal game client. Edit commands are enabled by <a href="#_rule">gamerule</a> 10 (editing). You'll want the terminal from which you launched the game to be visible, as it is used extensively for information - and knowing is half the battle.
+<p/>
+The editing interface breaks down into:
+<ul>
+	<li>Commands. There's a big section on these further down, they do everything. Press '<pre>/</pre>' (or '<pre>T</pre>') to start typing one.</li>
+	<li>Keybinds. Some common commands have keybinds, these are listed with the command</li>
+	<li>Player buffers / look direction. Some commands need inputs that it doesn't make sense to type. These deserve a bit more explanation...</li>
+</ul>
+<b id="buffers">Player Buffers</b>
+<p/>
+Player buffers are how you specify which blocks to operate on. The basic buffer operations are tied to keyboard/mouse controls, and are enabled with <a href="#_edit">/edit</a> ("Edit Mode"). You'll want this on most of the time, but can turn it off to use "regular" controls - for testing, among other things.
+Edit Mode doesn't affect your use of other editing commands.
+<p/>
+Edit Mode controls are:
+<ul>
+	<li>LMB - Select a block. More accurately, this shoots a little "thumbtack" - whatever it hits will be added (or removed) in your Blue/Primary buffer.</li>
+	<li>RMB - Like LMB, but operates on the Red/Secondary buffer.</li>
+	<li>Shift + LMB (or RMB) - Clears the Blue (or Red) buffer. Also clears any in-flight thumbtacks for that buffer, in case you shot one into empty space...</li>
+	<li>Shift + Space - Swap Blue/Red buffers.</li>
+</ul>
+Once a block is in your buffer, you'll see a little blue (or red) indicator hovering around your player that points at the block. These indicators are, in fact, also blocks - but they don't collide, and in practice they don't get in your way.
+<p/>
+Note that thumbtacks only select whatever they <i>hit</i> - selecting immaterial things is tricky, but there are ways (e.g. <a href="#_inside">Ctrl+I</a>).
+<b id="empty_buffer">Empty Buffer:</b>
+Note that if either buffer is empty, commands which use that buffer's contents will instead see one item - your player.
+<p/>
+<b id="look_dir">Look Direction</b>
+<p/>
+Some commands need a direction as input. Typically these will use your Look Direction, which for the sake of editing is just whichever axis you are mostly looking down. For instance, your look direction can be <pre>+Z</pre> or <pre>-X</pre>.
+
+<h2>Commands</h2>
+<h3>Buffer Manipulation</h3>
+Commands to modify the <a href="#buffers">Player Buffers</a>. Often these will look at the Red buffer, do some logic, and select each result into the Blue buffer (or take it out, if it's already in the Blue buffer).
+<p/>
+<b id="_inside">/inside</b> [0-3]?<br/>
+<i>Ctrl+I - /inside 1</i><br/>
+<i>Ctrl+Shift+I - /inside 2</i><br/>
+Selects some items into (or out of) the Blue buffer based on the bounding box of the Red buffer.<br/>
+Specifically, this first computes the bounding box for all blocks in the Red buffer, and chooses some blocks based on the command's argument (default 1):
+<ul>
+	<li>0 - blocks which touch the bounding box, even if they don't intersect it.</li>
+	<li>1 - blocks which intersect the bounding box</li>
+	<li>2 - blocks which are completely covered by the bounding box (may touch the boundary)</li>
+	<li>3 - blocks which are completely surrounded by the bounding box (not touching the boundary)</li>
+</ul>
+This command is commonly used for two main purposes, mostly with the <i>Ctrl+I</i> keybind:
+<ul>
+	<li>You have a large collection of blocks in one place, and you want to select them all. Clear both buffers, select some blocks at the extremities (e.g. opposing corners) into the Red buffer, then issue <i>Ctrl+I</i>. You may now clear the Red buffer.</li>
+	<li>You want to select an immaterial block, maybe to make it material for easier manipulation in complex operations. Clear both buffers. Move your player so it intersects the block in question, then issue <i>Ctrl+I</i>. Since the <a href="#empty_buffer">Red buffer is empty</a>, the bounding box will just be your player. This will select your player, your eye, and the block in question. Step away and issue <i>Ctrl+I</i> again, which clears out your player and eye. You've now got the block you want, perhaps to issue <a href="#_wall">/wall</a>.</li>
+</ul>
+<p/>
+<b id="_wires">/wires</b><br/>
+Selects into (or out of) the Blue buffer the blocks which any block(s) in the Red buffer have a <a href="#_wire">wire</a> to.<br/>
+Useful to check which wires a particular block has. Sometimes convenient to select certain immaterial blocks.
+<p/>
+<b id="_held">/held</b><br/>
+Selects into (or out of) the Blue buffer the blocks which are <a href="#_pickup">held</a> by any block in the Red buffer.
+<p/>
+<b id="_tree">/tree</b><br/>
+Selects into (or out of) the Blue buffer the contents of the Red buffer, and any blocks they're holding, recursively.
+<p/>
+<h3 id="informational">Informational</h3>
+These commands typicaly print some information to the terminal which launched the game.
+<p/>
+<b id="_i">/i</b><br/>
+The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recents?<br/>
+Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently just <a href="#_legg">/legg</a>s and <a href="#_respawner">/respawner</a>s), the slider output will be annotated with the meaning of each slider.<br/>
+Finally, it prints the number of items in the Blue and Red buffers.
+<p/>
+<b id="_m">/m</b></br>
+Measures the contents of the Blue buffer along the current <a href="#look_dir">Look Direction</a>, printing the measurements to the terminal. The reported "Outside" distance is the size of the Blue buffer's bounding box.<br/>
+If there are exactly 2 items in the Blue buffer, this will also report a "Centers" distance (the distance between their centers) and an "Inside" distance (the empty space between the blocks, which will be negative if they are overlapping along that axis).
+<p/>
+<b id="_hl">/hl</b><br/>
+<i>Ctrl+F</i><br/>
+Flips the colors of blocks in the Blue buffer. Intended as a visual aid to see what's selected. Issuing this command again will always restore the original color.<br/>
+Clear items will be flipped to gray, though it is a special internal representation which will be flipped back to clear.
+<p/>
+<h3 id="material">Material</h3>
+These commands operate on the blocks in the Blue buffer, changing how their physics work. Applying a material command typically replaces the existing material, though some exceptions are noted.
+<p/>
+<b id="_weight">/weight</b> [01]?<br/>
+Weight controls whether a block is affected by gravity, and is not typically affected by other material commands. Weight is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively.<br/>
+Turning this off for your player can be useful to get to hard-to-reach places while editing.
+<p/>
+<b id="_wall">/wall</b><br/>
+Walls are the top-tier material, and are not pushed by anything. They also do not collide with other walls. To prevent walls from accidentally falling through the floor, this command will also turn off <a href="#_weight">/weight</a>.
+<p/>
+<b id="_metal">/metal</b><br/>
+Metal blocks are pushed by walls and other metal blocks.
+<p/>
+<b id="_stone">/stone</b><br/>
+Stone blocks are pushed by walls, metal, and other stone blocks.<br/>
+Platforms spawned by players are stone.
+<p/>
+<b id="_wood">/wood</b><br/>
+Wood blocks are pushed by walls, metal, stone, and other wood blocks.<br/>
+Wood blocks can also stack, unlike other materials.<br/>
+Wood is approximately what players (and blocks spawned by players) are made of, though there is no material command for them exactly.
+<p/>
+<b id="_paper">/paper</b><br/>
+Paper blocks are pushed by everything.
+<p/>
+<b id="_ghost">/ghost</b><br/>
+Ghost blocks do not collide. This command will also turn off <a href="#_weight">/weight</a> so they don't fall straight through the floor, like that one episode of Batman Beyond that scarred me as a child.<br/>
+Ghost blocks don't count against the collision checking at all (the most taxing part of the game logic).
+<p/>
+<b id="_decor">/decor</b><br/>
+This is intended for use on blocks that are currently <a href="#_pickup">held</a>. It makes them <a href="#_ghost">/ghost</a> blocks, gives them <a href="#_weight">weight</a> (which won't matter so long as they are held), and adds a condition that they will turn into <a href="#_paper">/paper</a> if dropped.<br/>
+This is intended to add decorative elements on vehicles or other complex objects, which will then turn into debris if the object is destroyed.
+<p/>
+<b id="_friction">/friction</b> :number:?<br/>
+Sets the friction on the blocks to the given number (or the default, 4, if no number is given). This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">Leggs</a>, to give them more "grip".
+<p/>
+<b id="_fpdraw">/fpdraw</b> [01]?<br/>
+Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.<br/>
+As a point of trivia, this is why you can't see your own eye in first-person mode.
+<h3 id="type">Type</h3>
+These commands change the special behaviors of the blocks in the Blue buffer. Typically this will replace any existing type, but some exceptions are noted.
+<p/>
+<b id="_dumb">/dumb</b><br/>
+Clears the type, the block is just a block.
+<p/>
+<b id="_logic">/logic</b><br/>
+The block sends, processes, and receives logic signals.<br/>
+<b><i>TODO: More detail.</i></b>
+<p/>
+<b id="_logic_debug">/logic_debug</b><br/>
+Exactly identical to <a href="#_logic">/logic</a>, but the block colors itself based on its gate type and whether or not it's active.<br/>
+While this is mainly intended for visualizing logic systems while they are being built, it can also be used as a sort of indicator light.<br/>
+Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they share the same number of sliders.<br/>
+Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.<br/>
+<p/>
+<b id="_gun">/gun</b><br/>
+Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!
+<p/>
+<!-- TODO: Other types here. /cursed should be last. -->
+<b id
+</body>
+</html>
