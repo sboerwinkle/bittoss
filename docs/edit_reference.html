@@ -180,7 +180,99 @@ Note that since these blocks re-set their color every tick, commands like <a hre
 <b id="_gun">/gun</b><br/>
 Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!
 <p/>
-<!-- TODO: Other types here. /cursed should be last. -->
-<b id
+<b id="_door">/door</b><br/>
+Makes the block travel between waypoints based on logic signals.<br/>
+The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_logic">/logic</a> blocks (waypoints). Its two sliders are, respectively, the top speed and acceleration it uses to get there. The target blocks should likely be <a href="#_ghost">/ghost</a> or part of the same <a href="#_tree">/tree</a> as the door, so they don't collide; the door will try to move its center to the waypoint's center.<br/>
+The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.<br/>
+To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is the "input", and can be connected to some sort of button or whatnot (<b><i>TODO: More on buttons in the logic section!</i></b>). That gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive, and the door will open or close based on the input to the wall gate.
+<p/>
+<b id="_legg">/legg</b><br/>
+Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.<br/>
+The overall idea is that the leg moves in a square pattern. On the bottom side of the square (when the leg is hopefully pushing the body forward), it will dip a little further down based on its speed (the "tread" depth). This helps make sure that if there are many legs, the one in contact with the ground is the one moving fastest.<br/>
+Since a square has 4 sides, the total time for one walk cycle is the horizontal time plus the vertical time, doubled. With multiple leggs, you probably want them spaced evenly through that cycle. Again, check /i in-game for more.<br/>
+Finally, consider setting a custom <a href="#_friction">/friction</a> on your leggs if they're slipping around too much.
+<p/>
+<b id="_seat">/seat</b><br/>
+Makes the block act as a control point for vehicles. Players connect on contact and can eject by jumping. Currently this is really only useful in conjunction with <a href="#_legg">/legg</a>s.<br/>
+Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
+<p/>
+<b id="_respawner">/respawner</b><br/>
+Respawns players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.<br/>
+The exact meaning of the configuration <a href="#_slider">slider</a>s can be checked in-game with <a href="#_i">/i</a>, but the short version is that players are eligible for respawn at a given spawner based on their <a href="#_data">/data</a>, how long they've been dead, and how long since the spawner last spawned someone.<br/>
+Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawner block, a players team will be based on whether their /data is even or odd.
+<p/>
+<b id="_cursed">/cursed</b><br/>
+This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.<br/>
+This is typically useful for immaterial things (perhaps <a href="#_logic">/logic</a> gates or <a href="#_respawner">/respawner</a>s) that are attached to a larger object, which you don't want to be left as orphans if the larger object is destroyed.
+<h3 id="misc">Miscellaneous</h3>
+I could try to come up with more categories, but honestly it feels a little forced past this point. Here's the rest of the commands.
+<b id="_save">/save</b> :path:?<br/>
+<i>Ctrl+K: /save</i><br/>
+Writes the game state to disk. This is more or less the complete state, down to the current random seed and the <a href="#_data">/data</a> of any players. Without an argument, the path defaults to "savegame", so <i>Ctrl+K</i> effectively serves as a quicksave. When providing the path, any filename will work; typically I'll use the <pre>.sav</pre> or <pre>.gam</pre> extension, but I should probably pick one...
+<p/>
+<b id="_load">/load</b> :path:?<br/>
+<i>Ctrl+L: /load</i><br/>
+Reads the game state from disk, broadcasting it to all players. If the file has more players than are currently in-game, the extra player data is discarded; if it has fewer, the leftover players are reset (as though they had freshly connected). As with <a href="#_save">/save</a>, the default path if none is provided is "savegame".
+<p/>
+<b id="_sync">/sync</b><br/>
+<i>Ctrl+R</i><br/>
+Sends the current game state over the network (similar to <a href="#_load">/load</a>). Hopefully this isn't needed except for when new players join, as the clients should stay in sync. When a new player connects, existing players will see a message prompting them to press <i>Ctrl+R</i>, so the new player is brought up to speed. This could probably be automated but it's more of a hassle than you'd think to do it well, so I haven't done it.
+<p/>
+<b id="_export">/export</b> :path:<br/>
+Similar to <a href="#_save">/save</a>, but only applies to the contents of the Blue buffer. Positions and velocities are saved relative to the player, rather than in world coordinates. Typically these paths use the <pre>.itm</pre> suffix, and may be placed in the <pre>itm/</pre> folder. Useful if you've created something you want to reuse.
+<p/>
+<b id="_import">/import</b> :path:<br/>
+Imports something that was previously <a href="#_export">/export</a>ed, relative to the player. The new blocks will be added to the Blue buffer.
+<p/>
+<b id="_data">/data</b> :number:?<br/>
+Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
+<p/>
+<b id="_edit">/edit</b><br/>
+Turns edit more on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>. A message is printed to the console when this is toggled. Note that currently this is tracked in the player's block, and is reset if you respawn.
+<p/>
+<b id="_rule">/rule</b> :number:?<br/>
+Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.<br/>
+A full listing is best found in-game, but these are things like world boundaries, gravity, default player respawning (see <a href="#_respawner">/respawner</a>), and enabling edit commands.
+<p/>
+<b id="_b">/b</b> :number:{3}<br/>
+<i>Ctrl+B: /b 400 400 400</i><br/>
+Creates a white <a href="#_wall">/wall</a> block directly above the player, which is added to the Blue <a href="#buffers">buffer</a>.
+<p/>
+<b id="_d">/d</b><br/>
+Deletes all blocks in the Blue <a href="#buffers">buffer</a>.
+<p/>
+<b id="_p">/p</b> (|:number:|:number:{3})<br/>
+<i>Ctrl+E: /p</i><br/>
+<i>Ctrl+MouseWheel: /p (incr)</i> (see <a href="#_incr">/incr</a>)<br/>
+For "push", or "position". This acts differently based on the number of arguments, but always moves the contents of the Blue buffer by some offset (maintaining their relative positions).
+<ul>
+	<li>For 3 arguments, moves the block(s) to that absolute position. Specifically, the center of the Blue bounding box will be moved there.</li>
+	<li>For 1 argument, moves the block(s) along the <a href="#look_dir">Look Direction</a> by that amount.</li>
+	<li>
+		For no arguments, moves the block(s) along the <a href="#look_dir">Look Direction</a> until the next time a Blue buffer block aligns with a Red buffer block. If there are no further alignment opportunities, nothing is moved.
+		<p/>
+		In this context, two blocks "align" on a given axis when either their centers have the same coordinate on that axis, or they are both flush with the same plane perpendicular to that axis (either on opposites sides of the plane, or on the same side). 
+	</li>
+</ul>
+The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width), even if you are <a href="#_weight">weightless</a>.
+<p/>
+<b id="_s">/s</b> (:number:|:number:{3})<br/>
+<i>Ctrl+Shift+MouseWheel: /s (-incr)</i> (see <a href="#_incr">/incr</a>)<br/>
+For 3 arguments, sets the block's dimensions to the given numbers (which should be even). For 1 argument, moves the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") out by the given number (which should be even), increasing the width.
+<p/>
+<b id="_incr">/incr</b> :number:?<br/>
+For commands that have mousewheel keybinds (<a href="#_p">/p</a> and <a href="#_s">/s</a>), sets (for 1 argument) or displays (for 0 arguments) the number used for those keybinds. Default is 200. Scrolling down (instead of up) will flip the sign.
+<p/>
+<!-- /pickup -->
+<!-- /drop -->
+<!-- /wire -->
+<!-- /unwire -->
+<!-- /slider / /sl -->
+<!-- /copy -->
+<!-- /flip -->
+<!-- /turn -->
+<!-- /scale(!) -->
+<!-- /factory -->
+<!-- TODO cover commands that get processed in the other place -->
 </body>
 </html>

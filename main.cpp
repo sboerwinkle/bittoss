@@ -292,6 +292,12 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		sharedInputs.sendInd = 0;
 		const char *const text = sharedInputs.textBuffer;
 		if (isCmd(text, "/help")) {
+			/* TODO:
+			This needs /data, /c,
+			probably /save, /load, and keybinds,
+			maybe some basic gameplay information,
+			and info on the docs
+			*/
 			puts(
 				"Available commands:\n"
 				"/save [FILE] - save to file, default file is \"savegame\"\n"
@@ -501,7 +507,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/respawner", edit_t_respawn(gs, me));
 	cmd("/seat", edit_t_seat(gs, me));
 	cmd("/gun", edit_t_gun(gs, me));
-	cmd("/veheye", edit_m_t_veh_eye(gs, me));
+	cmd("/veheye", edit_m_t_veh_eye(gs, me)); // TODO remove?
 
 	cmd("/copy", edit_copy(gs, me));
 	cmd("/flip", edit_flip(gs, me));
