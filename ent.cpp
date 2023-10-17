@@ -717,7 +717,7 @@ void flushPickups(gamestate *gs) {
 		ent *x = i->newHolder;
 		//If I'm not being picked up, nothing to do.
 		if (!x) continue;
-		if (x != i && !x->dead) pickup(gs, x, i, i->newHoldFlags);
+		if (x->holdRoot != i && !x->dead) pickup(gs, x, i, i->newHoldFlags);
 		i->newHolder = NULL;
 	}
 }
