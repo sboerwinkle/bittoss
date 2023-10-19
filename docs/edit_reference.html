@@ -5,18 +5,24 @@ pre {
 	display: inline;
 	background-color: lightgray;
 }
+.para {
+	height: 0.4em;
+}
+span {
+	outline: 1px solid gray;
+	font-style: italic;
+}
 </style>
 </head>
 <body>
 <h2>This Document</h2>
-This document describes how the in-game editing works. Like everything else, it is not finalized and may contain inaccuracies.
+is about the in-game editing. If you read nothing else, read <a href="#buffers">Player Buffers</a>.
+Like everything else, this document is not finalized and may contain inaccuracies.
 <br/><br/>
 This is intended as more of an in-depth technical reference. Consider also the <a href="edit_guide.html">Edit Starter Guide Follow-Along Tutorial Thing</a>, which lets you get started with less reading and more doing. It contains links back to this document. If you're a "more reading" kind of person, you can start here just as well.
 
 <h2>About Editing</h2>
 
-<!-- TODO links to relevant sections -->
-<!-- TODO no invalid links exist -->
 <h3 id="game_state">Game State</h3>
 Editing is changing state. There's a lot of it, but the interesting bits break down like so:
 <ul>
@@ -24,26 +30,26 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 		Block state:
 		<ul>
 			<li>position, size, velocity, color, etc</li>
-			<li>type - represents the "logic" of blocks that "do things"</li>
+			<li><a href="#type">type</a> - represents the "logic" of blocks that "do things"</li>
 			<li><a href="#material">material</a> - how it interacts when it hits another block</li>
-			<li>sliders - integers used to store internal state. Number and meaning is determined by the type.</li>
-			<li>wires - set of one-way connections to other blocks. Meaning is determined by the type.</li>
-			<li>holder - blocks which are "connected" have a parent-child relationship, so a group of connected blocks will form a tree.</li>
+			<li><a href="#_slider">sliders</a> - integers used to store internal state. Number and meaning is determined by the type.</li>
+			<li><a href="#_wire">wires</a> - set of one-way connections to other blocks. Meaning is determined by the type.</li>
+			<li><a href="#_pickup">holder</a> - blocks which are "connected" have a parent-child relationship, so a group of connected blocks will form a tree.</li>
 		</ul>
 	</li>
 	<li>
 		Player state:
 		<ul>
-			<li><pre>/data</pre>, mostly used for team selection at the moment</li>
-			<li>color</li>
+			<li><a href="#_data">/data</a>, mostly used for team selection at the moment</li>
+			<li><a href="#_c">color</a></li>
 			<li>respawn counter</li>
 		</ul>
 	</li>
 	<li>
 		Misc:
 		<ul>
-			<li>gamerules - grab bag of on/off flags</li>
-			<li>random seed<li>
+			<li><a href="#_rule">gamerules</a> - grab bag of on/off flags</li>
+			<li>random seed</li>
 		</ul>
 	</li>
 </ul>
@@ -60,11 +66,10 @@ The editing interface breaks down into:
 	<li>Keybinds. Some common commands have keybinds, these are listed with the command</li>
 	<li>Player buffers / look direction. Some commands need inputs that it doesn't make sense to type. These deserve a bit more explanation...</li>
 </ul>
-<b id="buffers">Player Buffers</b>
-<br/><br/>
-Player buffers are how you specify which blocks to operate on. The basic buffer operations are tied to keyboard/mouse controls, and are enabled with <a href="#_edit">/edit</a> ("Edit Mode"). You'll want this on most of the time, but can turn it off to use "regular" controls - for testing, among other things.
+<b id="buffers">Player Buffers</b><br/>
+Player buffers are how you specify which blocks to operate on. You have 2 - Blue and Red. The basic buffer operations are tied to keyboard/mouse controls, and are enabled with <a href="#_edit">/edit</a> ("Edit Mode"). You'll want this on most of the time, but can turn it off to use "regular" controls - for testing, among other things.
 Edit Mode doesn't affect your use of other editing commands.
-<br/><br/>
+<div class="para"></div>
 Edit Mode controls are:
 <ul>
 	<li>LMB - Select a block. More accurately, this shoots a little "thumbtack" - whatever it hits will be added (or removed) in your Blue/Primary buffer.</li>
@@ -73,13 +78,12 @@ Edit Mode controls are:
 	<li>Shift + Space - Swap Blue/Red buffers.</li>
 </ul>
 Once a block is in your buffer, you'll see a little blue (or red) indicator hovering around your player that points at the block. These indicators are, in fact, also blocks - but they don't collide, and in practice they don't get in your way.
-<br/><br/>
+<div class="para"></div>
 Note that thumbtacks only select whatever they <i>hit</i> - selecting immaterial things is tricky, but there are ways (e.g. <a href="#_inside">Ctrl+I</a>).
-<b id="empty_buffer">Empty Buffer:</b>
+<div id="empty_buffer" class="para"></div>
 Note that if either buffer is empty, commands which use that buffer's contents will instead see one item - your player.
 <br/><br/>
-<b id="look_dir">Look Direction</b>
-<br/><br/>
+<b id="look_dir">Look Direction</b><br/>
 Some commands need a direction as input. Typically these will use your Look Direction, which for the sake of editing is just whichever axis you are mostly looking down. For instance, your look direction can be <pre>+Z</pre> or <pre>-X</pre>.
 
 <h2>Commands</h2>
@@ -89,7 +93,8 @@ Commands to modify the <a href="#buffers">Player Buffers</a>. Often these will l
 <b id="_inside">/inside</b> [0-3]?<br/>
 <i>Ctrl+I - /inside 1</i><br/>
 <i>Ctrl+Shift+I - /inside 2</i><br/>
-Selects some items into (or out of) the Blue buffer based on the bounding box of the Red buffer.<br/>
+Selects some items into (or out of) the Blue buffer based on the bounding box of the Red buffer.
+<div class="para"></div>
 Specifically, this first computes the bounding box for all blocks in the Red buffer, and chooses some blocks based on the command's argument (default 1):
 <ul>
 	<li>0 - blocks which touch the bounding box, even if they don't intersect it.</li>
@@ -104,7 +109,8 @@ This command is commonly used for two main purposes, mostly with the <i>Ctrl+I</
 </ul>
 <br/><br/>
 <b id="_wires">/wires</b><br/>
-Selects into (or out of) the Blue buffer the blocks which any block(s) in the Red buffer have a <a href="#_wire">wire</a> to.<br/>
+Selects into (or out of) the Blue buffer the blocks which any block(s) in the Red buffer have a <a href="#_wire">wire</a> to.
+<div class="para"></div>
 Useful to check which wires a particular block has. Sometimes convenient to select certain immaterial blocks.
 <br/><br/>
 <b id="_held">/held</b><br/>
@@ -117,24 +123,29 @@ Selects into (or out of) the Blue buffer the contents of the Red buffer, and any
 These commands typicaly print some information to the terminal which launched the game.
 <br/><br/>
 <b id="_i">/i</b><br/>
-The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recents?<br/>
-Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently just <a href="#_legg">/legg</a>s and <a href="#_respawner">/respawner</a>s), the slider output will be annotated with the meaning of each slider.<br/>
+The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recents?
+<div class="para"></div>
+Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently just <a href="#_legg">/legg</a>s and <a href="#_respawner">/respawner</a>s), the slider output will be annotated with the meaning of each slider.
+<div class="para"></div>
 Finally, it prints the number of items in the Blue and Red buffers.
 <br/><br/>
 <b id="_m">/m</b></br>
-Measures the contents of the Blue buffer along the current <a href="#look_dir">Look Direction</a>, printing the measurements to the terminal. The reported "Outside" distance is the size of the Blue buffer's bounding box.<br/>
+Measures the contents of the Blue buffer along the current <a href="#look_dir">Look Direction</a>, printing the measurements to the terminal. The reported "Outside" distance is the size of the Blue buffer's bounding box.
+<div class="para"></div>
 If there are exactly 2 items in the Blue buffer, this will also report a "Centers" distance (the distance between their centers) and an "Inside" distance (the empty space between the blocks, which will be negative if they are overlapping along that axis).
 <br/><br/>
 <b id="_hl">/hl</b><br/>
 <i>Ctrl+F</i><br/>
-Flips the colors of blocks in the Blue buffer. Intended as a visual aid to see what's selected. Issuing this command again will always restore the original color.<br/>
+Flips the colors of blocks in the Blue buffer. Intended as a visual aid to see what's selected. Issuing this command again will always restore the original color.
+<div class="para"></div>
 Clear items will be flipped to gray, though it is a special internal representation which will be flipped back to clear.
 <br/><br/>
 <h3 id="material">Material</h3>
 These commands operate on the blocks in the Blue buffer, changing how their physics work. Applying a material command typically replaces the existing material, though some exceptions are noted.
 <br/><br/>
 <b id="_weight">/weight</b> [01]?<br/>
-Weight controls whether a block is affected by gravity, and is not typically affected by other material commands. Weight is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively.<br/>
+Weight controls whether a block is affected by gravity, and is not typically affected by other material commands. Weight is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively.
+<div class="para"></div>
 Turning this off for your player can be useful to get to hard-to-reach places while editing.
 <br/><br/>
 <b id="_wall">/wall</b><br/>
@@ -144,30 +155,36 @@ Walls are the top-tier material, and are not pushed by anything. They also do no
 Metal blocks are pushed by walls and other metal blocks.
 <br/><br/>
 <b id="_stone">/stone</b><br/>
-Stone blocks are pushed by walls, metal, and other stone blocks.<br/>
+Stone blocks are pushed by walls, metal, and other stone blocks.
+<div class="para"></div>
 Platforms spawned by players are stone.
 <br/><br/>
 <b id="_wood">/wood</b><br/>
-Wood blocks are pushed by walls, metal, stone, and other wood blocks.<br/>
-Wood blocks can also stack, unlike other materials.<br/>
+Wood blocks are pushed by walls, metal, stone, and other wood blocks.
+<div class="para"></div>
+Wood blocks can also stack, unlike other materials.
+<div class="para"></div>
 Wood is approximately what players (and blocks spawned by players) are made of, though there is no material command for them exactly.
 <br/><br/>
 <b id="_paper">/paper</b><br/>
 Paper blocks are pushed by everything.
 <br/><br/>
 <b id="_ghost">/ghost</b><br/>
-Ghost blocks do not collide. This command will also turn off <a href="#_weight">/weight</a> so they don't fall straight through the floor, like that one episode of Batman Beyond that scarred me as a child.<br/>
+Ghost blocks do not collide. This command will also turn off <a href="#_weight">/weight</a> so they don't fall straight through the floor, like that one episode of Batman Beyond that scarred me as a child.
+<div class="para"></div>
 Ghost blocks don't count against the collision checking at all (the most taxing part of the game logic).
 <br/><br/>
 <b id="_decor">/decor</b><br/>
-This is intended for use on blocks that are currently <a href="#_pickup">held</a>. It makes them <a href="#_ghost">/ghost</a> blocks, gives them <a href="#_weight">weight</a> (which won't matter so long as they are held), and adds a condition that they will turn into <a href="#_paper">/paper</a> if dropped.<br/>
+This is intended for use on blocks that are currently <a href="#_pickup">held</a>. It makes them <a href="#_ghost">/ghost</a> blocks, gives them <a href="#_weight">weight</a> (which won't matter so long as they are held), and adds a condition that they will turn into <a href="#_paper">/paper</a> if dropped.
+<div class="para"></div>
 This is intended to add decorative elements on vehicles or other complex objects, which will then turn into debris if the object is destroyed.
 <br/><br/>
-<b id="_friction">/friction</b> :number:?<br/>
+<b id="_friction">/friction</b> <span>number</span>?<br/>
 Sets the friction on the blocks to the given number (or the default, 4, if no number is given). This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">Leggs</a>, to give them more "grip".
 <br/><br/>
 <b id="_fpdraw">/fpdraw</b> [01]?<br/>
-Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.<br/>
+Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.
+<div class="para"></div>
 As a point of trivia, this is why you can't see your own eye in first-person mode.
 <h3 id="type">Type</h3>
 These commands change the special behaviors of the blocks in the Blue buffer. Typically this will replace any existing type, but some exceptions are noted.
@@ -176,49 +193,64 @@ These commands change the special behaviors of the blocks in the Blue buffer. Ty
 Clears the type, the block is just a block.
 <br/><br/>
 <b id="_logic">/logic</b><br/>
-The block sends, processes, and receives logic signals.<br/>
+The block sends, processes, and receives logic signals.
+<div class="para"></div>
 <b><i>TODO: More detail.</i></b>
 <br/><br/>
 <b id="_logic_debug">/logic_debug</b><br/>
-Exactly identical to <a href="#_logic">/logic</a>, but the block colors itself based on its gate type and whether or not it's active.<br/>
-While this is mainly intended for visualizing logic systems while they are being built, it can also be used as a sort of indicator light.<br/>
-Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they share the same number of sliders.<br/>
-Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.<br/>
+Exactly identical to <a href="#_logic">/logic</a>, but the block colors itself based on its gate type and whether or not it's active.
+<div class="para"></div>
+While this is mainly intended for visualizing logic systems while they are being built, it can also be used as a sort of indicator light.
+<div class="para"></div>
+Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they share the same number of sliders.
+<div class="para"></div>
+Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.
 <br/><br/>
 <b id="_gun">/gun</b><br/>
 Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!
 <br/><br/>
 <b id="_door">/door</b><br/>
-Makes the block travel between waypoints based on logic signals.<br/>
-The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_logic">/logic</a> blocks (waypoints). Its two sliders are, respectively, the top speed and acceleration it uses to get there. The target blocks should likely be <a href="#_ghost">/ghost</a> or part of the same <a href="#_tree">/tree</a> as the door, so they don't collide; the door will try to move its center to the waypoint's center.<br/>
-The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.<br/>
+Makes the block travel between waypoints based on logic signals.
+<div class="para"></div>
+The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_logic">/logic</a> blocks (waypoints). Its two sliders are, respectively, the top speed and acceleration it uses to get there. The target blocks should likely be <a href="#_ghost">/ghost</a> or part of the same <a href="#_tree">/tree</a> as the door, so they don't collide; the door will try to move its center to the waypoint's center.
+<div class="para"></div>
+The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.
+<div class="para"></div>
 To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is the "input", and can be connected to some sort of button or whatnot (<b><i>TODO: More on buttons in the logic section!</i></b>). That gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive, and the door will open or close based on the input to the wall gate.
 <br/><br/>
 <b id="_legg">/legg</b><br/>
-Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.<br/>
-The overall idea is that the leg moves in a square pattern. On the bottom side of the square (when the leg is hopefully pushing the body forward), it will dip a little further down based on its speed (the "tread" depth). This helps make sure that if there are many legs, the one in contact with the ground is the one moving fastest.<br/>
-Since a square has 4 sides, the total time for one walk cycle is the horizontal time plus the vertical time, doubled. With multiple leggs, you probably want them spaced evenly through that cycle. Again, check /i in-game for more.<br/>
+Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.
+<div class="para"></div>
+The overall idea is that the leg moves in a square pattern. On the bottom side of the square (when the leg is hopefully pushing the body forward), it will dip a little further down based on its speed (the "tread" depth). This helps make sure that if there are many legs, the one in contact with the ground is the one moving fastest.
+<div class="para"></div>
+Since a square has 4 sides, the total time for one walk cycle is the horizontal time plus the vertical time, doubled. With multiple leggs, you probably want them spaced evenly through that cycle. Again, check /i in-game for more.
+<div class="para"></div>
 Finally, consider setting a custom <a href="#_friction">/friction</a> on your leggs if they're slipping around too much.
 <br/><br/>
 <b id="_seat">/seat</b><br/>
-Makes the block act as a control point for vehicles. Players connect on contact and can eject by jumping. Currently this is really only useful in conjunction with <a href="#_legg">/legg</a>s.<br/>
+Makes the block act as a control point for vehicles. Players connect on contact and can eject by jumping. Currently this is really only useful in conjunction with <a href="#_legg">/legg</a>s.
+<div class="para"></div>
 Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
 <br/><br/>
 <b id="_respawner">/respawner</b><br/>
-Respawns players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.<br/>
-The exact meaning of the configuration <a href="#_slider">slider</a>s can be checked in-game with <a href="#_i">/i</a>, but the short version is that players are eligible for respawn at a given spawner based on their <a href="#_data">/data</a>, how long they've been dead, and how long since the spawner last spawned someone.<br/>
+Respawns players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.
+<div class="para"></div>
+The exact meaning of the configuration <a href="#_slider">slider</a>s can be checked in-game with <a href="#_i">/i</a>, but the short version is that players are eligible for respawn at a given spawner based on their <a href="#_data">/data</a>, how long they've been dead, and how long since the spawner last spawned someone.
+<div class="para"></div>
 Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawner block, a players team will be based on whether their /data is even or odd.
 <br/><br/>
 <b id="_cursed">/cursed</b><br/>
-This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.<br/>
+This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.
+<div class="para"></div>
 This is typically useful for immaterial things (perhaps <a href="#_logic">/logic</a> gates or <a href="#_respawner">/respawner</a>s) that are attached to a larger object, which you don't want to be left as orphans if the larger object is destroyed.
 <h3 id="misc">Miscellaneous</h3>
 I could try to come up with more categories, but honestly it feels a little forced past this point. Here's the rest of the commands.
-<b id="_save">/save</b> :path:?<br/>
+<br/><br/>
+<b id="_save">/save</b> <span>path</span>?<br/>
 <i>Ctrl+K: /save</i><br/>
 Writes the game state to disk. This is more or less the complete state, down to the current random seed and the <a href="#_data">/data</a> of any players. Without an argument, the path defaults to "savegame", so <i>Ctrl+K</i> effectively serves as a quicksave. When providing the path, any filename will work; typically I'll use the <pre>.sav</pre> or <pre>.gam</pre> extension, but I should probably pick one...
 <br/><br/>
-<b id="_load">/load</b> :path:?<br/>
+<b id="_load">/load</b> <span>path</span>?<br/>
 <i>Ctrl+L: /load</i><br/>
 Reads the game state from disk, broadcasting it to all players. If the file has more players than are currently in-game, the extra player data is discarded; if it has fewer, the leftover players are reset (as though they had freshly connected). As with <a href="#_save">/save</a>, the default path if none is provided is "savegame".
 <br/><br/>
@@ -226,32 +258,34 @@ Reads the game state from disk, broadcasting it to all players. If the file has 
 <i>Ctrl+R</i><br/>
 Sends the current game state over the network (similar to <a href="#_load">/load</a>). Hopefully this isn't needed except for when new players join, as the clients should stay in sync. When a new player connects, existing players will see a message prompting them to press <i>Ctrl+R</i>, so the new player is brought up to speed. This could probably be automated but it's more of a hassle than you'd think to do it well, so I haven't done it.
 <br/><br/>
-<b id="_export">/export</b> :path:<br/>
+<b id="_export">/export</b> <span>path</span><br/>
 Similar to <a href="#_save">/save</a>, but only applies to the contents of the Blue buffer. Positions and velocities are saved relative to the player, rather than in world coordinates. Typically these paths use the <pre>.itm</pre> suffix, and may be placed in the <pre>itm/</pre> folder. Useful if you've created something you want to reuse.
 <br/><br/>
-<b id="_import">/import</b> :path:<br/>
+<b id="_import">/import</b> <span>path</span><br/>
 Imports something that was previously <a href="#_export">/export</a>ed, relative to the player. The new blocks will be added to the Blue buffer.
 <br/><br/>
-<b id="_data">/data</b> :number:?<br/>
+<b id="_data">/data</b> <span>number</span>?<br/>
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
 <br/><br/>
 <b id="_edit">/edit</b><br/>
 Turns edit mode on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>. A message is printed to the console when this is toggled. Note that currently this is tracked in the player's block, and is reset if you respawn.
 <br/><br/>
-<b id="_rule">/rule</b> :number:?<br/>
-Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.<br/>
+<b id="_rule">/rule</b> <span>number</span>?<br/>
+Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.
+<div class="para"></div>
 A full listing is best found in-game, but these are things like world boundaries, gravity, default player respawning (see <a href="#_respawner">/respawner</a>), and enabling edit commands.
 <br/><br/>
-<b id="_b">/b</b> :number:{3}<br/>
+<b id="_b">/b</b> <span>number</span>{3}<br/>
 <i>Ctrl+B: /b 400 400 400</i><br/>
 Creates a white <a href="#_wall">/wall</a> block directly above the player, which is added to the Blue <a href="#buffers">buffer</a>.
 <br/><br/>
 <b id="_d">/d</b><br/>
 Deletes all blocks in the Blue <a href="#buffers">buffer</a>.
 <br/><br/>
-<b id="_p">/p</b> (|:number:|:number:{3})<br/>
+<b id="_p">/p</b> (|<span>number</span>|<span>number</span>{3})<br/>
 <i>Ctrl+E: /p</i><br/>
-<i>Ctrl+MouseWheel: /p (incr)</i> (see <a href="#_incr">/incr</a>)<br/>
+<i>Ctrl+MouseWheel: /p (incr)</i> (see <a href="#_incr">/incr</a>)
+<div class="para"></div>
 For "push", or "position". This acts differently based on the number of arguments, but always moves the contents of the Blue buffer by some offset (maintaining their relative positions).
 <ul>
 	<li>For 3 arguments, moves the block(s) to that absolute position. Specifically, the center of the Blue bounding box will be moved there.</li>
@@ -264,11 +298,12 @@ For "push", or "position". This acts differently based on the number of argument
 </ul>
 The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width), even if you are <a href="#_weight">weightless</a>.
 <br/><br/>
-<b id="_s">/s</b> (:number:|:number:{3})<br/>
-<i>Ctrl+Shift+MouseWheel: /s (-incr)</i> (see <a href="#_incr">/incr</a>)<br/>
+<b id="_s">/s</b> (<span>number</span>|<span>number</span>{3})<br/>
+<i>Ctrl+Shift+MouseWheel: /s (-incr)</i> (see <a href="#_incr">/incr</a>)
+<div class="para"></div>
 For 3 arguments, sets the block's dimensions to the given numbers (which should be even). For 1 argument, moves the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") out by the given number (which should be even), increasing the width.
 <br/><br/>
-<b id="_incr">/incr</b> :number:?<br/>
+<b id="_incr">/incr</b> <span>number</span>?<br/>
 For commands that have mousewheel keybinds (<a href="#_p">/p</a> and <a href="#_s">/s</a>), sets (for 1 argument) or displays (for 0 arguments) the number used for those keybinds. Default is 200. Scrolling down (instead of up) will flip the sign.
 <br/><br/>
 <b id="_pickup">/pickup</b> [012]?<br/>
@@ -283,40 +318,49 @@ Causes the blocks in the Blue buffer to be held by the block in the Red buffer (
 Blocks in the Blue buffer will be dropped if they are currently <a href="#_pickup">held</a>.
 <br/><br/>
 <b id="_wire">/wire</b><br/>
-Each block in the Red buffer gains a wire to each block in the Blue buffer, if it doesn't already have one.<br/>
-Wires are one-way references that blocks may have to other blocks. They form a set, meaning you can't wire to the same block twice, and the order of wires doesn't matter (ideally). The meaning/effect of wires is determined by whatever the block's <a href="#type">type</a> chooses to do with them; they will have no effect at all on a "dumb" block.<br/>
+Each block in the Red buffer gains a wire to each block in the Blue buffer, if it doesn't already have one.
+<div class="para"></div>
+Wires are one-way references that blocks may have to other blocks. They form a set, meaning you can't wire to the same block twice, and the order of wires doesn't matter (ideally). The meaning/effect of wires is determined by whatever the block's <a href="#type">type</a> chooses to do with them; they will have no effect at all on a "dumb" block.
+<div class="para"></div>
 It may seem the buffers should be flipped here, but I would argue it's better this way. The Red-parent/Blue-child setup mirrors <a href="#_pickup">/pickup</a>'s behavior, as well as that of the closely-related <a href="#_wires">/wires</a> command.
 <br/><br/>
 <b id="_unwire">/unwire</b><br/>
 Removes any <a href="#_wire">wires</a> on Red buffer blocks that point to Blue buffer blocks.
 <br/><br/>
-<b id="_slider">/sl</b> :number: :number:</br>
+<b id="_slider">/sl</b> <span>number</span> <span>number</span></br>
 <i>Short for /slider</i><br/>
 Sets the slider specified by the first number (zero-indexed) to the value of the second number. Sliders are the numbers that blocks use for internal state, and the number and meaning of the sliders on a block is determined by its <a href="#type">type</a>.
 <br/><br/>
 <b id="_copy">/copy</b><br/>
-Makes a copy of the blocks in the Blue buffer. Relationships between blocks (<a href="#_wire">wires</a>, and being <a href="#_pickup">held</a>) will be copied if both of the blocks are copied.<br/>
+Makes a copy of the blocks in the Blue buffer. Relationships between blocks (<a href="#_wire">wires</a>, and being <a href="#_pickup">held</a>) will be copied if both of the blocks are copied.
+<div class="para"></div>
 The copied blocks will be placed adjacent to the original blocks, opposite the <a href="#look_dir">Look Direction</a> (roughly "towards you", if you're looking at it). Afterwards, the Red buffer will contain the original blocks, and the Blue buffer will contain the new blocks.
 <br/><br/>
 <b id="_flip">/flip</b><br/>
 Flips the contents of the Blue buffer on the axis indicated by the <a href="#look_dir">Look Direction</a>. The center of the Blue bounding box will be maintained. This only affects positions, not velocities or anything more complex (e.g. <a href="#_legg">leggs</a> won't flip their sense of "up" and "down").
 <br/><br/>
 <b id="_turn">/turn</b><br/>
-Similar to <a href="#_flip">/flip</a>, but does a 1/4 turn. Positions and sizes are affected. The direction and axis of the turn are determined by your <a href="#look_dir">Look Direction</a>, such that if you were looking at the blocks along that axis you would see them turn clockwise 90&deg;.<br/>
-For example, assume you have a model car you want to make a right-hand turn. This would look clockwise from above, so you'd look down and issue <pre>/turn</pre>.<br/>
+Similar to <a href="#_flip">/flip</a>, but does a 1/4 turn. Positions and sizes are affected. The direction and axis of the turn are determined by your <a href="#look_dir">Look Direction</a>, such that if you were looking at the blocks along that axis you would see them turn clockwise 90&deg;.
+<div class="para"></div>
+For example, assume you have a model car you want to make a right-hand turn. This would look clockwise from above, so you'd look down and issue <pre>/turn</pre>.
+<div class="para"></div>
 As a technical note, if the bounding box's width has different even/odd parity along the two axes that are being turned between, it will be impossible to precisely maintain the bounding box's center. A message will be printed to this effect.
 <br/><br/>
-<b id="_scale">/scale</b> :number: :number:<br/>
-Scales the contents of the Blue buffer up or down (affecting positions and sizes). The scale factor will be the ratio of the first argument to the second; for instance, scaling up by 50% can be achieved with <pre>/scale 3 2</pre>. Note that the center of the bounding box will be (approximately) maintained; if you're scaling up something resting on the ground, you may want to raise it first (possibly while <a href="#_weight">weight</a>-less).<br/>
+<b id="_scale">/scale</b> <span>number</span> <span>number</span><br/>
+Scales the contents of the Blue buffer up or down (affecting positions and sizes). The scale factor will be the ratio of the first argument to the second; for instance, scaling up by 50% can be achieved with <pre>/scale 3 2</pre>. Note that the center of the bounding box will be (approximately) maintained; if you're scaling up something resting on the ground, you may want to raise it first (possibly while <a href="#_weight">weight</a>-less).
+<div class="para"></div>
 If the scaling cannot be done exactly (e.g. <pre>/scale 4 3</pre> with a size or displacement that isn't divisible by 3), a warning will be printed instead. You can perform the (approximate) scaling anyway by using the <pre>/scale!</pre> command, which is otherwise the same.
 <br/><br/>
 <b id="_factory">/factory</b><br/>
-Transforms the blocks in the Blue buffer into factory blocks instead. These can be used to generate a copy of the original blocks on-demand, though internally the mechanism is entirely different from <a href="#_copy">/copy</a>. To activate the factory, a <a href="#_logic">logic</a> pulse should be delivered to each factory block on the same frame (e.g. by <a href="#_wire">/wire</a>-ing one logic gate to all of them).<br/>
-In terms of how they produce their product, factory blocks should mostly be treated as a black box. There's nothing terribly arcane, but there are a lot of sliders required to replicate all the state, and restoring wires does require additional factory blocks (which are automatically added to the Blue buffer, so you don't need to worry about that). It is almost always easier to instantiate the factory, make some change on the object, and turn that back into a new factory, than it is to modify an existing factory.<br/>
+Transforms the blocks in the Blue buffer into factory blocks instead. These can be used to generate a copy of the original blocks on-demand, though internally the mechanism is entirely different from <a href="#_copy">/copy</a>. To activate the factory, a <a href="#_logic">logic</a> pulse should be delivered to each factory block on the same frame (e.g. by <a href="#_wire">/wire</a>-ing one logic gate to all of them).
+<div class="para"></div>
+In terms of how they produce their product, factory blocks should mostly be treated as a black box. There's nothing terribly arcane, but there are a lot of sliders required to replicate all the state, and restoring wires does require additional factory blocks (which are automatically added to the Blue buffer, so you don't need to worry about that). It is almost always easier to instantiate the factory, make some change on the object, and turn that back into a new factory, than it is to modify an existing factory.
+<div class="para"></div>
 However, so long as you don't mess with <a href="#_slider">sliders</a> or <a href="#type">types</a>, most other operations are fine. For example, you can move, <a href="#_copy">/copy</a>, <a href="#_flip">/flip</a>, and re-<a href="#_c">color</a> factories freely, or even <a href="#_pickup">attach</a> them to something. Most <a href="#material">material commands</a> are also fine, e.g. <a href="#_wall">/wall</a> for ease of manipulation, but you'll probably want it back as a <a href="#_ghost">/ghost</a> before activating it.
 <br/><br/>
-<b id="_c">/c</b> ([0-9A-F]{6}|:CSS4_name:)<br/>
-Colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.<br/>
+<b id="_c">/c</b> ([0-9A-F]{6}|<span>CSS4_name</span>)<br/>
+Colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.
+<div class="para"></div>
 This command also works even with the editing <a href="#_rule">/rule</a> rule disabled, in which case it always just affects your player (both your current block, and future spawns).
 </body>
 </html>
