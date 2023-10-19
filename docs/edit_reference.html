@@ -236,7 +236,7 @@ Imports something that was previously <a href="#_export">/export</a>ed, relative
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
 <br/><br/>
 <b id="_edit">/edit</b><br/>
-Turns edit more on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>. A message is printed to the console when this is toggled. Note that currently this is tracked in the player's block, and is reset if you respawn.
+Turns edit mode on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>. A message is printed to the console when this is toggled. Note that currently this is tracked in the player's block, and is reset if you respawn.
 <br/><br/>
 <b id="_rule">/rule</b> :number:?<br/>
 Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.<br/>
@@ -275,7 +275,7 @@ For commands that have mousewheel keybinds (<a href="#_p">/p</a> and <a href="#_
 Causes the blocks in the Blue buffer to be held by the block in the Red buffer (Red buffer should contain one block). Blocks can be held by some other block, or not at all, resulting in a tree structure. Blocks that are held do not experience gravity, and blocks that are part of the same tree will not collide with each other. If a block that is holding blocks gets pushed, that impulse will be copied to all of its children (so they move as a unit). If a block that is being held gets pushed, its behavior is determined by the argument which was provided to /pickup (default 0):
 <ul>
 	<li>0 - The impulse is passed up to the parent block, which may face the same choice if it is also held. If this mode is used all the way up the tree, then the whole tree will be moved as one unit when the child block is pushed.</li>
-	<li>1 - The child block will detach if it is pushed</li>
+	<li>1 - The child block will detach if it is pushed.</li>
 	<li>2 - The child block will process the impulse without forwarding it to the parent block. Under "normal" conditions this will be strange behavior, as a gentle tap will send the child block drifting further and further from its parent (blocks can be held without touching, or even being close). However, it may be desired e.g. if the child is a <a href="#_door">/door</a>.
 </ul>
 <br/><br/>
@@ -296,13 +296,13 @@ Sets the slider specified by the first number (zero-indexed) to the value of the
 <br/><br/>
 <b id="_copy">/copy</b><br/>
 Makes a copy of the blocks in the Blue buffer. Relationships between blocks (<a href="#_wire">wires</a>, and being <a href="#_pickup">held</a>) will be copied if both of the blocks are copied.<br/>
-The copied blocks will be placed adjacent to the original blocks, opposite the <a href="look_dir">Look Direction</a> (roughly "towards you", if you're looking at it). Afterwards, the Red buffer will contain the original blocks, and the Blue buffer will contain the new blocks.
+The copied blocks will be placed adjacent to the original blocks, opposite the <a href="#look_dir">Look Direction</a> (roughly "towards you", if you're looking at it). Afterwards, the Red buffer will contain the original blocks, and the Blue buffer will contain the new blocks.
 <br/><br/>
 <b id="_flip">/flip</b><br/>
-Flips the contents of the Blue buffer on the axis indicated by the <a href="look_dir">Look Direction</a>. The center of the Blue bounding box will be maintained. This only affects positions, not velocities or anything more complex (e.g. <a href="#_legg">leggs</a> won't flip their sense of "up" and "down").
+Flips the contents of the Blue buffer on the axis indicated by the <a href="#look_dir">Look Direction</a>. The center of the Blue bounding box will be maintained. This only affects positions, not velocities or anything more complex (e.g. <a href="#_legg">leggs</a> won't flip their sense of "up" and "down").
 <br/><br/>
 <b id="_turn">/turn</b><br/>
-Similar to <a href="#_flip">/flip</a>, but does a 1/4 turn. Positions and sizes are affected. The direction and axis of the turn are determined by your <a href="look_dir">Look Direction</a>, such that if you were looking at the blocks along that axis you would see them turn clockwise 90&deg;.<br/>
+Similar to <a href="#_flip">/flip</a>, but does a 1/4 turn. Positions and sizes are affected. The direction and axis of the turn are determined by your <a href="#look_dir">Look Direction</a>, such that if you were looking at the blocks along that axis you would see them turn clockwise 90&deg;.<br/>
 For example, assume you have a model car you want to make a right-hand turn. This would look clockwise from above, so you'd look down and issue <pre>/turn</pre>.<br/>
 As a technical note, if the bounding box's width has different even/odd parity along the two axes that are being turned between, it will be impossible to precisely maintain the bounding box's center. A message will be printed to this effect.
 <br/><br/>
@@ -315,7 +315,8 @@ Transforms the blocks in the Blue buffer into factory blocks instead. These can 
 In terms of how they produce their product, factory blocks should mostly be treated as a black box. There's nothing terribly arcane, but there are a lot of sliders required to replicate all the state, and restoring wires does require additional factory blocks (which are automatically added to the Blue buffer, so you don't need to worry about that). It is almost always easier to instantiate the factory, make some change on the object, and turn that back into a new factory, than it is to modify an existing factory.<br/>
 However, so long as you don't mess with <a href="#_slider">sliders</a> or <a href="#type">types</a>, most other operations are fine. For example, you can move, <a href="#_copy">/copy</a>, <a href="#_flip">/flip</a>, and re-<a href="#_c">color</a> factories freely, or even <a href="#_pickup">attach</a> them to something. Most <a href="#material">material commands</a> are also fine, e.g. <a href="#_wall">/wall</a> for ease of manipulation, but you'll probably want it back as a <a href="#_ghost">/ghost</a> before activating it.
 <br/><br/>
-<!-- TODO cover commands that get processed in the other place -->
-<!-- (including /c, which needs to mention "clear", and all the weird behavior relating to non-edit functions) -->
+<b id="_c">/c</b> ([0-9A-F]{6}|:CSS4_name:)<br/>
+Colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.<br/>
+This command also works even with the editing <a href="#_rule">/rule</a> rule disabled, in which case it always just affects your player (both your current block, and future spawns).
 </body>
 </html>
