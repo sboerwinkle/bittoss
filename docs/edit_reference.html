@@ -11,6 +11,7 @@ pre {
 span {
 	outline: 1px solid gray;
 	font-style: italic;
+	margin: 0 2px;
 }
 </style>
 </head>
@@ -21,6 +22,90 @@ Like everything else, this document is not finalized and may contain inaccuracie
 <br/><br/>
 This is intended as more of an in-depth technical reference. Consider also the <a href="edit_guide.html">Edit Starter Guide Follow-Along Tutorial Thing</a>, which lets you get started with less reading and more doing. It contains links back to this document. If you're a "more reading" kind of person, you can start here just as well.
 
+<ul id="table_of_contents">
+<li><a href="#game_state">Game State</a></li>
+<li><a href="#edit_interface">Edit Interface</a>
+	<ul>
+	<li><a href="#buffers">Player Buffers</a></li>
+	<li><a href="#look_dir">Look Direction</a></li>
+	</ul>
+</li>
+<li><a href="#commands">Commands</a>
+	<ul>
+	<li><a href="#buffer_manip">Buffer Manipulation</a>
+		<ul>
+		<li><a href="#_inside">/inside</a></li>
+		<li><a href="#_wires">/wires</a></li>
+		<li><a href="#_held">/held</a></li>
+		<li><a href="#_tree">/tree</a></li>
+		</ul>
+	</li>
+	<li><a href="#informational">Informational</a>
+		<ul>
+		<li><a href="#_i">/i</a></li>
+		<li><a href="#_m">/m</a></li>
+		<li><a href="#_hl">/hl</a></li>
+		</ul>
+	</li>
+	<li><a href="#material">Material</a>
+		<ul>
+		<li><a href="#_weight">/weight</a></li>
+		<li><a href="#_wall">/wall</a></li>
+		<li><a href="#_metal">/metal</a></li>
+		<li><a href="#_stone">/stone</a></li>
+		<li><a href="#_wood">/wood</a></li>
+		<li><a href="#_paper">/paper</a></li>
+		<li><a href="#_ghost">/ghost</a></li>
+		<li><a href="#_decor">/decor</a></li>
+		<li><a href="#_friction">/friction</a></li>
+		<li><a href="#_fpdraw">/fpdraw</a></li>
+		</ul>
+	</li>
+	<li><a href="#type">Type</a>
+		<ul>
+		<li><a href="#_dumb">/dumb</a></li>
+		<li><a href="#_logic">/logic</a></li>
+		<li><a href="#_logic_debug">/logic_debug</a></li>
+		<li><a href="#_gun">/gun</a></li>
+		<li><a href="#_door">/door</a></li>
+		<li><a href="#_legg">/legg</a></li>
+		<li><a href="#_seat">/seat</a></li>
+		<li><a href="#_respawner">/respawner</a></li>
+		<li><a href="#_cursed">/cursed</a></li>
+		</ul>
+	</li>
+	<li><a href="#misc">Miscellaneous</a>
+		<ul>
+		<li><a href="#_save">/save</a></li>
+		<li><a href="#_load">/load</a></li>
+		<li><a href="#_sync">/sync</a></li>
+		<li><a href="#_export">/export</a></li>
+		<li><a href="#_import">/import</a></li>
+		<li><a href="#_data">/data</a></li>
+		<li><a href="#_edit">/edit</a></li>
+		<li><a href="#_rule">/rule</a></li>
+		<li><a href="#_b">/b</a></li>
+		<li><a href="#_d">/d</a></li>
+		<li><a href="#_p">/p</a></li>
+		<li><a href="#_s">/s</a></li>
+		<li><a href="#_incr">/incr</a></li>
+		<li><a href="#_pickup">/pickup</a></li>
+		<li><a href="#_drop">/drop</a></li>
+		<li><a href="#_wire">/wire</a></li>
+		<li><a href="#_unwire">/unwire</a></li>
+		<li><a href="#_slider">/sl</a></li>
+		<li><a href="#_copy">/copy</a></li>
+		<li><a href="#_flip">/flip</a></li>
+		<li><a href="#_turn">/turn</a></li>
+		<li><a href="#_scale">/scale</a></li>
+		<li><a href="#_factory">/factory</a></li>
+		<li><a href="#_c">/c</a></li>
+		</ul>
+	</li>
+	</ul>
+</li>
+</ul>
+
 <h2>About Editing</h2>
 
 <h3 id="game_state">Game State</h3>
@@ -29,7 +114,7 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 	<li>
 		Block state:
 		<ul>
-			<li>position, size, velocity, color, etc</li>
+			<li><a href="#_p">position</a>, <a href="#_s">size</a>, velocity, <a href="#_c">color</a>, etc</li>
 			<li><a href="#type">type</a> - represents the "logic" of blocks that "do things"</li>
 			<li><a href="#material">material</a> - how it interacts when it hits another block</li>
 			<li><a href="#_slider">sliders</a> - integers used to store internal state. Number and meaning is determined by the type.</li>
@@ -86,8 +171,9 @@ Note that if either buffer is empty, commands which use that buffer's contents w
 <b id="look_dir">Look Direction</b><br/>
 Some commands need a direction as input. Typically these will use your Look Direction, which for the sake of editing is just whichever axis you are mostly looking down. For instance, your look direction can be <pre>+Z</pre> or <pre>-X</pre>.
 
-<h2>Commands</h2>
-<h3>Buffer Manipulation</h3>
+<h2 id="commands">Commands</h2>
+Commands are given in bold, followed by their arguments (if any) in regex syntax. The next lines will contain any keybinds, followed by a description of the command (including arguments, so you don't have to read regex).
+<h3 id="buffer_manip">Buffer Manipulation</h3>
 Commands to modify the <a href="#buffers">Player Buffers</a>. Often these will look at the Red buffer, do some logic, and select each result into the Blue buffer (or take it out, if it's already in the Blue buffer).
 <br/><br/>
 <b id="_inside">/inside</b> [0-3]?<br/>
@@ -123,13 +209,13 @@ Selects into (or out of) the Blue buffer the contents of the Red buffer, and any
 These commands typicaly print some information to the terminal which launched the game.
 <br/><br/>
 <b id="_i">/i</b><br/>
-The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recents?
+The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recent?
 <div class="para"></div>
 Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently just <a href="#_legg">/legg</a>s and <a href="#_respawner">/respawner</a>s), the slider output will be annotated with the meaning of each slider.
 <div class="para"></div>
 Finally, it prints the number of items in the Blue and Red buffers.
 <br/><br/>
-<b id="_m">/m</b></br>
+<b id="_m">/m</b><br/>
 Measures the contents of the Blue buffer along the current <a href="#look_dir">Look Direction</a>, printing the measurements to the terminal. The reported "Outside" distance is the size of the Blue buffer's bounding box.
 <div class="para"></div>
 If there are exactly 2 items in the Blue buffer, this will also report a "Centers" distance (the distance between their centers) and an "Inside" distance (the empty space between the blocks, which will be negative if they are overlapping along that axis).
@@ -284,7 +370,7 @@ Deletes all blocks in the Blue <a href="#buffers">buffer</a>.
 <br/><br/>
 <b id="_p">/p</b> (|<span>number</span>|<span>number</span>{3})<br/>
 <i>Ctrl+E: /p</i><br/>
-<i>Ctrl+MouseWheel: /p (incr)</i> (see <a href="#_incr">/incr</a>)
+<i>Ctrl+MouseWheel: /p <span>incr</span></i> (see <a href="#_incr">/incr</a>)
 <div class="para"></div>
 For "push", or "position". This acts differently based on the number of arguments, but always moves the contents of the Blue buffer by some offset (maintaining their relative positions).
 <ul>
@@ -292,14 +378,14 @@ For "push", or "position". This acts differently based on the number of argument
 	<li>For 1 argument, moves the block(s) along the <a href="#look_dir">Look Direction</a> by that amount.</li>
 	<li>
 		For no arguments, moves the block(s) along the <a href="#look_dir">Look Direction</a> until the next time a Blue buffer block aligns with a Red buffer block. If there are no further alignment opportunities, nothing is moved.
-		<br/><br/>
+		<div class="para"></div>
 		In this context, two blocks "align" on a given axis when either their centers have the same coordinate on that axis, or they are both flush with the same plane perpendicular to that axis (either on opposites sides of the plane, or on the same side). 
 	</li>
 </ul>
 The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width), even if you are <a href="#_weight">weightless</a>.
 <br/><br/>
 <b id="_s">/s</b> (<span>number</span>|<span>number</span>{3})<br/>
-<i>Ctrl+Shift+MouseWheel: /s (-incr)</i> (see <a href="#_incr">/incr</a>)
+<i>Ctrl+Shift+MouseWheel: /s <span>-incr</span></i> (see <a href="#_incr">/incr</a>)
 <div class="para"></div>
 For 3 arguments, sets the block's dimensions to the given numbers (which should be even). For 1 argument, moves the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") out by the given number (which should be even), increasing the width.
 <br/><br/>
@@ -361,6 +447,6 @@ However, so long as you don't mess with <a href="#_slider">sliders</a> or <a hre
 <b id="_c">/c</b> ([0-9A-F]{6}|<span>CSS4_name</span>)<br/>
 Colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.
 <div class="para"></div>
-This command also works even with the editing <a href="#_rule">/rule</a> rule disabled, in which case it always just affects your player (both your current block, and future spawns).
+This command also works even with the editing <a href="#_rule">/rule</a> disabled, in which case it always just affects your player (both your current block, and future spawns).
 </body>
 </html>
