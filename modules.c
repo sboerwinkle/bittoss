@@ -30,6 +30,7 @@
 #include "modules/seat.h"
 #include "modules/factory.h"
 #include "modules/gun.h"
+#include "modules/teamselect.h"
 
 void initMods() {
 	module_common();
@@ -50,4 +51,5 @@ void initMods() {
 	module_seat();
 	module_factory();
 	module_gun();
+	module_teamselect();
 }

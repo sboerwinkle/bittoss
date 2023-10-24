@@ -148,6 +148,7 @@ enum {
 	PUSH_PLAYER,
 	PUSH_LOGIC,
 	PUSH_SEAT,
+	PUSH_TEAMSELECT,
 	PUSH_NUM
 };
 // Did you include your module in "modules.c"?

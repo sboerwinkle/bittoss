@@ -174,6 +174,8 @@ void edit_info(ent *e) {
 			helps = M_LEGG_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_RESPAWN)) {
 			helps = M_RESPAWN_HELP;
+		} else if (e->push == pushHandlers.get(PUSH_TEAMSELECT)) {
+			helps = M_TEAMSELECT_HELP;
 		}
 		range(i, e->numSliders) {
 			if (*helps) {
@@ -590,6 +592,21 @@ void edit_t_gun(gamestate *gs, ent *me) {
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, T_EQUIP);
 		setNumSliders(gs, e, M_GUN_NUM_SLIDERS);
+	}
+}
+
+void edit_t_teamselect(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_NIL);
+		e->tickHeld = tickHandlers.get(TICK_NIL);
+		e->push = pushHandlers.get(PUSH_TEAMSELECT);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, M_TEAMSELECT_NUM_SLIDERS);
 	}
 }
 

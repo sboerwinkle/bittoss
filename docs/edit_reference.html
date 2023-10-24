@@ -71,6 +71,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_legg">/legg</a></li>
 		<li><a href="#_seat">/seat</a></li>
 		<li><a href="#_respawner">/respawner</a></li>
+		<li><a href="#_teamselect">/teamselect</a></li>
 		<li><a href="#_cursed">/cursed</a></li>
 		</ul>
 	</li>
@@ -211,7 +212,7 @@ These commands typicaly print some information to the terminal which launched th
 <b id="_i">/i</b><br/>
 The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recent?
 <div class="para"></div>
-Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently just <a href="#_legg">/legg</a>s and <a href="#_respawner">/respawner</a>s), the slider output will be annotated with the meaning of each slider.
+Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently <a href="#_legg">/legg</a> / <a href="#_respawner">/respawner</a> / <a href="#_teamselect">/teamselect</a>), the slider output will be annotated with the meaning of each slider.
 <div class="para"></div>
 Finally, it prints the number of items in the Blue and Red buffers.
 <br/><br/>
@@ -319,11 +320,14 @@ Makes the block act as a control point for vehicles. Players connect on contact 
 Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
 <br/><br/>
 <b id="_respawner">/respawner</b><br/>
-Respawns players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.
+Makes the block respawn players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.
 <div class="para"></div>
 The exact meaning of the configuration <a href="#_slider">slider</a>s can be checked in-game with <a href="#_i">/i</a>, but the short version is that players are eligible for respawn at a given spawner based on their <a href="#_data">/data</a>, how long they've been dead, and how long since the spawner last spawned someone.
 <div class="para"></div>
 Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawner block, a players team will be based on whether their /data is even or odd.
+<br/><br/>
+<b id="_teamselect">/teamselect</b><br/>
+Makes the block set the <a href="#_data">/data</a> and <a href="#_c">color</a> of players who touch it. The color is pulled from the block itself. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
 <br/><br/>
 <b id="_cursed">/cursed</b><br/>
 This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.
