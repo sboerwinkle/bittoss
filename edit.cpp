@@ -20,6 +20,7 @@
 #include "modules/legg.h"
 #include "modules/gun.h"
 #include "modules/respawn.h"
+#include "modules/teamselect.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
