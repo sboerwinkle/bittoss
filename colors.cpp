@@ -28,8 +28,8 @@ void colors_destroy() {
 
 void colors_init() {
 	colors.init(157);
-	colors.add({.name="1.1", .value=0x00c000}); // Default colors, by team (green vs red)
-	colors.add({.name="1.2", .value=0xa0c000});
+	colors.add({.name="1.1", .value=0x4040ff}); // Default colors, by team (blue vs red)
+	colors.add({.name="1.2", .value=0x5000b0});
 	colors.add({.name="1.3", .value=0x00a080});
 	colors.add({.name="2.1", .value=0xc00000});
 	colors.add({.name="2.2", .value=0xc06000});

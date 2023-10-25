@@ -41,7 +41,7 @@ ent* mkStackem(gamestate *gs, ent *owner, const int32_t *offset) {
 	//      What about several giant enums of stuff pasted together at compile time,
 	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.get(WHOMOVES_STACKEM);
-	e->color = (e->typeMask & TEAM_BIT) ? 0x805555 : 0x558055;
+	e->color = (e->typeMask & TEAM_BIT) ? 0x805555 : 0x555580;
 
 	return e;
 }
