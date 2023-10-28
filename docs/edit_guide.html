@@ -5,14 +5,6 @@ pre {
 	display: inline;
 	background-color: lightgray;
 }
-.para {
-	height: 0.4em;
-}
-span {
-	outline: 1px solid gray;
-	font-style: italic;
-	margin: 0 2px;
-}
 </style>
 </head>
 <body>
@@ -67,8 +59,35 @@ More importantly, #10 is edit functionality. That's turned on for <pre>blank.sav
 So remember <pre>/rule 10</pre> to turn on editing, and <pre>/edit</pre> to let you select stuff.
 
 <h3>Intermission</h3>
-At this point there's a lot we can branch out to. This might be a good time to at least look over the table of contents on the <a href="edit_reference.html">edit reference</a>; you'll also probably want the <a href="edit_reference.html#buffers">buffers</a> section, since some commands need the Red Buffer in addition to the Blue Buffer.
+The next thing to cover would be the rest of the buffer manipulation controls, but those are already covered in the <a href="edit_reference.html#buffers">buffers</a> section of the edit guide, so go read that. While you're over there, you might also check out the table of contents; at this point you should have everything else you need to start messing around with any commands that look interesting. There's more stuff you might need to learn (like sliders and wires), but that page is littered with links.
+<p></p>
+If you want to stick around here, there's some more semi-guided stuff we can cover (once you've read about those buffers).
 
+<h3>More Block Manipulation</h3>
+As an excuse to cover some more commands, we're going to make a house. But to keep things short, it'll actually just be two walls.
+<p></p>
+First, make a regular wall. This is just a thin, long, tall block, using the stuff you've learned so far. Leave it floating above the ground a little. Color it if you want.
+<p></p>
+Now we're going to copy it. Where the copy ends up depends on the direction you're looking, so look parallel to the wall (along the wall's "long" axis) and press <pre>Ctrl+C</pre>. The wall should now look twice as long; really it's two walls, and you may notice the original is in the Red buffer and the new one is Blue. Leave the buffers alone for now, we'll need them in a sec.
+<p></p>
+Obviously this wall should be facing the other way; look straight down and type <pre>/turn</pre> (no keybind for this one). How look direction affects the turn direction is covered in the edit reference; I'm not going to bother with right-hand-rule stuff here.
+<p></p>
+Now you should have both walls, floating above the ground, facing different directions, one in each buffer; but they aren't lined up right. You could use the existing move commands, but that would be slow and clumbsy. Instead, we'll use <pre>Ctrl+E</pre>, which aligns the Blue Buffer with the Red Buffer. What exactly that means is easier to show than explain, so experiment some. Your look direction determines which direction the Blue Buffer is moved.
+<p></p>
+Now we're going to address the fact that it's still floating. You want your Blue Buffer to contain both walls, and the Red buffer to contain the ground - this shouldn't be too challenging, give it a go. Once you're set, we're going to double-check it just as an excuse to learn some new commands: <pre>Ctrl+F</pre> toggles the colors of blocks in the Blue Buffer, so you can see those better (then toggle them back). <pre>/i</pre> prints a bunch of info to the terminal you launched the client from; most of this is about the first block of the Blue Buffer, but at the end it should also say <pre>Selected 2, 1</pre>, indicating 2 Blue Buffer blocks and 1 Red Buffer block. Once you're set, just look down and issue <pre>Ctrl+E</pre> to align your walls to the ground.
+<p></p>
+One last trick to address before we move on from our half-house - now that you've got some blocks as a group, it might be nice to measure them. Since they're both in your Blue Buffer already, just look along whatever axis you want to measure, and type <pre>/m</pre>. Measurement info is printed to the terminal.
+
+<h3>Hard-to-Reach Places</h3>
+There's some handy techniques for getting around; we're going to put a block under the floor using them.
+<p></p>
+Start with both your buffers empty, and type <pre>/weight</pre> (or <pre>/weight 0</pre>). You are now floating, though the obvious effect is probably that you can't jump. Look straight down and type <pre>/p 2000</pre>, which pushes your character 2000 units (through the floor, in this case). Look around a little, and you'll see where you are.
+<p></p>
+You can float around with the regular move controls, but it's slow, and can't go up/down. The quickest way to move while weightless is probably <pre>Ctrl+E</pre> - try this a few times, then try holding it down to <i>really</i> cover ground. The only caveat is that since this something of an abuse of the versatile <a href="edit_reference.html#_p">/p</a> command, it only works if both your buffers are empty.
+<p></p>
+Another way is the <pre>Ctrl+Shift+MouseWheel</pre> we used to move blocks earlier; with an empty Blue Buffer, it moves yourself. Actually this is just another bind for the /p command, though by default it uses a smaller <a href="edit_reference.html#_incr">increment</a> than the 2000 we used to get through the floor.
+<p></p>
+Anyway, we're under the floor, so putting a block here is just <pre>Ctrl+B</pre> as usual. This will now be the target of edit commands, of course, so if you want to keep moving around you might clear the Blue Buffer or just swap them out. In any event, get back above ground, and use <pre>/weight</pre> (or <pre>/weight 1</pre>) to restore your personal gravity.
 <!-- TODO: Talk BRIEFLY about what buffers are -->
 </body>
 </html>

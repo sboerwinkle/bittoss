@@ -259,7 +259,7 @@ Paper blocks are pushed by everything.
 <b id="_ghost">/ghost</b><br/>
 Ghost blocks do not collide. This command will also turn off <a href="#_weight">/weight</a> so they don't fall straight through the floor, like that one episode of Batman Beyond that scarred me as a child.
 <div class="para"></div>
-Ghost blocks don't count against the collision checking at all (the most taxing part of the game logic).
+Ghost blocks don't count against the collision checking at all (the most taxing part of the game logic). Also, they may be hard to select again; consider looking at the notes on <a href="#_inside">Ctrl+I</a>.
 <br/><br/>
 <b id="_decor">/decor</b><br/>
 This is intended for use on blocks that are currently <a href="#_pickup">held</a>. It makes them <a href="#_ghost">/ghost</a> blocks, gives them <a href="#_weight">weight</a> (which won't matter so long as they are held), and adds a condition that they will turn into <a href="#_paper">/paper</a> if dropped.
@@ -280,16 +280,30 @@ These commands change the special behaviors of the blocks in the Blue buffer. Ty
 Clears the type, the block is just a block.
 <br/><br/>
 <b id="_logic">/logic</b><br/>
-The block sends, processes, and receives logic signals.
+Blocks of this type can send and process the signals used by things like <a href="#_respawner">/respawner</a> and <a href="#_factory">/factory</a> blocks. They can also act as sensors.
 <div class="para"></div>
-<b><i>TODO: More detail.</i></b>
+There are 2 logic signals, which we'll call "1" and "2". Logic blocks are active or not based on which signals they received last tick, and if active they send a signal(s) to every block they are <a href="#_wire">wired</a> to. Whether the block activates depends on its gate type, which is <a href="#_slider">slider</a> 0:
+<ul>
+	<li>0 - XOR - (received any "1") XOR (received any "2")</li>
+	<li>1 - XNOR - (received any "1") XNOR (received any "2")</li>
+	<li>2 - AND - (received any "1") AND (received any "2")</li>
+</ul>
+Which signal(s) the block sends when active is determined by slider 1, which should be in the range 0-3 (0 being "none" and 3 being "1"+"2").
+<div class="para"></div>
+Most non-logic blocks that concern themselves with signals (as mentioned in the first paragraph) just concern themselves with signal "1", and in some simple setups that's all you'll need. In such cases it may be helpful to think of XOR as a repeater and XNOR as an inverter.
+<div class="para"></div>
+Additionally, a logic block that pushes something (i.e. it's "heavier" than something that touched it) will receive a "1". This is why logic blocks can act as sensors. As an example, a simple logic block might have sliders set to (0, 1). This means it's an XOR gate, which broadcasts "1" when active. Every frame that something is pushing against it, it will broadcast a "1" to each of its wires.
+<div class="para"></div>
+You may also want to send a signal the <i>first</i> frame the block pushes something. This is fairly common, and you can <a href="#_import">import</a> <pre>itm/button.itm</pre> to handle this. It's just a collection of 3 logic blocks, set up to act as an edge detector. The small block on the side is the "output", which you should use to wire the button up to things or change its output signal(s). Both small blocks can be made <a href="#_c">invisible</a>+<a href="#_ghost">ghost</a> if you wish.
+<div class="para"></div>
+If you don't want sensor-like behavior on some logic block, tuck it away somewhere or make it a <a href="#_ghost">/ghost</a>.
 <br/><br/>
 <b id="_logic_debug">/logic_debug</b><br/>
 Exactly identical to <a href="#_logic">/logic</a>, but the block colors itself based on its gate type and whether or not it's active.
 <div class="para"></div>
 While this is mainly intended for visualizing logic systems while they are being built, it can also be used as a sort of indicator light.
 <div class="para"></div>
-Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they share the same number of sliders.
+Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they have the same number of sliders.
 <div class="para"></div>
 Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.
 <br/><br/>
@@ -386,7 +400,7 @@ For "push", or "position". This acts differently based on the number of argument
 		In this context, two blocks "align" on a given axis when either their centers have the same coordinate on that axis, or they are both flush with the same plane perpendicular to that axis (either on opposites sides of the plane, or on the same side). 
 	</li>
 </ul>
-The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width), even if you are <a href="#_weight">weightless</a>.
+The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width). Especially useful when <a href="#_weight">weightless</a>.
 <br/><br/>
 <b id="_s">/s</b> (<span>number</span>|<span>number</span>{3})<br/>
 <i>Ctrl+Shift+MouseWheel: /s <span>-incr</span></i> (see <a href="#_incr">/incr</a>)
