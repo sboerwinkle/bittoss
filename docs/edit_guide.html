@@ -1,0 +1,74 @@
+<html>
+<head>
+<style>
+pre {
+	display: inline;
+	background-color: lightgray;
+}
+.para {
+	height: 0.4em;
+}
+span {
+	outline: 1px solid gray;
+	font-style: italic;
+	margin: 0 2px;
+}
+</style>
+</head>
+<body>
+<h2>This Document</h2>
+is a walkthrough tutorial guide thing for the in-game editing. It's designed to get you up-and-running with the most basic stuff first, for a hands-on experience. Throughout, there will be links to the <a href="edit_reference.html">edit reference</a>, which has more detailed information about how things work as well as a synopsis of each command.
+
+<h3>Launching Server + Client</h3>
+Since editing is done in-game, the game has to be running. For that, you need the server up, even if you're just playing locally.
+<p></p>
+The server lives in <pre>server/</pre>, and can be started with e.g. <pre>./server.py 8</pre>. If it's successful, you should see a message like <pre>Server started on port 15000</pre>, and then it should wait.
+<p></p>
+The client is <pre>game</pre>, and needs the server IP as an argument. You should be able to start it with <pre>./game 127.0.0.1</pre>, and then you should see a guy you can move around.
+<p></p>
+If you aren't familiar, you should practice moving around the world a bit. Controls are WASD, Space, Shift (to pickup/drop the flag), and the mouse buttons (to make different kinds of blocks, when you aren't holding the flag).
+
+<h3>Save + Load</h3>
+Press <pre>Ctrl+K</pre>, then do something stupid and irreversible, like jumping off the edge. Then press <pre>Ctrl+L</pre>.
+<p></p>
+Those are the keybinds for <pre>/save savegame</pre> and <pre>/load savegame</pre>, respectively. If you type out the command you can use any other filename, like <pre>tmp</pre>, <pre>tmp2</pre>, or <pre>my_level.sav</pre>.
+<p></p>
+There's no "undo" command, and some parts of the edit interface are clunky. Save often, especially if you're working on something that took a while to build.
+
+<h3>Makin' Blocks</h3>
+Time for actual edit stuff. Type <pre>/load blank.sav</pre>, and after a second you should spawn in. Walk around some and press <pre>Ctrl+B</pre> in a few different places. Tada! Blocks.
+<p></p>
+You may notice some little blue things floating around you; we'll get to those in a second. For now, let's make these blocks slightly more interesting...
+<p></p>
+For one, they're hard to see. Enter <pre>/c green</pre>, maybe try some other colors. Hex works too (<pre>/c FFFFA0</pre>).
+<p></p>
+For another, they're kind of small... Look at one, hold <pre>Ctrl</pre>, and scroll down a few clicks. Tada! They should get bigger. Mess around with this a bit; the side that stretches depends on which direction you're looking (<i>not</i> what you're looking <i>at</i>). Scroll up to shrink things.
+<p></p>
+Maybe save (<pre>Ctrl+K</pre>) here? No particular reason, just a good habit.
+
+<h3>Arranging Blocks</h3>
+Let's address those blue things from earlier. They represent what you have selected - if you move around some, you'll see they "point at" the blocks you made.
+<p></p>
+Type <pre>/edit</pre>. This won't do anything, but if you have the terminal where you launched the game visible, it will say that edit mode is on. Press <pre>Shift+LeftClick</pre>, and the blue things should go away. If they didn't go away, and you spat out a block instead, try <pre>/edit</pre> again.
+<p></p>
+The things you have selected are the "Blue Buffer", and now you know how to clear it. If you go into first-person (<pre>Tab</pre>), you can select existing blocks by "clicking on them" (<pre>LeftClick</pre> while looking at them). You can do this in third-person as well, it's just hard to aim.
+<p></p>
+We talked about resizing things earlier (<pre>Ctrl+MouseWheel</pre>) - you can move them around similarly, with <pre>Ctrl+Shift+MouseWheel</pre>. Finally, you can delete the things you have selected with <pre>/d</pre>.
+<p></p>
+Okay, now you can save/load, make and delete blocks, change their color, size, and position, and modify/clear the selection. Mess around with that for a bit to get used to it. If you don't have anything selected, the commands will act on you, so if you're a weird size that's probably why.
+
+<h3>Rules</h3>
+Very briefly, we should address rules. Type <pre>/rule</pre> to see a listing, along with which ones are active.
+<p></p>
+You'll note #3 is gravity - you can do <pre>/rule 3</pre> to turn that off (or back on), that's a fun trick.
+<p></p>
+More importantly, #10 is edit functionality. That's turned on for <pre>blank.sav</pre>, which is why you can do all this, but isn't (by default) on e.g. the default level. It can be turned on at any time; mostly it's just so the edit keybinds don't get used by accident in regular gameplay.
+<p></p>
+So remember <pre>/rule 10</pre> to turn on editing, and <pre>/edit</pre> to let you select stuff.
+
+<h3>Intermission</h3>
+At this point there's a lot we can branch out to. This might be a good time to at least look over the table of contents on the <a href="edit_reference.html">edit reference</a>; you'll also probably want the <a href="edit_reference.html#buffers">buffers</a> section, since some commands need the Red Buffer in addition to the Blue Buffer.
+
+<!-- TODO: Talk BRIEFLY about what buffers are -->
+</body>
+</html>
