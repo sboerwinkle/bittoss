@@ -39,7 +39,7 @@ TODO:
 	/ Should also refund player resources if they have to abort
 / Automatic state sync on join
 	Close enough, there's a message for new players at least
-- Some way to use tools
+/ Some way to use tools
 	I was going to go with hands but then I realized hands are dumb
 	Everyone is going to get hats
 	If you have two hats on, any hat that isn't on top gets dropped
@@ -59,13 +59,13 @@ TODO:
 	/ Save to file
 	/ Send over wire
 	/ dynamic joining
-- "Finish" edit tooling
+/ "Finish" edit tooling
 	/ Bulk selection in area
 	/ Flips / rotations on selected items
 	/ resizing existing things
 		! stretching an edge to a desired point
 			This operation can fail since object widths are always even!
-	- Documentation for all this edit stuff dear god
+	/ Documentation for all this edit stuff dear god
 / Friction as a concept native to the engine?
 / Rework handler registrar again so module load order isn't so closely tied to the handler's ID
 	Probably a big header with enums is the way to go here, so handlers have an ID rather than a name
@@ -73,12 +73,12 @@ TODO:
 - more circuit components
 	- delay
 	- randomizer
-- Magic steppy legs
+/ Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
-	- Rework leggs
+	/ Rework leggs
 / friction configurable
 / Make Escort Cube
-- factory
+/ factory
 - soccer 2.0
 / edit thumbtacks disappear in-flight if you clear their buffer
 / no_draw_fp should be independently editable, like weightlessness
