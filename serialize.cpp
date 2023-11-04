@@ -268,7 +268,7 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 
 int verifyHeader(const list<char> *data, int *ix) {
 	if (data->num < 4) {
-		fputs("Only got %d bytes of data, can't deserialize\n", stderr);
+		fprintf(stderr, "Only got %d bytes of data, can't deserialize\n", data->num);
 		return -1;
 	}
 	// Only compare 3 bytes, not 4, since the last one we use as a version

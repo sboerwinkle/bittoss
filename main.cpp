@@ -75,6 +75,7 @@ static int typingLen = -1;
 
 static char chatBuffer[TEXT_BUF_LEN];
 static char loopbackCommandBuffer[TEXT_BUF_LEN];
+static char loadedFilename[TEXT_BUF_LEN];
 
 static gamestate *rootState, *phantomState;
 
@@ -122,13 +123,15 @@ static int latency;
 static int32_t startFrame;
 #define FRAME_ID_MAX (1<<29)
 
-#define BIN_CMD_LOAD 128
+#define BIN_CMD_SYNC 128
 #define BIN_CMD_IMPORT 129
+#define BIN_CMD_LOAD 130
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
-char syncNeeded = 0;
+static char syncNeeded = 0;
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
+static char isLoader = 0;
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
@@ -285,7 +288,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 	out[13] = round(pitchSine / divisor);
 
 	if (syncData.num) {
-		out.add((char)BIN_CMD_LOAD);
+		out.add((char)BIN_CMD_SYNC);
 		out.addAll(syncData);
 		syncData.num = 0;
 	} else if (sharedInputs.sendInd) {
@@ -299,15 +302,12 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			and info on the docs
 			*/
 			puts(
-				"Available commands:\n"
-				"/save [FILE] - save to file, default file is \"savegame\"\n"
-				"/load [FILE] - load from file, as above\n"
-				"/sync - send current state over network - also Ctrl+R\n"
-				"/syncme - displays message to other clients requesting sync\n"
-				"/tree - prints debug info about collision detection tree\n"
-				"/rule [RULE] - list available gamerules, or toggle one\n"
-				"/c COLOR - Sets the player color to COLOR, a 6-digit hex code or a CSS4 color name\n"
-				"/help - display this help\n"
+				"Complete documentation can be found in docs/edit_reference.html.\n"
+				"If you're not editing, you probably only need:\n"
+				"`/data` (to set your team),\n"
+				"`/c` (to set your color),\n"
+				"and `/save` and `/load`.\n"
+				"Controls are WASD, Shift, Space, Tab, and the mouse.\n"
 			);
 		} else if (isCmd(text, "/incr")) {
 			int32_t x;
@@ -319,8 +319,17 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		} else if (isCmd(text, "/load")) {
 			const char *file = "savegame";
 			if (text[5]) file = text + 6;
+			strcpy(loadedFilename, file);
 			out.add((char)BIN_CMD_LOAD);
 			readFile(file, &out);
+		} else if (isCmd(text, "/loader")) {
+			int32_t x;
+			const char *c = text + 7;
+			if (getNum(&c, &x)) isLoader = !!x;
+			printf("loader: %s\n", isLoader ? "Y" : "N");
+		} else if (isCmd(text, "/file")) {
+			if (text[5]) strcpy(loadedFilename, text + 6);
+			printf("Filename: %s\n", loadedFilename);
 		} else if (!strncmp(text, "/import ", 8)) {
 			out.add((char)BIN_CMD_IMPORT);
 			readFile(text + 8, &out);
@@ -536,8 +545,9 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 }
 
 static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
-	if (chars && *(unsigned char*)data == BIN_CMD_LOAD) {
+	if (chars && (*(unsigned char*)data == BIN_CMD_LOAD || *(unsigned char*)data == BIN_CMD_SYNC)) {
 		if (!isReal) return;
+		if (*(unsigned char*)data == BIN_CMD_LOAD) isLoader = isMe;
 		syncNeeded = 0;
 		doCleanup(rootState);
 		// Can't make a new gamestate here (as we might be tempted to),
@@ -1241,7 +1251,9 @@ int main(int argc, char **argv) {
 	strcpy(sharedInputs.textBuffer, "/syncme");
 	sharedInputs.sendInd = 1;
 
-	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = loopbackCommandBuffer[0] = '\0';
+	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
+	loadedFilename[0] = loadedFilename[TEXT_BUF_LEN-1] = '\0';
+	loopbackCommandBuffer[0] = '\0';
 
 	// Pre-populate timing buffer, set `startSec`
 	{

@@ -79,6 +79,8 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<ul>
 		<li><a href="#_save">/save</a></li>
 		<li><a href="#_load">/load</a></li>
+		<li><a href="#_loader">/loader</a></li>
+		<li><a href="#_file">/file</a></li>
 		<li><a href="#_sync">/sync</a></li>
 		<li><a href="#_export">/export</a></li>
 		<li><a href="#_import">/import</a></li>
@@ -357,6 +359,16 @@ Writes the game state to disk. This is more or less the complete state, down to 
 <b id="_load">/load</b> <span>path</span>?<br/>
 <i>Ctrl+L: /load</i><br/>
 Reads the game state from disk, broadcasting it to all players. If the file has more players than are currently in-game, the extra player data is discarded; if it has fewer, the leftover players are reset (as though they had freshly connected). As with <a href="#_save">/save</a>, the default path if none is provided is "savegame".
+<br/><br/>
+<b id="_loader">/loader</b> [01]?<br/>
+Shouldn't be needed normally. Reads/writes your loader status.
+<div class="para"></div>
+Whoever issued <a href="_load">/load</a> most recently is automatically set as the loader. In cases where game logic requires someone to read from disk, the loader will process this.
+<br/><br/>
+<b id="_file">/file</b> <span>path</span>?<br/>
+Shouldn't be needed normally. Reads/writes the loaded filename.
+<div class="para"></div>
+This is set automatically when you issue <a href="_load">/load</a> (see also <a href="_loader">/loader</a>). If the game logic wants to reload the game, and you are the loader, this path will be used.
 <br/><br/>
 <b id="_sync">/sync</b><br/>
 <i>Ctrl+R</i><br/>
