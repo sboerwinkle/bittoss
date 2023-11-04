@@ -21,8 +21,6 @@ EMPTY_MSG = b'\0\0\0\0'
 
 usage = "Usage: frame_latency [port] [starting_players]\nlatency must be greater than 0, less than " + str(BUF_SLOTS//4) + "\nPort default is 15000\nstarting_players is probably not an option you need"
 
-# TODO clients and buf are used, like, everywhere; maybe make them object members at some point?
-
 class Host:
     def __init__(self, latency, starting_players):
         self.buf = [[EMPTY_MSG] * starting_players for _ in range(BUF_SLOTS)]
@@ -38,12 +36,23 @@ class Client:
         self.inited = False
 
 def rm(clients, ix, cl):
-    if clients[ix] is not cl:
+    if ix >= len(clients) or clients[ix] is not cl:
         # We have a couple conditions that can cause us to throw out a client.
         # Without getting too much into it, we've got at least one condition where we might try to remove somebody that's already removed.
         # Fortunately we can just synchronize on the list of clients
         return
     clients[ix] = None
+    for c in clients:
+        if c is not None:
+            break
+    else:
+        # Normally we don't do this since the client doesn't handle disconnections as elegantly as new connections.
+        # (Partly by design; people should be allowed to rejoin games.)
+        # However, if there's nobody left to remember, we can cleanly reset w/out confusing anybody.
+        # This is also nice so the server can be running continuously, at least in theory.
+        print("All clients disconnected, resetting client list")
+        # I don't think this will mess up any threads? I guess we'll see...
+        clients.clear()
     # According to https://docs.python.org/3/library/asyncio-task.html#creating-tasks,
     # asyncio only keeps weak references to tasks, so no need to gather it up or anything
     # if we just want it to disappear after cancellation.
