@@ -748,6 +748,22 @@ static char doWholeStep(gamestate *state, char *inputData, char *data2, int32_t 
 	return clientLate;
 }
 
+void showMessage(gamestate const * const gs, char const * const msg) {
+	// Anybody can request a message, and we don't hold it against them.
+	// However, the message that is drawn to the screen isn't tied to a gamestate -
+	// which means that if some gamestate gets rolled back (as happens very often),
+	// any message it requested is still going to be visible even if that doesn't make sense.
+	// As a result, we don't show messages until they happen on the "real" timeline.
+	if (gs != rootState) return;
+	int len = strnlen(msg, TEXT_BUF_LEN-1);
+	// We're weird about this partly because of overflows,
+	// and partly so if the draw thread catches us at a bad time
+	// it writes a minimum of nonsense to the screen
+	// (since the new terminator is put in first).
+	chatBuffer[len] = '\0';
+	memcpy(chatBuffer, msg, len);
+}
+
 static void cloneToPhantom() {
 	doCleanup(phantomState);
 	free(phantomState);
