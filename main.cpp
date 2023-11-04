@@ -1214,6 +1214,7 @@ int main(int argc, char **argv) {
 	initGraphics(); // OpenGL Setup (calls initFont())
 	glfwMakeContextCurrent(NULL);
 
+	file_init();
 	colors_init();
 	velbox_init();
 	ent_init();
@@ -1344,6 +1345,7 @@ int main(int argc, char **argv) {
 	ent_destroy();
 	velbox_destroy();
 	colors_destroy();
+	file_destroy();
 	puts("Done.");
 	puts("Cleaning up GLFW...");
 	glfwTerminate();
