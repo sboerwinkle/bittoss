@@ -126,6 +126,7 @@ static int32_t startFrame;
 #define BIN_CMD_SYNC 128
 #define BIN_CMD_IMPORT 129
 #define BIN_CMD_LOAD 130
+#define BIN_CMD_ADD 131
 queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
@@ -236,6 +237,23 @@ static void doDefaultInputs(ent *e) {
 	}
 }
 
+static char parseAddCmd(list<char> *out, const char *c) {
+	out->add((char)BIN_CMD_ADD);
+	range(i, 6) {
+		int x;
+		if (!getNum(&c, &x)) {
+			printf("/add got %d args but needs, like, 7\n", i);
+			return 1;
+		}
+		write32(out, x);
+	}
+	if (*c != ' ') {
+		puts("/add needs a filename after all those numbers");
+		return 1;
+	}
+	return readFile(c+1, out);
+}
+
 static char isCmd(const char* input, const char *cmd) {
 	int l = strlen(cmd);
 	return !strncmp(input, cmd, l) && (input[l] == ' ' || input[l] == '\0');
@@ -333,6 +351,11 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		} else if (!strncmp(text, "/import ", 8)) {
 			out.add((char)BIN_CMD_IMPORT);
 			readFile(text + 8, &out);
+		} else if (isCmd(text, "/add")) {
+			int initial = out.num;
+			if (parseAddCmd(&out, text+4)) {
+				out.num = initial;
+			}
 		} else if (isCmd(text, "/save") || isCmd(text, "/export")) {
 			// These commands should only affect the local filesystem, and not game state -
 			// therefore, they don't need to be synchronized.
@@ -563,7 +586,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		deserialize(rootState, &fakeList);
 		return;
 	}
-	if (chars > 5 && *(unsigned char*)data == BIN_CMD_IMPORT) {
+	if (chars && *(unsigned char*)data == BIN_CMD_IMPORT) {
 		if (!(gs->gamerules & RULE_EDIT)) {
 			if (isReal && isMe) puts("/import only works with /rule 10 enabled");
 			return;
@@ -573,6 +596,15 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		fakeList.items = data+1;
 		fakeList.num = fakeList.max = chars - 1;
 		edit_import(gs, p->entity, &fakeList);
+		return;
+	}
+	if (chars >= 25 && *(unsigned char*)data == BIN_CMD_ADD) {
+		list<char> fakeList;
+		fakeList.items = data+25;
+		fakeList.num = fakeList.max = chars - 25;
+		int32_t nums[6];
+		range(i, 6) nums[i] = ntohl(*(int32_t*)(data+1+4*i));
+		deserializeSelected(gs, &fakeList, nums, nums+3);
 		return;
 	}
 	if (chars < TEXT_BUF_LEN) {

@@ -84,6 +84,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_sync">/sync</a></li>
 		<li><a href="#_export">/export</a></li>
 		<li><a href="#_import">/import</a></li>
+		<li><a href="#_add">/add</a></li>
 		<li><a href="#_data">/data</a></li>
 		<li><a href="#_edit">/edit</a></li>
 		<li><a href="#_rule">/rule</a></li>
@@ -385,6 +386,11 @@ All file I/O happens in the <pre>data/</pre> directory.
 <br/><br/>
 <b id="_import">/import</b> <span>path</span><br/>
 Imports something that was previously <a href="#_export">/export</a>ed, relative to the player. The new blocks will be added to the Blue buffer.
+<br/><br/>
+<b id="_add">/add</b> <span>number</span>{6} <span>path</span><br/>
+Similar to <a href="#_import">/import</a>, but is relative to the absolute position and velocity vectors supplied before the path. Does not add the blocks to the Blue buffer. Maybe think of a better name?
+<div class="para"></div>
+Currently the plan is for the operation underlying this command to be used by game logic in some cases, so it does not require <a href="#_rule">/rule</a> 10 to be on.
 <br/><br/>
 <b id="_data">/data</b> <span>number</span>?<br/>
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 

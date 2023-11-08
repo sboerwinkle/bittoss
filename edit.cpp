@@ -1052,8 +1052,6 @@ void edit_measure(gamestate *gs, ent *me) {
 
 void edit_import(gamestate *gs, ent *me, list<char> *data) {
 	if (!me) return;
-	int axis, dir;
-	getEditAxis(me, &axis, &dir);
 
 	ent *start = gs->ents;
 
