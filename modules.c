@@ -31,6 +31,7 @@
 #include "modules/factory.h"
 #include "modules/gun.h"
 #include "modules/teamselect.h"
+#include "modules/scoreboard.h"
 
 void initMods() {
 	module_common();
@@ -52,4 +53,5 @@ void initMods() {
 	module_factory();
 	module_gun();
 	module_teamselect();
+	module_scoreboard();
 }

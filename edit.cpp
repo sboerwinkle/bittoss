@@ -21,6 +21,7 @@
 #include "modules/gun.h"
 #include "modules/respawn.h"
 #include "modules/teamselect.h"
+#include "modules/scoreboard.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -608,6 +609,21 @@ void edit_t_teamselect(gamestate *gs, ent *me) {
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
 		setNumSliders(gs, e, M_TEAMSELECT_NUM_SLIDERS);
+	}
+}
+
+void edit_t_scoreboard(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_SCOREBOARD);
+		e->tickHeld = tickHandlers.get(TICK_NIL);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, M_SCOREBOARD_NUM_SLIDERS);
 	}
 }
 
