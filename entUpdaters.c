@@ -19,7 +19,11 @@ void uVel(ent *e, int32_t *a) {
 }
 
 void uDead(gamestate *gs, ent *e) {
-	e->dead_max[gs->flipFlop_death] = 1;
+	e->dead_max[gs->flipFlop_death] |= 1;
+}
+
+void uErase(gamestate *gs, ent *e) {
+	e->dead_max[gs->flipFlop_death] = 3;
 }
 
 void uDrop(gamestate *gs, ent *e) {

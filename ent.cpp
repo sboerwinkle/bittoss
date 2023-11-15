@@ -432,7 +432,8 @@ static char doIteration(gamestate *gs) {
 
 static void invokeOnCrush(gamestate *gs) {
 	for (ent *e = gs->deadTail; e; e = e->ll.p) {
-		if (e->crush) (*e->crush)(gs, e);
+		// Skip handler if dead > 1
+		if (e->crush && e->dead == 1) (*e->crush)(gs, e);
 	}
 }
 
@@ -684,9 +685,15 @@ static void flushPosVel(gamestate *gs, ent *e, const int32_t *parent_d_center, c
 static void flushDeaths(gamestate *gs) {
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
-		if (i->dead_max[1^gs->flipFlop_death]) {
+		char d = i->dead_max[1^gs->flipFlop_death];
+		if (d) {
 			//puts("Scripted death!");
 			crushEnt(gs, i);
+			// crushEnt will set dead to `1`, but it may be even _more_ dead.
+			// Specifically, values > 1 will inhibit the onCrush handler.
+			// Note that gameState cleanup doesn't use this method,
+			// and instead never tries to invoke those handlers at all.
+			i->dead = d;
 		}
 	}
 }
