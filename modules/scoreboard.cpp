@@ -43,6 +43,9 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 			sprintf(msg, "winner %s", winner);
 			showMessage(gs, msg);
 			uMyCollideMask(me, 0);
+			for (ent *e = gs->ents; e; e = e->ll.n) {
+				if (e != me) uErase(gs, e);
+			}
 		}
 	}
 }
