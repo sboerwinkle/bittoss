@@ -42,6 +42,7 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 			else winner = "tie";
 			sprintf(msg, "winner %s", winner);
 			showMessage(gs, msg);
+			uMyCollideMask(me, 0);
 		}
 	}
 }

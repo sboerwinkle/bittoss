@@ -612,18 +612,24 @@ void edit_t_teamselect(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_t_scoreboard(gamestate *gs, ent *me) {
+void edit_m_t_scoreboard(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
+		// Scoreboards are metal until they survive a round, then they become wall
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_METAL);
+		uMyCollideMask(e, T_TERRAIN);
+		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
+
 		e->tick = tickHandlers.get(TICK_SCOREBOARD);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
 		setNumSliders(gs, e, M_SCOREBOARD_NUM_SLIDERS);
+
+		uMyTypeMask(e, T_TERRAIN + T_HEAVY + T_WEIGHTLESS);
 	}
 }
 
@@ -635,16 +641,17 @@ void edit_m_t_veh_eye(gamestate *gs, ent *me) {
 		// Eyes are sort of a weird situation,
 		// we set both their material (_m_) and their behavior (_t_)
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-		uMyTypeMask(e, T_DECOR);
 		uMyCollideMask(e, 0);
+		e->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
 
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_HELD_VEH_EYE);
 		e->push = pushHandlers.get(PUSH_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumbled = entPairHandlers.get(FUMBLED_DECOR);
 		setNumSliders(gs, e, 0);
+
+		uMyTypeMask(e, T_DECOR);
 	}
 }
 
