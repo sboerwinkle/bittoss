@@ -133,6 +133,7 @@ list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
 static char syncNeeded = 0;
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 static char isLoader = 0;
+static char doReload = 0;
 
 #define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
 #define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
@@ -309,6 +310,14 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		out.add((char)BIN_CMD_SYNC);
 		out.addAll(syncData);
 		syncData.num = 0;
+	} else if (doReload) {
+		doReload = 0;
+		out.add((char)BIN_CMD_ADD);
+		// 6 numbers * 4 bytes
+		range(i, 24) out.add(0);
+		if (readFile(loadedFilename, &out)) {
+			fputs("ERROR: Couldn't read file for reload\n", stderr);
+		}
 	} else if (sharedInputs.sendInd) {
 		sharedInputs.sendInd = 0;
 		const char *const text = sharedInputs.textBuffer;
@@ -795,6 +804,11 @@ void showMessage(gamestate const * const gs, char const * const msg) {
 	// (since the new terminator is put in first).
 	chatBuffer[len] = '\0';
 	memcpy(chatBuffer, msg, len);
+}
+
+void requestReload(gamestate const * const gs) {
+	if (gs != rootState) return;
+	if (isLoader) doReload = 1;
 }
 
 static void cloneToPhantom() {
