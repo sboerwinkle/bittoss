@@ -45,7 +45,7 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 			char msg[24];
 			const char* winner;
 			if (alive == 2) {
-				winner = "blu";
+				winner = "blue";
 				blu++;
 				uSlider(me, s_team_blu, blu);
 			} else if (alive == 4) {

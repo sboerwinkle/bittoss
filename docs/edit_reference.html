@@ -72,6 +72,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_seat">/seat</a></li>
 		<li><a href="#_respawner">/respawner</a></li>
 		<li><a href="#_teamselect">/teamselect</a></li>
+		<li><a href="#_scoreboard">/scoreboard</a></li>
 		<li><a href="#_cursed">/cursed</a></li>
 		</ul>
 	</li>
@@ -345,6 +346,21 @@ Currently there is the concept of "team", which is really only used by the block
 <br/><br/>
 <b id="_teamselect">/teamselect</b><br/>
 Makes the block set the <a href="#_data">/data</a> and <a href="#_c">color</a> of players who touch it. The color is pulled from the block itself. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
+<br/><br/>
+<b id="_scoreboard">/scoreboard</b><br/>
+Makes the block keep score. The block can be anywhere on the level, and it will track team score (red vs blue) based on which team survives, and then reset the map. This command also sets the block's <a href="#material">material</a> to <a href="#_weight">weightless</a> <a href="#_metal">/metal</a>.
+<div class="para"></div>
+More specifically, the block determines the team of each player by taking their <a href="#_data">/data</a> (modulus 4). The block will decide the round is over if any of the following conditions hold continuously for 5 seconds:
+<ul>
+	<li>All players are dead - tie</li>
+	<li>All living players are team 1 - blue victory</li>
+	<li>All living players are team 2 - red victory</li>
+</ul>
+It will then display the winner and the current score as a chat message.
+<div class="para"></div>
+After the round is scored, the map is reset. This can't be a full load, since player data and the current score should be maintained, but it also can't be managed with <a href="#_factory">/factory</a> blocks since that would be a nightmare to maintain. Instead, the block will delete every other block in the world except for itself, then request whichever player is currently the <a href="#_loader">/loader</a> to <a href="#_add">/add</a> the most recently loaded map back into the world.
+<div class="para"></div>
+Mostly this approach results in a transparent experience. Some trickery with <a href="#material">materials</a> ensures that the newly-added instance of the scoreboard block is destroyed by the existing one. However, any quicksaves or quick-<a href="#_load">/load</a>s will likely result in unexpected behavior, and if the map data contains pre-placed players (as opposed to spawners) they won't be re-inhabited by the players when it resets.
 <br/><br/>
 <b id="_cursed">/cursed</b><br/>
 This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.
