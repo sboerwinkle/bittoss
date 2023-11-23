@@ -66,6 +66,8 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_dumb">/dumb</a></li>
 		<li><a href="#_logic">/logic</a></li>
 		<li><a href="#_logic_debug">/logic_debug</a></li>
+		<li><a href="#_delay">/delay</a></li>
+		<li><a href="#_demolish">/demolish</a></li>
 		<li><a href="#_gun">/gun</a></li>
 		<li><a href="#_door">/door</a></li>
 		<li><a href="#_legg">/legg</a></li>
@@ -310,6 +312,14 @@ While this is mainly intended for visualizing logic systems while they are being
 Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they have the same number of sliders.
 <div class="para"></div>
 Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.
+<br/><br/>
+<b id="_delay">/delay</b><br/>
+Blocks of this type are similar to a <a href="#_logic">/logic</a> XNOR, but they have a delay before they turn on. There is no delay to turn off, so it "prefers" to be off. The delay is set in <a href="#_slider">slider</a> 0. If this is set to 0, it will behave exactly like an XNOR.
+<div class="para"></div>
+As with regular /logic blocks, the output signals are controlled by slider 1.
+<br/><br/>
+<b id="_demolish">/demolish</b><br/>
+Blocks of this type will destroy themselves when they receive a <a href="#_logic">logical</a> signal "1".
 <br/><br/>
 <b id="_gun">/gun</b><br/>
 Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!

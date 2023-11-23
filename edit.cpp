@@ -22,6 +22,7 @@
 #include "modules/respawn.h"
 #include "modules/teamselect.h"
 #include "modules/scoreboard.h"
+#include "modules/logic.h"
 
 static list<ent*> a, b;
 static list<int32_t> args;
@@ -176,6 +177,11 @@ void edit_info(ent *e) {
 			helps = M_LEGG_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_RESPAWN)) {
 			helps = M_RESPAWN_HELP;
+		} else if (e->tickHeld == tickHandlers.get(TICK_LOGIC)
+				|| e->tickHeld == tickHandlers.get(TICK_LOGIC_DEBUG) ) {
+			helps = M_LOGIC_HELP;
+		} else if (e->tickHeld == tickHandlers.get(TICK_TIMER)) {
+			helps = M_TIMER_HELP;
 		} else if (e->push == pushHandlers.get(PUSH_TEAMSELECT)) {
 			helps = M_TEAMSELECT_HELP;
 		}
@@ -519,6 +525,36 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
 		setNumSliders(gs, e, 2);
+	}
+}
+
+void edit_t_timer(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_TIMER);
+		e->tickHeld = tickHandlers.get(TICK_TIMER);
+		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, 3);
+	}
+}
+
+void edit_t_demolish(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_DEMOLISH);
+		e->tickHeld = tickHandlers.get(TICK_DEMOLISH);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, 0);
 	}
 }
 
