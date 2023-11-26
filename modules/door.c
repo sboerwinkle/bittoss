@@ -35,7 +35,14 @@ static void door_tick(gamestate *gs, ent *me) {
 		}
 	}
 	// If nobody was active, we use the accumulated velocity to try to coast to a "halt"
-	if (!numActive) numActive = me->wires.num;
+	if (!numActive) {
+		numActive = me->wires.num;
+		if (!numActive) return;
+	}
+	range(i, 3) {
+		pos[i] /= numActive;
+		vel[i] /= numActive;
+	}
 	int32_t speed = getSlider(me, 0);
 	int32_t accel = getSlider(me, 1);
 	int32_t dist = getMagnitude(pos, 3);

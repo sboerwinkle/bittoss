@@ -12,13 +12,13 @@ static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 		return MOVE_ME;
 	}
 
+	char goodTeam = !!(TEAM_MASK & typ & type(a));
 	if (axis == 2) {
-		if (dir == -1 && (typ & T_HEAVY)) return MOVE_ME;
+		if (dir == -1 && ((typ & T_HEAVY) || goodTeam)) return MOVE_ME;
 		return MOVE_HIM;
 	}
 
-	if (TEAM_MASK & typ & type(a)) return MOVE_ME;
-	return MOVE_HIM;
+	return goodTeam ? MOVE_ME : MOVE_HIM;
 }
 
 static const int32_t stackemSize[3] = {450, 450, 450};
