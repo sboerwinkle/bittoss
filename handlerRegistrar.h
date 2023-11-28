@@ -96,7 +96,7 @@ enum {
 	TICK_PLATFORM,
 	TICK_BAUBLE,
 	TICK_HELD_BAUBLE,
-	TICK_HELD_THUMBTACK,
+	TICK_reuse1, // Was for thumbtacks, probably not in any save file
 	TICK_PLAYER,
 	TICK_EYE,
 	TICK_HELD_EYE,
@@ -109,7 +109,7 @@ enum {
 	TICK_LEGG_OLD,
 	TICK_SEAT_OLD,
 	TICK_HELD_VEH_EYE,
-	TICK_THUMBTACK,
+	TICK_reuse2, // Was for thumbtacks, probably not in any save file
 	TICK_FACTORY,
 	TICK_FACTORY_WIRES,
 	TICK_LEGG,
@@ -137,7 +137,7 @@ enum {
 	PUSHED_gap1, // Unused
 	PUSHED_EXPLOSION,
 	PUSHED_FLAG,
-	PUSHED_THUMBTACK,
+	PUSHED_reuse1, // Was for thumbtacks, probably not in any save file
 	PUSHED_PLAYER,
 	PUSHED_gap2, // Unused
 	PUSHED_gap3,

@@ -202,10 +202,10 @@ static void player_tick(gamestate *gs, ent *me) {
 		} else { // Shift not pressed - click to select
 			if (cooldown >= 10 && fire) {
 				cooldown = 0;
-				mkThumbtack(gs, me, 0);
+				edittool_select(gs, me, 0);
 			} else if (cooldown >= 10 && altFire) {
 				cooldown = 0;
-				mkThumbtack(gs, me, 1);
+				edittool_select(gs, me, 1);
 			}
 		}
 	} else {
