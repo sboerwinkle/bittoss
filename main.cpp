@@ -985,7 +985,7 @@ static char handleCtrlBind(int key) {
 		strcpy(t, "/sync");
 	} else if (key == GLFW_KEY_E) {
 		strcpy(t, "/p");
-	} else if (key == GLFW_KEY_K) {
+	} else if (key == GLFW_KEY_Q) {
 		strcpy(t, "/save");
 	} else if (key == GLFW_KEY_L) {
 		strcpy(t, "/load");
