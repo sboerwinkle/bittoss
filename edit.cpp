@@ -705,13 +705,18 @@ void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 }
 
 static int32_t adjustRadius(int32_t input, char verbose) {
-	int32_t ret = input / 2;
-	if (ret <= 0) ret = 1;
-	else if (ret > 10000000) ret = 10000000;
-	if (ret * 2 != input && verbose) {
-		fprintf(stderr, "Input width %d was replaced with %d\n", input, ret * 2);
+	if (input <= 0) {
+		if (verbose) fprintf(stderr, "Input width %d isn't positive!\n", input);
+		return 0;
 	}
-	return ret;
+	if (input > 20000000) {
+		if (verbose) fprintf(stderr, "Input width %d is too big!\n", input);
+	}
+	if (input % 2) {
+		if (verbose) fprintf(stderr, "Input width %d is odd!\n", input);
+		return 0;
+	}
+	return input/2;
 }
 
 void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
@@ -726,6 +731,7 @@ void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	range(i, 3) {
 		pos[i] = me->center[i];
 		size[i] = adjustRadius(args[i], verbose);
+		if (!size[i]) return;
 	}
 	// Place it directly over our head, for starters
 	pos[2] -= me->radius[2] + size[2];
@@ -785,11 +791,11 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		int32_t radius[3];
 		range(i, 3) {
 			radius[i] = adjustRadius(args[i], verbose);
+			if (!radius[i]) return;
 		}
 		range(i, a.num) {
 			ent *e = a[i];
 			memcpy(e->radius, radius, sizeof(int32_t)*3);
-
 			radiusFix(e);
 		}
 	} else if (args.num >= 1) {
@@ -799,10 +805,12 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		int32_t offset = amt/2 * -dir;
 		range(i, a.num) {
 			ent *e = a[i];
-			e->center[axis] += offset;
-			e->radius[axis] = adjustRadius(2*e->radius[axis] + amt, verbose);
-
-			radiusFix(e);
+			int32_t r = adjustRadius(2*e->radius[axis] + amt, verbose);
+			if (r) {
+				e->center[axis] += offset;
+				e->radius[axis] = r;
+				radiusFix(e);
+			}
 		}
 	}
 }
