@@ -164,14 +164,12 @@ Edit Mode doesn't affect your use of other editing commands.
 <div class="para"></div>
 Edit Mode controls are:
 <ul>
-	<li>LMB - Select a block. More accurately, this shoots a little "thumbtack" - whatever it hits will be added (or removed) in your Blue/Primary buffer.</li>
+	<li>LMB - Select a block. This is far easier to "aim" in first person (<pre>Tab</pre>). Whatever you click on, the corners will blink blue, and it will be added (or removed) in your Blue/Primary buffer.</li>
 	<li>RMB - Like LMB, but operates on the Red/Secondary buffer.</li>
-	<li>Shift + LMB (or RMB) - Clears the Blue (or Red) buffer. Also clears any in-flight thumbtacks for that buffer, in case you shot one into empty space...</li>
+	<li>Shift + LMB (or RMB) - Clears the Blue (or Red) buffer.
 	<li>Shift + Space - Swap Blue/Red buffers.</li>
 </ul>
 Once a block is in your buffer, you'll see a little blue (or red) indicator hovering around your player that points at the block. These indicators are, in fact, also blocks - but they don't collide, and in practice they don't get in your way.
-<div class="para"></div>
-Note that thumbtacks only select whatever they <i>hit</i> - selecting immaterial things is tricky, but there are ways (e.g. <a href="#_inside">Ctrl+I</a>).
 <div id="empty_buffer" class="para"></div>
 Note that if either buffer is empty, commands which use that buffer's contents will instead see one item - your player.
 <br/><br/>
@@ -195,16 +193,14 @@ Specifically, this first computes the bounding box for all blocks in the Red buf
 	<li>2 - blocks which are completely covered by the bounding box (may touch the boundary)</li>
 	<li>3 - blocks which are completely surrounded by the bounding box (not touching the boundary)</li>
 </ul>
-This command is commonly used for two main purposes, mostly with the <i>Ctrl+I</i> keybind:
-<ul>
-	<li>You have a large collection of blocks in one place, and you want to select them all. Clear both buffers, select some blocks at the extremities (e.g. opposing corners) into the Red buffer, then issue <i>Ctrl+I</i>. You may now clear the Red buffer.</li>
-	<li>You want to select an immaterial block, maybe to make it material for easier manipulation in complex operations. Clear both buffers. Move your player so it intersects the block in question, then issue <i>Ctrl+I</i>. Since the <a href="#empty_buffer">Red buffer is empty</a>, the bounding box will just be your player. This will select your player, your eye, and the block in question. Step away and issue <i>Ctrl+I</i> again, which clears out your player and eye. You've now got the block you want, perhaps to issue <a href="#_wall">/wall</a>.</li>
-</ul>
+The main use of this command is to select a bunch of blocks that are all in one place. Clear both buffers, select some blocks at the extremities (e.g. opposing corners) into the Red buffer, then issue <i>Ctrl+I</i>. Typically you'd then clear the Red buffer.
 <br/><br/>
 <b id="_wires">/wires</b><br/>
-Selects into (or out of) the Blue buffer the blocks which any block(s) in the Red buffer have a <a href="#_wire">wire</a> to.
+Usually you use this with an empty Blue buffer and one block in the Red buffer, which will select the blocks that the Red one is wired to.
 <div class="para"></div>
-Useful to check which wires a particular block has. Sometimes convenient to select certain immaterial blocks.
+More accurately, this starts with the block(s) in the Red buffer, grabs the blocks which any of those have a <a href="#_wire">wire</a> to, and selects <i>those</i> into (or out of) the Blue buffer.
+<div class="para"></div>
+Useful to check which wires a particular block has, or when "copying" the output wires on a block.
 <br/><br/>
 <b id="_held">/held</b><br/>
 Selects into (or out of) the Blue buffer the blocks which are <a href="#_pickup">held</a> by any block in the Red buffer.
@@ -213,7 +209,7 @@ Selects into (or out of) the Blue buffer the blocks which are <a href="#_pickup"
 Selects into (or out of) the Blue buffer the contents of the Red buffer, and any blocks they're holding, recursively.
 <br/><br/>
 <h3 id="informational">Informational</h3>
-These commands typicaly print some information to the terminal which launched the game.
+These commands typically print some information to the terminal which launched the game.
 <br/><br/>
 <b id="_i">/i</b><br/>
 The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recent?
