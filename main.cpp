@@ -86,9 +86,12 @@ static GLFWwindow *display;
 static double mouseX = 0;
 static double mouseY = 0;
 static char thirdPerson = 1;
-static char ctrlPressed = 0;
+static char ctrlPressed = 0, altPressed = 0;
 static int wheelIncr = 200;
 static char mouseGrabbed = 0;
+static int mouseDragMode = 0, mouseDragInput = 0, mouseDragOutput = 0, mouseDragFlip = 0;
+static int mouseDragSize = 30;
+
 static int32_t ghostCenter[3] = {0, -15000, 16000};
 
 static tick_t seat_tick, seat_tick_old;
@@ -429,6 +432,13 @@ static void cleanupDeadHeroes(gamestate *gs) {
 	}
 }
 
+static int yawToAxis(int offset) {
+	double viewYaw = activeInputs.basic.viewYaw;
+	static int const directions[4] = {-2, 0, 1, -1};
+	int directionIx = (viewYaw + 5*M_PI_4) / M_PI_2;
+	return directions[(directionIx+offset) & 3];
+}
+
 void shareInputs() {
 	lock(sharedInputsMutex);
 	sharedInputs.basic = activeInputs.basic;
@@ -453,7 +463,13 @@ char handleKey(int code, char pressed) {
 		}
 	}
 	if (pressed && code == GLFW_KEY_TAB) thirdPerson ^= 1;
-	else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) ctrlPressed = pressed;
+	else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) {
+		ctrlPressed = pressed;
+		if (mouseDragMode) mouseDragMode = -1;
+	} else if (code == GLFW_KEY_LEFT_ALT || code == GLFW_KEY_RIGHT_ALT) {
+		altPressed = pressed;
+		if (mouseDragMode) mouseDragMode = -1;
+	}
 	return false;
 }
 
@@ -470,6 +486,64 @@ static void handleMouseMove(double dx, double dy) {
 
 	activeInputs.basic.viewYaw = viewYaw;
 	activeInputs.basic.viewPitch = viewPitch;
+}
+
+static void handleMouseDrag(double xpos, double ypos) {
+	if (mouseDragMode == 1) {
+		char negative;
+		// Once they move far enough, we choose a direction,
+		// and proceed to drag mode 2.
+		if (fabs(xpos-mouseX) >= mouseDragSize) {
+			mouseDragMode = 2;
+			mouseDragInput = 0; // 0 -> X
+			negative = xpos < mouseX;
+		} else if (fabs(ypos-mouseY) >= mouseDragSize) {
+			mouseDragMode = 2;
+			mouseDragInput = 1; // 1 -> Y
+			negative = ypos < mouseY;
+		} else {
+			// Still waiting in drag mode 1, nothing further to do.
+			return;
+		}
+
+		// Ugly stuff for determining mouseDragOutput
+		if (mouseDragInput) {
+			if (activeInputs.basic.viewPitch > M_PI_4) {
+				mouseDragOutput = yawToAxis(0);
+			} else if (activeInputs.basic.viewPitch < -M_PI_4) {
+				mouseDragOutput = yawToAxis(2);
+			} else {
+				mouseDragOutput = 2;
+			}
+		} else {
+			mouseDragOutput = yawToAxis(-1);
+		}
+		// TODO Really this should be `shiftPressed`, since keys[5] is only *left* shift
+		mouseDragFlip = negative ^ activeInputs.basic.p1Keys[5];
+		if (mouseDragFlip) mouseDragOutput = ~mouseDragOutput;
+	}
+	// From here, we assume we're in drag mode 2.
+
+	// Currently, lazy coding means we send at most one msg per frame.
+	// If we don't have the chance to send one, don't bother checking.
+	// We can send it later, and the logic for handling multiple-sized
+	// motions is simpler this way too.
+	if (activeInputs.sendInd) return;
+
+	double o, x;
+	if (mouseDragInput) o = mouseY, x = ypos;
+	else o = mouseX, x = xpos;
+
+	int steps = (x-o)/mouseDragSize;
+	if (!steps) return;
+
+	if (mouseDragInput) mouseY += steps * mouseDragSize;
+	else mouseX += steps * mouseDragSize;
+
+	if (mouseDragFlip) steps *= -1;
+	snprintf(activeInputs.textBuffer, TEXT_BUF_LEN, "%s %d %d", ctrlPressed ? "/p" : "/s", mouseDragOutput, steps*wheelIncr);
+	activeInputs.sendInd = 1;
+	typingLen = -1;
 }
 
 static void updateMedianTime() {
@@ -648,8 +722,6 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			if (isMe && isReal) {
 				printTree(gs);
 			}
-		// TODO All the edit command need to be documented in /help
-		//      (maybe add /edithelp?)
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;
 			if (e) {
@@ -1076,7 +1148,18 @@ static void character_callback(GLFWwindow* window, unsigned int c) {
 
 static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
 	if (mouseGrabbed) {
-		handleMouseMove(xpos - mouseX, ypos - mouseY);
+		if (mouseDragMode == 0) {
+			handleMouseMove(xpos - mouseX, ypos - mouseY);
+		} else if (mouseDragMode == -1) {
+			// This state just eats one frame of captured mouse input
+			// so your view doesn't jump. I could do the same with
+			// an extra set of x/y variables, but that sounds like hassle.
+			mouseDragMode = 0;
+		} else {
+			handleMouseDrag(xpos, ypos);
+			// return early, do not update mouseX / mouseY with default logic
+			return;
+		}
 		// GLFW has glfwSetCursorPos,
 		// but the docs are very adamant that you not mess with that when you're
 		// locking the cursor. I suppose it's unlikely that we'll reach the limits
@@ -1094,31 +1177,45 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		}
 		return;
 	}
+	char press = (action == GLFW_PRESS);
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
-		activeInputs.basic.mouseBtnDown = (action == GLFW_PRESS);
+
+		// Some checks related to mouseDragMode.
+		// Specific structure of these conditions is a probably pointless optimization.
+		if ((ctrlPressed || altPressed) && press) {
+			mouseDragMode = 1;
+			return;
+		}
+		if (mouseDragMode && !press) mouseDragMode = -1;
+
+		activeInputs.basic.mouseBtnDown = press;
 	} else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		activeInputs.basic.mouseSecondaryDown = (action == GLFW_PRESS);
+		activeInputs.basic.mouseSecondaryDown = press;
 	}
 }
 
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-	if (yoffset && !activeInputs.sendInd && ctrlPressed) {
-		const char *c;
-		char sign;
-		if (activeInputs.basic.p1Keys[5]) {
-			// Pressing LShift changes it from "resize" to "move"
-			c = "p";
-			sign = yoffset > 0;
+void scroll_callback(GLFWwindow* window, double _x, double _y) {
+	int yoffset = (int)-_y;
+	if (yoffset && !activeInputs.sendInd && (ctrlPressed || altPressed)) {
+		int axis;
+		if (activeInputs.basic.viewPitch > M_PI_4) {
+			axis = -3;
+		} else if (activeInputs.basic.viewPitch < -M_PI_4) {
+			axis = 2;
 		} else {
-			c = "s";
-			sign = yoffset < 0;
+			axis = yawToAxis(0);
+		}
+		if ((yoffset < 0) ^ activeInputs.basic.p1Keys[5]) {
+			axis = ~axis;
+			yoffset = -yoffset;
 		}
 		snprintf(
 			activeInputs.textBuffer,
 			TEXT_BUF_LEN,
-			"/%s %d",
-			c,
-			sign ? wheelIncr : -wheelIncr
+			"/%s %d %d",
+			ctrlPressed ? "p" : "s",
+			axis,
+			yoffset * wheelIncr
 		);
 		activeInputs.sendInd = 1;
 		typingLen = -1;

@@ -761,7 +761,14 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 	} else {
 		int axis, dir;
 		int32_t amt;
-		getEditAxis(me, &axis, &dir);
+		if (args.num == 2) {
+			axis = args[0];
+			dir = axis < 0 ? -1 : 1;
+			if (axis < 0) axis = ~axis;
+			args[0] = args[1];
+		} else {
+			getEditAxis(me, &axis, &dir);
+		}
 		if (args.num >= 1) {
 			amt = args[0];
 		} else {
@@ -800,7 +807,14 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 		}
 	} else if (args.num >= 1) {
 		int axis, dir;
-		getEditAxis(me, &axis, &dir);
+		if (args.num == 2) {
+			axis = args[0];
+			dir = axis < 0 ? 1 : -1;
+			if (axis < 0) axis = ~axis;
+			args[0] = args[1];
+		} else {
+			getEditAxis(me, &axis, &dir);
+		}
 		int32_t amt = args[0];
 		int32_t offset = amt/2 * -dir;
 		range(i, a.num) {

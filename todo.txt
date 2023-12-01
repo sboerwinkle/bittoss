@@ -40,21 +40,6 @@ TODO:
 / Automatic state sync on join
 	Close enough, there's a message for new players at least
 / Some way to use tools
-	I was going to go with hands but then I realized hands are dumb
-	Everyone is going to get hats
-	If you have two hats on, any hat that isn't on top gets dropped
-	Unlike hands, the active hat is actually on you
-	You do have "hat racks" (definitely not hands) to manage a hat(s) not on your head
-		Oh my god I've been able to store numbers on things this entire time
-			Hat racks that have the same "order" are of course incinerated
-		Even so, I like the hat lore better
-		You're not manipulating an item, that's slow and cumbersome
-		The hat is responding to your state, the hat is doing its own thing
-	With hats, the only controls you need are "cycle hat" and "throw hat"
-		"throw hat" projects a hat picker-upper if you aren't wearing a hat
-		This keeps a reference to you, and attaches a hat-rack at the relevant order when it hits
-		And if multiple hit at once, we already handled that case!
-	And we probably keep LMB / RMB as well.
 / State serizalization
 	/ Save to file
 	/ Send over wire
@@ -71,7 +56,7 @@ TODO:
 	Probably a big header with enums is the way to go here, so handlers have an ID rather than a name
 	Could still associate the ID with a name of course
 - more circuit components
-	- delay
+	/ delay (timer)
 	- randomizer
 / Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
@@ -92,6 +77,11 @@ TODO:
 	This would also require a complete rework of how weapons were going to function... hm
 		Unless they also only read A/B signals?
 		With decor for targeting?
+- config file
+	- some keybinds maybe, like save/load?
+	- mouseDragSize
+	- maybe configuration for scroll wheel handling, if you've got one of thsoe fancy smooth scroll wheels?
+	- default color, maybe
 
 - CTF scoring plz
 
