@@ -4,6 +4,8 @@
 #include "ent.h"
 #include "entGetters.h"
 
+#include "modules/player.h"
+
 static tick_t gun_tick_held;
 
 void hud_init() {
@@ -13,11 +15,21 @@ void hud_init() {
 void hud_destroy() {}
 
 static float hudColor[3] = {0.0, 0.5, 0.5};
+
+static void drawEditCursor() {
+	drawHudRect(0.5 - 2.0/128, 0.5 - 1.0/128, 1.0/128, 1.0/64, hudColor);
+	drawHudRect(0.5 + 1.0/128, 0.5 - 1.0/128, 1.0/128, 1.0/64, hudColor);
+}
+
 void drawHud(ent *p) {
 	if (!p) return;
 	if (p->holder) {
 		drawHudRect(0.5-1.0/128, 0.5-1.0/128, 1.0/64, 1.0/64, hudColor);
 	} else {
+		if (getSlider(p, PLAYER_EDIT_SLIDER)) {
+			drawEditCursor();
+			return;
+		}
 		ent *e;
 		for (e = p->holdee; e; e = e->LL.n) {
 			if (type(e) & T_EQUIP) {

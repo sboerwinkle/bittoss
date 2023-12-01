@@ -418,7 +418,8 @@ Currently the plan is for the operation underlying this command to be used by ga
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
 <br/><br/>
 <b id="_edit">/edit</b><br/>
-Turns edit mode on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>. A message is printed to the console when this is toggled. Note that currently this is tracked in the player's block, and is reset if you respawn.
+<i>Ctrl+Tab</i><br/>
+Turns edit mode on or off for the player. If on, the player controls are used for basic <a href="#buffers">buffer manipulation</a>, and a special crosshairs is used. Note that this is reset if you respawn.
 <br/><br/>
 <b id="_rule">/rule</b> <span>number</span>?<br/>
 Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.
@@ -432,29 +433,41 @@ Creates a white <a href="#_wall">/wall</a> block directly above the player, whic
 <b id="_d">/d</b><br/>
 Deletes all blocks in the Blue <a href="#buffers">buffer</a>.
 <br/><br/>
-<b id="_p">/p</b> (|<span>number</span>|<span>number</span>{3})<br/>
-<i>Ctrl+E: /p</i><br/>
-<i>Ctrl+MouseWheel: /p <span>incr</span></i> (see <a href="#_incr">/incr</a>)
+<b id="_p">/p</b> <span>number</span>{0,3}<br/>
+<i>Ctrl+E</i><br/>
+<i>Ctrl+MouseWheel</i><br/>
+<i>Ctrl+Click+Drag</i><br/>
 <div class="para"></div>
 For "push", or "position". This acts differently based on the number of arguments, but always moves the contents of the Blue buffer by some offset (maintaining their relative positions).
 <ul>
 	<li>For 3 arguments, moves the block(s) to that absolute position. Specifically, the center of the Blue bounding box will be moved there.</li>
+	<li>For 2 arguments, expects an axis (0-2) and an amount to move along that axis. This form mostly exists for the mouse binds (<i>Ctrl+MouseWheel</i>, <i>Ctrl+Click+Drag</i>), which use the current <a href="#_incr">/incr</a> as the amount.</li>
 	<li>For 1 argument, moves the block(s) along the <a href="#look_dir">Look Direction</a> by that amount.</li>
 	<li>
-		For no arguments, moves the block(s) along the <a href="#look_dir">Look Direction</a> until the next time a Blue buffer block aligns with a Red buffer block. If there are no further alignment opportunities, nothing is moved.
+		For no arguments (<i>Ctrl+E</i>), moves the block(s) along the <a href="#look_dir">Look Direction</a> until the next time a Blue buffer block aligns with a Red buffer block. If there are no further alignment opportunities, nothing is moved.
 		<div class="para"></div>
 		In this context, two blocks "align" on a given axis when either their centers have the same coordinate on that axis, or they are both flush with the same plane perpendicular to that axis (either on opposites sides of the plane, or on the same side). 
 	</li>
 </ul>
-The zero-argument version (bound to <i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width). Especially useful when <a href="#_weight">weightless</a>.
+The zero-argument version (<i>Ctrl+E</i>) can be useful with an empty Red buffer (to pull the Blue buffer to you). You can also hold it down with both buffers empty to move quickly along an axis (by repeatedly aligning yourself with yourself, effectively offsetting yourself by your own width). Especially useful when <a href="#_weight">weightless</a>.
 <br/><br/>
-<b id="_s">/s</b> (<span>number</span>|<span>number</span>{3})<br/>
-<i>Ctrl+Shift+MouseWheel: /s <span>-incr</span></i> (see <a href="#_incr">/incr</a>)
+<b id="_s">/s</b> <span>number</span>{1,3}<br/>
+<i>Alt+Shift?+MouseWheel</i><br/>
+<i>Alt+Shift?+Click+Drag</i><br/>
 <div class="para"></div>
-For 3 arguments, sets the block's dimensions to the given numbers (which should be even). For 1 argument, moves the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") out by the given number (which should be even), increasing the width.
+For "size", or "stretch". Adjusts the size of the blocks in the Blue buffer, though the exact behavior depends on the number of arguments. All dimensions supplied to this command should be even.
+<ul>
+	<li>For 3 arguments, sets the block's dimensions to the given numbers.</li>
+	<li>
+		For 2 arguments, expects a face (between -3 and 2) and an amount to stretch that face. This form mostly exists for the mouse binds (<i>Alt+MouseWheel</i>, <i>Alt+Click+Drag</i>), which use the current <a href="#_incr">/incr</a> as the amount. <i>Shift</i> will cause the mouse binds to shrink instead of stretch. The faces (in order) are -Z, -Y, -X, X, Y, Z. I don't expect you to remember that, I expect you to use the mouse binds.
+	</li>
+	<li>
+		For 1 argument, stretches the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") by the given amount (positive numbers will increase the size).
+	</li>
+</ul>
 <br/><br/>
 <b id="_incr">/incr</b> <span>number</span>?<br/>
-For commands that have mousewheel keybinds (<a href="#_p">/p</a> and <a href="#_s">/s</a>), sets (for 1 argument) or displays (for 0 arguments) the number used for those keybinds. Default is 200. Scrolling down (instead of up) will flip the sign.
+For commands that have mouse keybinds (<a href="#_p">/p</a> and <a href="#_s">/s</a>), sets (for 1 argument) or displays (for 0 arguments) the number used for those keybinds. Default is 200.
 <br/><br/>
 <b id="_pickup">/pickup</b> [012]?<br/>
 Causes the blocks in the Blue buffer to be held by the block in the Red buffer (Red buffer should contain one block). Blocks can be held by some other block, or not at all, resulting in a tree structure. Blocks that are held do not experience gravity, and blocks that are part of the same tree will not collide with each other. If a block that is holding blocks gets pushed, that impulse will be copied to all of its children (so they move as a unit). If a block that is being held gets pushed, its behavior is determined by the argument which was provided to /pickup (default 0):

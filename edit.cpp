@@ -765,6 +765,7 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 			axis = args[0];
 			dir = axis < 0 ? -1 : 1;
 			if (axis < 0) axis = ~axis;
+			if (axis > 2) axis = 0; // lazy error condition handling
 			args[0] = args[1];
 		} else {
 			getEditAxis(me, &axis, &dir);
@@ -811,6 +812,7 @@ void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 			axis = args[0];
 			dir = axis < 0 ? 1 : -1;
 			if (axis < 0) axis = ~axis;
+			if (axis > 2) axis = 0; // lazy error condition handling
 			args[0] = args[1];
 		} else {
 			getEditAxis(me, &axis, &dir);

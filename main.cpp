@@ -462,8 +462,17 @@ char handleKey(int code, char pressed) {
 			return true;
 		}
 	}
-	if (pressed && code == GLFW_KEY_TAB) thirdPerson ^= 1;
-	else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) {
+	if (pressed && code == GLFW_KEY_TAB) {
+		if (ctrlPressed) {
+			if (!activeInputs.sendInd) {
+				strcpy(activeInputs.textBuffer, "/edit");
+				activeInputs.sendInd = 1;
+				typingLen = -1;
+			}
+		} else {
+			thirdPerson ^= 1;
+		}
+	} else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) {
 		ctrlPressed = pressed;
 		if (mouseDragMode) mouseDragMode = -1;
 	} else if (code == GLFW_KEY_LEFT_ALT || code == GLFW_KEY_RIGHT_ALT) {

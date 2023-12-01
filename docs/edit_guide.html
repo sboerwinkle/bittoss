@@ -34,18 +34,18 @@ You may notice some little blue things floating around you; we'll get to those i
 <p></p>
 For one, they're hard to see. Enter <pre>/c green</pre>, maybe try some other colors. Hex works too (<pre>/c FFFFA0</pre>).
 <p></p>
-For another, they're kind of small... Look at one, hold <pre>Ctrl</pre>, and scroll down a few clicks. Tada! They should get bigger. Mess around with this a bit; the side that stretches depends on which direction you're looking (<i>not</i> what you're looking <i>at</i>). Scroll up to shrink things.
+For another, they're kind of small... Look at one, hold <pre>Alt</pre>, and scroll down a few clicks. Tada! They should get bigger. Hold <pre>Alt</pre> again, and click and drag to the side. Mess around with this a bit; the side that stretches depends on which direction you're looking (<i>not</i> what you're looking <i>at</i>). Use <pre>Alt+Shift</pre> to shrink things. See also <a href="edit_reference.html#_incr">/incr</a>.
 <p></p>
 Maybe save (<pre>Ctrl+Q</pre>) here? No particular reason, just a good habit.
 
 <h3>Arranging Blocks</h3>
 Let's address those blue things from earlier. They represent what you have selected - if you move around some, you'll see they "point at" the blocks you made.
 <p></p>
-Type <pre>/edit</pre>. This won't do anything, but if you have the terminal where you launched the game visible, it will say that edit mode is on. Press <pre>Shift+LeftClick</pre>, and the blue things should go away. If they didn't go away, and you spat out a block instead, try <pre>/edit</pre> again.
+Press <pre>Ctrl+Tab</pre>. The crosshairs will change, and if you have the terminal where you launched the game visible, it will say that edit mode is on. Press <pre>Shift+LeftClick</pre>, and the blue things should go away. If they didn't go away, and you spat out a block instead, try <pre>Ctrl+Tab</pre> (bound to <a href="edit_reference.html#_edit">/edit</a>) again.
 <p></p>
 The things you have selected are the "Blue Buffer", and now you know how to clear it. If you go into first-person (<pre>Tab</pre>), you can select existing blocks by "clicking on them" (<pre>LeftClick</pre> while looking at them). You can do this in third-person as well, it's just hard to aim.
 <p></p>
-We talked about resizing things earlier (<pre>Ctrl+MouseWheel</pre>) - you can move them around similarly, with <pre>Ctrl+Shift+MouseWheel</pre>. Finally, you can delete the things you have selected with <pre>/d</pre>.
+We talked about resizing things earlier (<pre>Alt+MouseWheel</pre> / <pre>Alt+Click+Drag</pre>) - you can move them around similarly, with <pre>Ctrl</pre> instead of <pre>Alt</pre>. Finally, you can delete the things you have selected with <pre>/d</pre>.
 <p></p>
 Okay, now you can save/load, make and delete blocks, change their color, size, and position, and modify/clear the selection. Mess around with that for a bit to get used to it. If you don't have anything selected, the commands will act on you, so if you're a weird size that's probably why.
 
@@ -56,7 +56,7 @@ You'll note #3 is gravity - you can do <pre>/rule 3</pre> to turn that off (or b
 <p></p>
 More importantly, #10 is edit functionality. That's turned on for <pre>blank.sav</pre>, which is why you can do all this, but isn't (by default) on e.g. the default level. It can be turned on at any time; mostly it's just so the edit keybinds don't get used by accident in regular gameplay.
 <p></p>
-So remember <pre>/rule 10</pre> to turn on editing, and <pre>/edit</pre> to let you select stuff.
+So remember <pre>/rule 10</pre> to turn on editing, and <pre>Ctrl+Tab</pre> (<a href="edit_reference.html#_edit">/edit</a>) to let you select stuff.
 
 <h3>Intermission</h3>
 The next thing to cover would be the rest of the buffer manipulation controls, but those are already covered in the <a href="edit_reference.html#buffers">buffers</a> section of the edit guide, so go read that. While you're over there, you might also check out the table of contents; at this point you should have everything else you need to start messing around with any commands that look interesting. There's more stuff you might need to learn (like sliders and wires), but that page is littered with links.
@@ -70,7 +70,7 @@ First, make a regular wall. This is just a thin, long, tall block, using the stu
 <p></p>
 Now we're going to copy it. Where the copy ends up depends on the direction you're looking, so look parallel to the wall (along the wall's "long" axis) and press <pre>Ctrl+C</pre>. The wall should now look twice as long; really it's two walls, and you may notice the original is in the Red buffer and the new one is Blue. Leave the buffers alone for now, we'll need them in a sec.
 <p></p>
-Obviously this wall should be facing the other way; look straight down and type <pre>/turn</pre> (no keybind for this one). How look direction affects the turn direction is covered in the edit reference; I'm not going to bother with right-hand-rule stuff here.
+Obviously this wall should be facing the other way; look straight down and type <pre><a href="edit_reference.html#_turn">/turn</a></pre> (no keybind for this one). How look direction affects the turn direction is covered in the edit reference; I'm not going to bother with right-hand-rule stuff here.
 <p></p>
 Now you should have both walls, floating above the ground, facing different directions, one in each buffer; but they aren't lined up right. You could use the existing move commands, but that would be slow and clumbsy. Instead, we'll use <pre>Ctrl+E</pre>, which aligns the Blue Buffer with the Red Buffer. What exactly that means is easier to show than explain, so experiment some. Your look direction determines which direction the Blue Buffer is moved.
 <p></p>
@@ -81,13 +81,12 @@ One last trick to address before we move on from our half-house - now that you'v
 <h3>Hard-to-Reach Places</h3>
 There's some handy techniques for getting around; we're going to put a block under the floor using them.
 <p></p>
-Start with both your buffers empty, and type <pre>/weight</pre> (or <pre>/weight 0</pre>). You are now floating, though the obvious effect is probably that you can't jump. Look straight down and type <pre>/p 2000</pre>, which pushes your character 2000 units (through the floor, in this case). Look around a little, and you'll see where you are.
+Start with both your buffers empty, and type <pre><a href="edit_reference.html#_weight">/weight</a></pre> (or <pre>/weight 0</pre>). You are now floating, though the obvious effect is probably that you can't jump. Look straight down and type <pre>/p 2000</pre>, which pushes your character 2000 units (through the floor, in this case). Look around a little, and you'll see where you are.
 <p></p>
 You can float around with the regular move controls, but it's slow, and can't go up/down. The quickest way to move while weightless is probably <pre>Ctrl+E</pre> - try this a few times, then try holding it down to <i>really</i> cover ground. The only caveat is that since this something of an abuse of the versatile <a href="edit_reference.html#_p">/p</a> command, it only works if both your buffers are empty.
 <p></p>
-Another way is the <pre>Ctrl+Shift+MouseWheel</pre> we used to move blocks earlier; with an empty Blue Buffer, it moves yourself. Actually this is just another bind for the /p command, though by default it uses a smaller <a href="edit_reference.html#_incr">increment</a> than the 2000 we used to get through the floor.
+Another way is the <pre>Ctrl+MouseWheel</pre> we used to move blocks earlier; with an empty Blue Buffer, it moves yourself. Actually this is just another bind for the /p command, though by default it uses a smaller <a href="edit_reference.html#_incr">increment</a> than the 2000 we used to get through the floor.
 <p></p>
 Anyway, we're under the floor, so putting a block here is just <pre>Ctrl+B</pre> as usual. This will now be the target of edit commands, of course, so if you want to keep moving around you might clear the Blue Buffer or just swap them out. In any event, get back above ground, and use <pre>/weight</pre> (or <pre>/weight 1</pre>) to restore your personal gravity.
-<!-- TODO: Talk BRIEFLY about what buffers are -->
 </body>
 </html>

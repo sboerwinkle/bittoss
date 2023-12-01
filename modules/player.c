@@ -92,7 +92,12 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 }
 
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
-	if (getButton(me, 1) && !getSlider(me, s_equip_processed) && (type(him) & T_EQUIP)) {
+	if (
+		getButton(me, 1)
+		&& !getSlider(me, s_equip_processed)
+		&& (type(him) & T_EQUIP)
+		&& !getSlider(me, s_editmode)
+	) {
 		// Skip if already holding any equipment
 		holdeesAnyOrder(h, me) {
 			if (h->typeMask & T_EQUIP) return;
