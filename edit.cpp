@@ -655,12 +655,12 @@ void edit_m_t_scoreboard(gamestate *gs, ent *me) {
 		ent *e = a[i];
 		// Scoreboards are metal until they survive a round, then they become wall
 		e->whoMoves = whoMovesHandlers.get(WHOMOVES_METAL);
-		uMyCollideMask(e, T_TERRAIN);
+		uMyCollideMask(e, 0);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
 
 		e->tick = tickHandlers.get(TICK_SCOREBOARD);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
-		e->push = pushHandlers.get(PUSH_NIL);
+		e->push = pushHandlers.get(PUSH_SCOREBOARD);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, M_SCOREBOARD_NUM_SLIDERS);

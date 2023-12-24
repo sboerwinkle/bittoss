@@ -16,6 +16,15 @@ enum {
 };
 static_assert(s_num == M_SCOREBOARD_NUM_SLIDERS);
 
+static void scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+	// We're only interested in collisions with other scoreboards
+	if (me->tick != him->tick) return;
+
+	uSlider(me, s_team_blu, getSlider(him, s_team_blu));
+	uSlider(me, s_team_red, getSlider(him, s_team_red));
+	wiresAnyOrder(w, me) { pushBtn(w, 0); }
+}
+
 static void scoreboard_tick(gamestate *gs, ent *me) {
 	list<player> *ps = gs->players;
 	int alive = 0;
@@ -64,8 +73,6 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 			uSlider(me, 0, 0);
 			// Now the leap of faith
 			requestReload(gs);
-			uMyCollideMask(me, 0);
-		} else {
 			uMyCollideMask(me, T_TERRAIN);
 		}
 	}
@@ -73,4 +80,5 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 
 void module_scoreboard() {
 	tickHandlers.reg(TICK_SCOREBOARD, scoreboard_tick);
+	pushHandlers.reg(PUSH_SCOREBOARD, scoreboard_push);
 }
