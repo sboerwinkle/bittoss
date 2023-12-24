@@ -299,6 +299,8 @@ Additionally, a logic block that pushes something (i.e. it's "heavier" than some
 You may also want to send a signal the <i>first</i> frame the block pushes something. This is fairly common, and you can <a href="#_import">import</a> <pre>itm/button.itm</pre> to handle this. It's just a collection of 3 logic blocks, set up to act as an edge detector. The small block on the side is the "output", which you should use to wire the button up to things or change its output signal(s). Both small blocks can be made <a href="#_c">invisible</a>+<a href="#_ghost">ghost</a> if you wish.
 <div class="para"></div>
 If you don't want sensor-like behavior on some logic block, tuck it away somewhere or make it a <a href="#_ghost">/ghost</a>.
+<div class="para"></div>
+There are many circuits that can be built from this behavior, but I'm not inclined to document them all here. However, one useful one is a toggle gate. If you have a gate that is going to be receiving (e.g.) "1" signals, and you would like it to toggle its output each time it does, you can set it to an XOR with "2" output, and add a wire to itself. This means the "2" channel will represent if it was on previously, and if a "1" signal comes in, the XOR behavior will flip that.
 <br/><br/>
 <b id="_logic_debug">/logic_debug</b><br/>
 Exactly identical to <a href="#_logic">/logic</a>, but the block colors itself based on its gate type and whether or not it's active.
@@ -327,7 +329,7 @@ The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_log
 <div class="para"></div>
 The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.
 <div class="para"></div>
-To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is the "input", and can be connected to some sort of button or whatnot (<b><i>TODO: More on buttons in the logic section!</i></b>). That gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive, and the door will open or close based on the input to the wall gate.
+To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive - you can then do whatever variety of circuitry you want to turn the wall gate on and off. See also <a href="#_logic">/logic</a>.
 <br/><br/>
 <b id="_legg">/legg</b><br/>
 Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.
@@ -354,7 +356,7 @@ Currently there is the concept of "team", which is really only used by the block
 Makes the block set the <a href="#_data">/data</a> and <a href="#_c">color</a> of players who touch it. The color is pulled from the block itself. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
 <br/><br/>
 <b id="_scoreboard">/scoreboard</b><br/>
-Makes the block keep score. The block can be anywhere on the level, and it will track team score (red vs blue) based on which team survives, and then reset the map. This command also sets the block's <a href="#material">material</a> to <a href="#_weight">weightless</a> <a href="#_metal">/metal</a>.
+Makes the block keep score. The block can be anywhere on the level, and it will track team score (red vs blue) based on which team survives, and then reset the map. This command also sets the block's <a href="#material">material</a> to <a href="#_wall">/wall</a>.
 <div class="para"></div>
 More specifically, the block determines the team of each player by taking their <a href="#_data">/data</a> (modulus 4). The block will decide the round is over if any of the following conditions hold continuously for 5 seconds:
 <ul>
@@ -364,9 +366,9 @@ More specifically, the block determines the team of each player by taking their 
 </ul>
 It will then display the winner and the current score as a chat message.
 <div class="para"></div>
-After the round is scored, the map is reset. This can't be a full load, since player data and the current score should be maintained, but it also can't be managed with <a href="#_factory">/factory</a> blocks since that would be a nightmare to maintain. Instead, the block will delete every other block in the world except for itself, then request whichever player is currently the <a href="#_loader">/loader</a> to <a href="#_add">/add</a> the most recently loaded map back into the world.
+After the round is scored, the map is reset. This can't be a full load, since player data and the current score should be kept, but it also can't be managed with <a href="#_factory">/factory</a> blocks since that would be a nightmare to maintain. Instead, the block will delete every other block in the world except for itself, then request whichever player is currently the <a href="#_loader">/loader</a> to <a href="#_add">/add</a> the most recently loaded map back into the world. The new scoreboard then emits a <a href="#_logic">logical</a> signal "1" to any wired blocks.
 <div class="para"></div>
-Mostly this approach results in a transparent experience. Some trickery with <a href="#material">materials</a> ensures that the newly-added instance of the scoreboard block is destroyed by the existing one. However, any quicksaves or quick-<a href="#_load">/load</a>s will likely result in unexpected behavior, and if the map data contains pre-placed players (as opposed to spawners) they won't be re-inhabited by the players when it resets.
+Mostly this approach results in a transparent experience. Some trickery with <a href="#material">materials</a> ensures that the newly-added instance of the scoreboard block destroys the existing one and copies its score. However, any quicksaves or quick-<a href="#_load">/load</a>s will likely result in unexpected behavior, and if the map data contains pre-placed players (as opposed to respawners) they won't be re-inhabited by the players when it resets. The signal which is emitted when the world resets can be (for instance) fed to an inverter and then to the <a href="#_respawner">respawners</a>, so that they are active for one frame when the world resets.
 <br/><br/>
 <b id="_cursed">/cursed</b><br/>
 This does not completely overwrite the block's type, but it will be overwritten if another type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.
