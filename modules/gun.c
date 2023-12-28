@@ -42,7 +42,7 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 		int32_t pos[3];
 		range(i, 3) {
 			pos[i] = me->center[i] + (32*vel[i]/axisMaxis);
-			vel[i] = me->vel[i] + (1024*vel[i]/axisMaxis);
+			vel[i] = me->vel[i] + (10000*vel[i]/axisMaxis);
 		}
 		ent* bullet = initEnt(
 			gs, me,
@@ -56,7 +56,6 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 		bullet->pushed = pushedHandlers.get(PUSHED_BULLET);
 		bullet->tick = tickHandlers.get(TICK_BULLET);
 		bullet->tickHeld = tickHandlers.get(TICK_HELD_BULLET);
-		bullet->onPickedUp = entPairHandlers.get(PICKED_UP_BULLET);
 		return;
 	}
 
@@ -71,18 +70,31 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 	}
 }
 
-static char bullet_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+static char bullet_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int32_t dx, int32_t dv) {
+	if (getSlider(me, 0) == 0) return 0;
 	uPickup(gs, him, me, HOLD_DROP | HOLD_FREEZE);
-	uSlider(me, 0, 0);
-	return 0;
-}
+	// Immediate slider update, hacky but who cares
+	me->sliders[0].v = 0;
 
-static void bullet_picked_up(gamestate *gs, ent *me, ent *him) {
-	// We could probably do this when it's pushed?
-	// But I don't really know what side effects could come from
-	// changing the collide mask in the middle of collision processing
-	uMyTypeMask(me, 0);
-	uMyCollideMask(me, 0);
+	// I'll probably have to use 64-bit math here soon.
+	// Bullet velocity is 100000, so say collision speed might be
+	// 200000 for fun. We can't exceed around 280000 without
+	// hitting int32_t limits, but if we make the scale any
+	// smaller we start to get more noticeable errors
+	if (dv) {
+		int32_t scale = 7000;
+		int32_t ratio = dx*scale / dv;
+		range(i, 2) {
+			int dim = (axis+1+i)%3;
+			me->center[dim] -= me->vel[dim]*ratio/scale;
+		}
+	}
+
+	// I have no idea if doing this here is fine. Probably it is??
+	// Worst case we can change back to uMyTypeMask / uMyCollideMask
+	me->typeMask = 0;
+	me->collideMask = 0;
+	return 0;
 }
 
 static void bullet_tick(gamestate *gs, ent *me) {
@@ -129,6 +141,5 @@ void module_gun() {
 	tickHandlers.reg(TICK_HELD_GUN, gun_tick_held);
 	tickHandlers.reg(TICK_HELD_BULLET, bullet_tick_held);
 	tickHandlers.reg(TICK_BULLET, bullet_tick);
-	entPairHandlers.reg(PICKED_UP_BULLET, bullet_picked_up);
 	pushedHandlers.reg(PUSHED_BULLET, bullet_pushed);
 }
