@@ -303,21 +303,37 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	byte axes[] = {axis, root->collisionAxis};
 	int dirs[] = {dir, root->collisionDir};
 	char mutuals[] = {mutual, root->collisionMutual};
-	int vals[2];
+	int32_t vals[2];
 	int i;
 #define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
 	// Criteria for ranking collisions:
+
 	// Prefer non-mutual collisions.
 	// Previously this was reversed, to avoid only one ent processing that collision.
 	// However, with collisions now being skipped if the pushee has a more pressing collision,
 	// it actually is generally nicer to have this reversed.
 	cb_helper(!mutuals[i]);
-	// This one should probably be time to impact, but maybe this'll be good enough?
-	// In rare cases is may have no input (if colliding objects perfectly touched last frame), which isn't great.
-	// However, we need something like this before we get to lateral clearance,
-	// so that small objects in front of big objects can be hit in a sane order.
-	// Distance to contact (minimize(-), old)
-	cb_helper(folks[i]->radius[axes[i]]+leafs[i]->radius[axes[i]] + (folks[i]->old[axes[i]] - leafs[i]->old[axes[i]])*dirs[i]);
+
+	// Minimize time to impact.
+	// Maybe this should be the very first criterion?
+	// The one it replaced was here, so I'll leave it for now (or forever)
+	// Time is of course distance/speed, but velocity is updated by previous collisions.
+	// We'll use `center-old` as a proxy for speed then, which should be identical on the
+	// first collision and less nonsense on subsequent collisions.
+	int64_t v64s[2];
+	range(i, 2) {
+		int o = 1-i;
+		int a_i = axes[i];
+		int a_o = axes[o];
+		int32_t delta = (leafs[i]->old[a_i] - folks[i]->old[a_i])*dirs[i] - folks[i]->radius[a_i] - leafs[i]->radius[a_i];
+		// The other's speed. We cross-multiply implicitly, so we'll multiply by this.
+		int32_t speed = (folks[o]->center[a_o] - folks[o]->old[a_o] + leafs[o]->old[a_o] - leafs[o]->center[a_o])*dirs[o];
+		// Not sure this is strictly necessary, but keeps the division & cross-multiplication obviously well-defined and sane
+		if (speed < 1) speed = 1;
+		v64s[i] = delta * speed;
+	}
+	if (v64s[0] != v64s[1]) return v64s[0] < v64s[1];
+
 	// Distance to lateral clearance (maximize, old)
 #define clearance(x) folks[i]->radius[x] + leafs[i]->radius[x] - abs(folks[i]->old[x] - leafs[i]->old[x])
 	cb_helper(min(clearance((axes[i]+1)%3), clearance((axes[i]+2)%3)));
