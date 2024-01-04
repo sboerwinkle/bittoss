@@ -48,6 +48,8 @@ void drawHud(ent *p) {
 		} else {
 			// UI for basic shooty-block player
 			int charge = p->sliders[8].v;
+			// Very old saves with obsolete "player" setups sometimes render this bar waaaaaay too wide; this at least keeps it playable until we fix things
+			if (charge > 600) charge = 600;
 			float x = 0.5 - 3.0/128;
 			while (charge >= 60) {
 				drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
