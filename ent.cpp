@@ -432,11 +432,11 @@ static char doIteration(gamestate *gs) {
 			//       since we're checking all against all.
 			//       Could repurpose `needsPhysUpdate` (or make it a `union`)
 			//       to fix this, but IDK if it's worth the complexity.
-			list<box*> &intersects = e->myBox->intersects;
+			list<sect> &intersects = e->myBox->intersects;
 			int n = intersects.num; // Small optimization (I hope)
 			// Skip i=0, first intersect is always ourselves
 			for (int i = 1; i < n; i++) {
-				ent *o = (ent*) intersects[i]->data;
+				ent *o = (ent*) intersects[i].b->data;
 				if (!o || o->dead) continue;
 				ret |= checkCollision(e, o);
 			}
@@ -949,12 +949,14 @@ static ent* cloneEnt(ent *in) {
 static box* cloneBox(box *b) {
 	box *ret = velbox_alloc();
 
+#ifdef DEBUG
 	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
+#endif
 	// We don't actually need the intersects to be accurate -
 	// those are really only advisory outside of when actual collision resolution is happening.
 	// However, there is some logic that relies on a box being its own first intersect
 	// (or at least, requires it to be among its intersects, e.g. finding a home for a new box).
-	ret->intersects.add(ret);
+	ret->intersects.add({.b=ret, .i=0});
 
 	range(d, 3) {
 		ret->p1[d] = b->p1[d];

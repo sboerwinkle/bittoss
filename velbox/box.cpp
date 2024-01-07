@@ -56,30 +56,34 @@ static char contains(box *p, box *b) {
 	return 1;
 }
 
+static void recordIntersect(box *a, box *b) {
+	int aNum = a->intersects.num;
+	a->intersects.add({.b=b, .i=b->intersects.num});
+	b->intersects.add({.b=a, .i=aNum});
+}
+
 static void setIntersects(box *n) {
 #ifndef NODEBUG
 	if (n->intersects.num) { fputs("Intersect assertion 2 failed\n", stderr); exit(1); }
 #endif
-	n->intersects.add(n);
+	n->intersects.add({.b=n, .i=0});
 
-	list<box*> &aunts = n->parent->intersects;
+	list<sect> &aunts = n->parent->intersects;
 	range(i, aunts.num) {
-		box *aunt = aunts[i];
+		box *aunt = aunts[i].b;
 		if (!intersects(aunt, n)) continue;
 		if (isWhale(aunt)) {
-			aunt->intersects.add(n);
-			n->intersects.add(aunt);
+			recordIntersect(n, aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
 			// Not sure if this really matters, but we reverse the iteration order here.
-			// This should mean that more recently moved boxes (end of `kids`) wind up
-			// considered first for placement of new children. Maybe this is good?
+			// Originally this related to who we chose for child fostering, but now
+			// it's just leftover and possibly to have a fixed end condition (micro-optimization).
 			// Hopefully it's not bad.
 			for (int j = cousins.num - 1; j >= 0; j--) {
 				box *test = cousins[j];
 				if (intersects(test, n) && test != n) {
-					test->intersects.add(n);
-					n->intersects.add(test);
+					recordIntersect(n, test);
 				}
 			}
 		}
@@ -89,13 +93,12 @@ static void setIntersects(box *n) {
 static void setIntersects_refresh(box *b) {
 	b->refreshed = 1;
 	// Pretty similar to `setIntersects`, but we can take some shortcuts since we know everyone's being re-evaluated
-	list<box*> &aunts = b->parent->intersects;
+	list<sect> &aunts = b->parent->intersects;
 	range(i, aunts.num) {
-		box *aunt = aunts[i];
+		box *aunt = aunts[i].b;
 		if (!intersects(aunt, b)) continue;
 		if (isWhale(aunt)) {
-			aunt->intersects.add(b);
-			b->intersects.add(aunt);
+			recordIntersect(b, aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
 			range(j, cousins.num) {
@@ -103,8 +106,7 @@ static void setIntersects_refresh(box *b) {
 				// We can't rule out the whole aunt just because this `test` has been refreshed;
 				// the family structure might have been messed with after the iteration order was determined.
 				if (!test->refreshed && intersects(test, b)) {
-					test->intersects.add(b);
-					b->intersects.add(test);
+					recordIntersect(b, test);
 				}
 			}
 		}
@@ -182,8 +184,7 @@ static void addWhale(box *w, const list<box*> *opts) {
 		range(i, opts->num) {
 			box *b = (*opts)[i];
 			if (!intersects(b, w)) continue;
-			b->intersects.add(w);
-			w->intersects.add(b);
+			recordIntersect(b, w);
 			globalOptionsDest->addAll(b->kids);
 		}
 		swap(globalOptionsSrc, globalOptionsDest);
@@ -192,18 +193,28 @@ static void addWhale(box *w, const list<box*> *opts) {
 }
 
 static void clearIntersects(box *b) {
-	list<box*> &intersects = b->intersects;
+	list<sect> &intersects = b->intersects;
 #ifndef NODEBUG
 	if (!intersects.num) {
 		fputs("Intersect assertion 0 failed\n", stderr);
 		exit(1);
 	}
-	if (intersects[0] != b) { fputs("Intersect assertion 1 failed\n", stderr); exit(1); }
+	if (intersects[0].b != b) { fputs("Intersect assertion 1 failed\n", stderr); exit(1); }
 #endif
 	// We skip the first one because it's going to be ourselves
 	for (int i = 1; i < intersects.num; i++) {
-		// Todo should this be a quickRm (which would be a new function)?
-		intersects[i]->intersects.rm(b);
+		sect &s = intersects[i];
+		box *o = s.b;
+		int ix = s.i;
+
+		// Remove the corresponding intersect (o->intersects[ix]).
+		// This reads a little funny at first; remember the `if` will usually be true.
+		o->intersects.num--;
+		if (o->intersects.num >= ix) {
+			o->intersects[ix] = o->intersects[o->intersects.num];
+			sect &moved = o->intersects[ix];
+			moved.b->intersects[moved.i].i = ix;
+		}
 	}
 	intersects.num = 0;
 }
@@ -231,11 +242,16 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 	const list<box*> *optionsSrc;
 	INT optionsR;
 	if (mergeBase->parent) {
-		optionsSrc = &mergeBase->intersects;
+		lookDownSrc->num = 0;
+		list<sect> &sects = mergeBase->intersects;
+		for (int i = sects.num - 1; i >= 0; i--) {
+			lookDownSrc->add(sects[i].b);
+		}
+		optionsSrc = lookDownSrc;
 		optionsR = mergeBase->r[0];
 	} else if (mergeBase->kids.num) {
 		optionsSrc = &mergeBase->kids;
-		// TODO we are once again assuming no titanically large whales
+		// We are once again assuming no titanically large whales
 		optionsR = (*optionsSrc)[0]->r[0];
 	} else {
 		// This will should only happen for the first non-root box added
@@ -288,9 +304,9 @@ static void lookUp(box *level, box *n, INT minParentR) {
 	for (; level->parent; level = level->parent) {
 		INT r = level->r[0];
 		r = r - r / SCALE;
-		list<box*> &intersects = level->intersects;
+		list<sect> &intersects = level->intersects;
 		range(i, intersects.num) {
-			box *test = intersects[i];
+			box *test = intersects[i].b;
 			if (isWhale(test)) continue;
 
 			range(d, DIMS) {
@@ -343,7 +359,7 @@ void velbox_insert(box *guess, box *n) {
 		exit(1);
 	}
 #endif
-	n->intersects.add(n);
+	n->intersects.add({.b=n, .i=0});
 }
 
 static void reposition(box *b) {
@@ -360,7 +376,7 @@ void velbox_update(box *b) {
 	setIntersects(b);
 	int x = b->intersects.num;
 	for (int i = 1; i < x; i++) {
-		addWhale(b, &b->intersects[i]->kids);
+		addWhale(b, &b->intersects[i].b->kids);
 	}
 }
 
@@ -378,8 +394,13 @@ void velbox_refresh(box *root) {
 			box *b = (*globalOptionsSrc)[i];
 			b->refreshed = 0;
 			// Todo optimize to just `num = 1`?
-			b->intersects.num = 0;
-			b->intersects.add(b);
+#ifndef NODEBUG
+			if (!b->intersects.num || b->intersects[0].b != b) {
+				fputs("whaaaa?\n", stderr);
+				exit(1);
+			}
+#endif
+			b->intersects.num = 1;
 		}
 
 		// Set the intersects (we take some shortcuts in this version),
@@ -406,7 +427,7 @@ void velbox_refresh(box *root) {
 box* velbox_getRoot() {
 	box *ret = velbox_alloc();
 	// `kids` can just stay empty for now
-	ret->intersects.add(ret);
+	ret->intersects.add({.b=ret, .i=0});
 	ret->parent = NULL;
 	range(d, DIMS) {
 		ret->r[d] = MAX/2 + 1;

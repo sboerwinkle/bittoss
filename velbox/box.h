@@ -29,6 +29,13 @@
 #define FIT 3
 #endif
 
+struct box;
+
+struct sect {
+	box *b;
+	int i;
+};
+
 struct box {
 	// Should not exceed INT_MAX/2 (so it can be safely added to itself)
 	// Note for non-fish boxes, this will always be the same for all axes
@@ -39,7 +46,7 @@ struct box {
 
 	box *parent;
 	list<box*> kids;
-	list<box*> intersects;
+	list<sect> intersects;
 
 	void *data;
 	char refreshed;
