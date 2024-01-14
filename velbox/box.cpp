@@ -57,6 +57,12 @@ static char contains(box *p, box *b) {
 }
 
 static void recordIntersect(box *a, box *b) {
+#ifdef DEBUG
+	if (a == b) {
+		fputs("What the ASSSS\n", stderr);
+		exit(1);
+	}
+#endif
 	int aNum = a->intersects.num;
 	a->intersects.add({.b=b, .i=b->intersects.num});
 	b->intersects.add({.b=a, .i=aNum});
@@ -91,21 +97,20 @@ static void setIntersects(box *n) {
 }
 
 static void setIntersects_refresh(box *b) {
-	b->refreshed = 1;
+	b->intersects.add({.b=b, .i=0});
 	// Pretty similar to `setIntersects`, but we can take some shortcuts since we know everyone's being re-evaluated
 	list<sect> &aunts = b->parent->intersects;
 	range(i, aunts.num) {
 		box *aunt = aunts[i].b;
 		if (!intersects(aunt, b)) continue;
 		if (isWhale(aunt)) {
+			// Aunt is assumed valid, since it's from a previous generation.
 			recordIntersect(b, aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
 			range(j, cousins.num) {
 				box *test = cousins[j];
-				// We can't rule out the whole aunt just because this `test` has been refreshed;
-				// the family structure might have been messed with after the iteration order was determined.
-				if (!test->refreshed && intersects(test, b)) {
+				if (test->validity && b != test && intersects(test, b)) {
 					recordIntersect(b, test);
 				}
 			}
@@ -144,6 +149,7 @@ static box* mkContainer(box *parent, box *n) {
 		ret->p2[d] = n->p2[d];
 	}
 	ret->parent = parent;
+	ret->validity = 1;
 	setIntersects(ret);
 
 	return ret;
@@ -192,6 +198,23 @@ static void addWhale(box *w, const list<box*> *opts) {
 	}
 }
 
+// Just like `addWhale`, except we skip checking any boxes that haven't been revalidated.
+// Depending on how `intersects` gets updated, that check might be moot, but better to wait and see.
+static void addWhale_refresh(box *w, const list<box*> *opts) {
+	while (opts->num) {
+		lookDownDest->num = 0;
+		range(i, opts->num) {
+			box *b = (*opts)[i];
+			if (!b->validity) continue;
+			if (!intersects(b, w)) continue;
+			recordIntersect(b, w);
+			lookDownDest->addAll(b->kids);
+		}
+		swap(lookDownSrc, lookDownDest);
+		opts = lookDownSrc;
+	}
+}
+
 static void clearIntersects(box *b) {
 	list<sect> &intersects = b->intersects;
 #ifndef NODEBUG
@@ -207,12 +230,21 @@ static void clearIntersects(box *b) {
 		box *o = s.b;
 		int ix = s.i;
 
+		if (ix >= o->intersects.num) {
+			fputs("Blam!\n", stderr);
+		}
+		if (o->intersects[ix].b != b) {
+			fputs("well shit\n", stderr);
+		}
 		// Remove the corresponding intersect (o->intersects[ix]).
 		// This reads a little funny at first; remember the `if` will usually be true.
 		o->intersects.num--;
-		if (o->intersects.num >= ix) {
+		if (o->intersects.num > ix) {
 			o->intersects[ix] = o->intersects[o->intersects.num];
 			sect &moved = o->intersects[ix];
+			if (moved.b->intersects[moved.i].b != o) {
+				fputs("well dang\n", stderr);
+			}
 			moved.b->intersects[moved.i].i = ix;
 		}
 	}
@@ -349,6 +381,7 @@ static void insert(box *guess, box *n) {
 		// Please, mergeBase->parent was my father
 		lookUp(mergeBase->parent ? mergeBase->parent : mergeBase, n, minParentR);
 	}
+	n->validity = 1;
 }
 
 void velbox_insert(box *guess, box *n) {
@@ -364,7 +397,11 @@ void velbox_insert(box *guess, box *n) {
 
 static void reposition(box *b) {
 	box *p = b->parent;
-	if (contains(p, b)) return;
+	// TODO This check has to determine validity!
+	if (contains(p, b)) {
+		b->validity = 1;
+		return;
+	}
 	p->kids.rm(b);
 	insert(p, b); // the first arg here is just a starting point, we're not adding it right back to `p` lol
 	if (!p->kids.num) velbox_remove(p);
@@ -380,52 +417,93 @@ void velbox_update(box *b) {
 	}
 }
 
-void velbox_refresh(box *root) {
-	// The root obviously never needs revalidation.
-	// The direct children of the root need their intersects re-evaluated,
-	// but they don't need their parentage checked.
-	// Maybe I'll just unwrap that half of the loop like a lunatic?
+void velbox_step(box *b, INT *p1, INT *p2) {
+	// Eventually this might just decrement if p1+p2 are as expected
+	b->validity = 0;
+	range(i, DIMS) {
+		b->p1[i] = p1[i];
+		b->p2[i] = p2[i];
+	}
+	if (!b->validity) clearIntersects(b);
+}
+
+static void stepContainers(box *root) {
 	globalOptionsSrc->num = 0;
 	globalOptionsSrc->addAll(root->kids);
 
-	while (1) {
-		// Clear intersects of all guys in the list.
+	while (globalOptionsSrc->num) {
+		globalOptionsDest->num = 0;
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
-			b->refreshed = 0;
-			// Todo optimize to just `num = 1`?
-#ifndef NODEBUG
-			if (!b->intersects.num || b->intersects[0].b != b) {
-				fputs("whaaaa?\n", stderr);
-				exit(1);
+			if (isWhale(b)) continue;
+
+			b->validity--;
+
+			range(i, DIMS) {
+				INT tmp = b->p1[i];
+				b->p1[i] = b->p2[i];
+				// This feels wacky, but I think it's fine?
+				b->p2[i] = b->p2[i]*2 - tmp;
 			}
-#endif
-			b->intersects.num = 1;
+
+			if (!b->validity) clearIntersects(b);
+
+			globalOptionsDest->addAll(b->kids);
 		}
+		swap(globalOptionsSrc, globalOptionsDest);
+	}
+}
+
+void velbox_refresh(box *root) {
+	// The first pass is just updating all non-fish positions and counting down the validity counter
+	// If validity hits 0, we clearIntersects.
+	stepContainers(root);
+
+	// The root never needs revalidation or intersect checking.
+	globalOptionsSrc->num = 0;
+	globalOptionsSrc->addAll(root->kids);
+
+	while (globalOptionsSrc->num) {
 
 		// Set the intersects (we take some shortcuts in this version),
 		// and also populate the list for the next iteration
 		globalOptionsDest->num = 0;
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
-			setIntersects_refresh(b);
 			globalOptionsDest->addAll(b->kids);
-		}
-
-		// Go to next level down, if there is one.
-		if (!globalOptionsDest->num) return;
-		swap(globalOptionsSrc, globalOptionsDest);
-
-		// Make sure they have valid parentage, and put them in the right place in the tree if not.
-		range(i, globalOptionsSrc->num) {
-			box *b = (*globalOptionsSrc)[i];
+			if (b->validity) {
+#ifdef DEBUG
+				fprintf(stderr, "Validity is %d\n", b->validity);
+#endif
+				continue;
+			}
+#ifdef DEBUG
+			if (b->intersects.num) {
+				fputs("It should not have had intersects at this point\n", stderr);
+			}
+#endif
 			reposition(b);
+			setIntersects_refresh(b);
+			if (isWhale(b)) {
+				int x = b->intersects.num;
+				for (int i = 1; i < x; i++) {
+					// TODO this uses globalOptionsDest, that's no bueno
+					addWhale_refresh(b, &b->intersects[i].b->kids);
+				}
+			}
 		}
+
+		swap(globalOptionsSrc, globalOptionsDest);
 	}
 }
 
 box* velbox_getRoot() {
 	box *ret = velbox_alloc();
+	// This serves as the max validity anything can have, since a box never exceeds its parent.
+	// Since most of the effort is put into transient gamestates that only last 5-8 frames depending
+	// on the configured server latency, extending the max validity past that is just going to add
+	// more potential intersects that are never going to come to pass.
+	ret->validity = 5;
 	// `kids` can just stay empty for now
 	ret->intersects.add({.b=ret, .i=0});
 	ret->parent = NULL;

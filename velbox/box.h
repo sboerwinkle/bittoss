@@ -49,13 +49,16 @@ struct box {
 	list<sect> intersects;
 
 	void *data;
-	char refreshed;
+	int validity;
 };
 
 box* velbox_alloc();
 void velbox_insert(box *guess, box *n);
 void velbox_remove(box *o);
 void velbox_update(box *b);
+// Intent is that you call `velbox_step` on all your leaf boxes,
+// and then call velbox_refresh to step all the interal boxes and update intersects as necessary.
+void velbox_step(box *b, INT *p1, INT *p2);
 void velbox_refresh(box *root);
 box* velbox_getRoot();
 void velbox_freeRoot(box *r);

@@ -77,8 +77,8 @@ void assignVelbox(ent *e, box *relBox) {
 	box *b = velbox_alloc();
 	b->data = e;
 	range(d, 3) {
-		b->p1[d] = e->center[d];
-		b->p2[d] = e->center[d] + e->vel[d];
+		b->p1[d] = e->center[d] - e->vel[d];
+		b->p2[d] = e->center[d];
 		int r = e->radius[d];
 		b->r[d] = r ? r : 1; // velbox doesn't like radii of 0, and frankly neither do I
 	}
@@ -183,6 +183,13 @@ static void killEntNoHandlers(gamestate *gs, ent *e) {
 	if (e->ll.n) e->ll.n->ll.p = e->ll.p;
 
 	rmRootEnt(gs, e);
+	if (e->myBox) {
+		// This should be done here, as velbox expects every registered `box` to be stepped
+		// (and we don't step boxes of dead ents)
+		velbox_remove(e->myBox);
+		// This probably isn't necessary, but it's very quick to do and saves potential headache
+		e->myBox = NULL;
+	}
 
 	e->ll.p = gs->deadTail;
 	gs->deadTail = e;
@@ -457,7 +464,6 @@ static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
-		if (d->myBox) velbox_remove(d->myBox);
 		free(d->sliders);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
@@ -794,16 +800,15 @@ void doPhysics(gamestate *gs) {
 	flush2(gs);
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
-		box *b = i->myBox;
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
 		for (j = 0; j < 3; j++) {
 			i->center[j] += i->vel[j];
 			i->forced[j] = 0;
-			if (b) {
-				b->p1[j] = i->old[j];
-				b->p2[j] = i->center[j];
-			}
+		}
+		box *b = i->myBox;
+		if (b) {
+			velbox_step(b, i->old, i->center);
 		}
 		i->needsCollision = 1;
 	}
@@ -946,6 +951,7 @@ static ent* cloneEnt(ent *in) {
 }
 
 // I guess this could maybe live in the velbox files, but we'd have to have some way of handling the `data` cloning
+// This does not set `parent` or `validity` on the returned `box*`.
 static box* cloneBox(box *b) {
 	box *ret = velbox_alloc();
 
@@ -975,6 +981,8 @@ static box* cloneBox(box *b) {
 			box *clone = cloneBox(oldKids[i]);
 			newKids.add(clone);
 			clone->parent = ret;
+			// This means it will be invalid w/ the next step, which is the soonest possible.
+			clone->validity = 1;
 		}
 	}
 
@@ -1043,6 +1051,8 @@ gamestate* dup(gamestate *in, list<player> *players) {
 
 	ret->rootBox = cloneBox(in->rootBox);
 	ret->rootBox->parent = NULL;
+	// Root box `validity` never changes, and is the max for the tree
+	ret->rootBox->validity = in->rootBox->validity;
 
 	return ret;
 }
