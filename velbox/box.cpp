@@ -23,12 +23,39 @@ static inline void swap(list<box*> *&a, list<box*> *&b) {
 	b = tmp;
 }
 
+static INT small_min(INT a, INT b) {
+#ifdef DEBUG
+	if (a < 0 || b < 0 || a+b < 0) {
+		fprintf(stderr, "bad args for min: %d, %d\n", a, b);
+	}
+#endif
+	// I have no idea if this is better than a naive `min`!
+	// I have no idea if `abs` is branchless!
+	// But I still did it, and I'll fix it later if it's a problem!!!
+	return (a+b-abs(a-b))/2;
+}
+
 // Things that are just touching should not count as intersecting,
 // since that's the logic we've got in place for the individual `ent`s in bittoss
 static char intersects(box *o, box *n) {
+	int v1 = o->validity;
+	int v2 = n->validity;
+	int t = small_min(v1,v2);
+#ifdef DEBUG
+	if (!t) {
+		fprintf(stderr, "Bad validities in `intersects()`: %d, %d\n", v1, v2);
+	}
+#endif
+	INT velLimit = MAX/t;
 	range(d, DIMS) {
 		INT d1 = o->p1[d] - n->p1[d];
-		INT d2 = o->p2[d] - n->p2[d];
+		INT vel = o->p2[d] - n->p2[d] - d1;
+		// We're going fast enough we'd probably switch signs on the displacement,
+		// or worse, wrap around. That's probably a collision on this axis.
+		if (vel > velLimit || vel < -velLimit) continue;
+
+		// I could do sign math here to force d1 positive? IDK if that's worth it
+		INT d2 = d1 + vel * t;
 		INT r = o->r[d] + n->r[d];
 		if ((d1 >= r && d2 >= r) || (d1 <= -r && d2 <= -r)) return 0;
 		// Technically this will also register a potential collision on this axis
@@ -54,6 +81,21 @@ static char contains(box *p, box *b) {
 		if (d1 > tolerance || d2 > tolerance) return 0;
 	}
 	return 1;
+}
+
+// This assumes that `p` does in fact contain `b`. Makes the zero-velocity case simpler.
+static INT computeValidity(box *b, box *p) {
+	int val = p->validity;
+	range(d, DIMS) {
+		INT v = b->p2[d] - b->p1[d] - p->p2[d] + p->p1[d];
+		if (!v) continue;
+		INT flip = 1-2*(v<0);
+		INT distance = flip*(p->r[d] - b->r[d]) + p->p1[d] - b->p1[d];
+		// distance and v should have the same sign, so `t` is non-negative
+		INT t = distance / v;
+		val = small_min(t, val);
+	}
+	return val;
 }
 
 static void recordIntersect(box *a, box *b) {
@@ -139,7 +181,7 @@ box* velbox_alloc() {
 	return ret;
 }
 
-static box* mkContainer(box *parent, box *n) {
+static box* mkContainer(box *parent, box *n, char aligned) {
 	box *ret = velbox_alloc();
 	parent->kids.add(ret);
 	INT r = parent->r[0] / SCALE;
@@ -149,7 +191,11 @@ static box* mkContainer(box *parent, box *n) {
 		ret->p2[d] = n->p2[d];
 	}
 	ret->parent = parent;
-	ret->validity = 1;
+	if (aligned) {
+		ret->validity = parent->validity;
+	} else {
+		ret->validity = computeValidity(ret, parent);
+	}
 	setIntersects(ret);
 
 	return ret;
@@ -169,10 +215,9 @@ static box* getMergeBase(box *guess, box *n, INT minParentR) {
 
 	while (guess->r[0] < minParentR) {
 		guess = guess->parent;
-#ifndef NODEBUG
+#ifdef DEBUG
 		if (!guess) {
-			fputs("Please don't do that.\n", stderr);
-			exit(1);
+			fputs("Looks like we're adding a box which is far too large.\n", stderr);
 		}
 #endif
 	}
@@ -263,8 +308,14 @@ void velbox_remove(box *o) {
 
 static void addToAncestor(box *level, box *n, INT minParentR) {
 	INT minGrandparentR = SCALE*minParentR;
-	while (level->r[0] >= minGrandparentR) {
-		level = mkContainer(level, n);
+	if (level->r[0] >= minGrandparentR) {
+		level = mkContainer(level, n, 0);
+		while (level->r[0] >= minGrandparentR) {
+			level = mkContainer(level, n, 1);
+		}
+		n->validity = level->validity;
+	} else {
+		n->validity = computeValidity(n, level);
 	}
 	level->kids.add(n);
 	n->parent = level;
@@ -286,7 +337,7 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 		// We are once again assuming no titanically large whales
 		optionsR = (*optionsSrc)[0]->r[0];
 	} else {
-		// This will should only happen for the first non-root box added
+		// This will (should) only happen for the first non-root box added
 		return 0;
 	}
 
@@ -376,12 +427,15 @@ static void insert(box *guess, box *n) {
 		}
 		minParentR = max * FIT;
 	}
+	// `n->validity` will be set better later, as we always wind up in addToAncestor at some point from here.
+	// However, we need it set here so `getMergeBase` can check for basic intersections sanely.
+	// We could also have getMergeBase call a special `intersects()` which is optimized for that case...
+	n->validity = 1;
 	box *mergeBase = getMergeBase(guess, n, minParentR);
 	if (!tryLookDown(mergeBase, n, minParentR)) {
 		// Please, mergeBase->parent was my father
 		lookUp(mergeBase->parent ? mergeBase->parent : mergeBase, n, minParentR);
 	}
-	n->validity = 1;
 }
 
 void velbox_insert(box *guess, box *n) {
@@ -397,9 +451,8 @@ void velbox_insert(box *guess, box *n) {
 
 static void reposition(box *b) {
 	box *p = b->parent;
-	// TODO This check has to determine validity!
 	if (contains(p, b)) {
-		b->validity = 1;
+		b->validity = computeValidity(b, p);
 		return;
 	}
 	p->kids.rm(b);
@@ -418,9 +471,18 @@ void velbox_update(box *b) {
 }
 
 void velbox_step(box *b, INT *p1, INT *p2) {
-	// Eventually this might just decrement if p1+p2 are as expected
-	b->validity = 0;
+	b->validity--;
 	range(i, DIMS) {
+		// This check is a little clumbsy.
+		// We could exit this loop and resume in a version w/out this check after the first time it triggers;
+		// Alternatively, we could skip it completely and always set validity=0.
+		// Not sure about the impact of either of those frankly, so we'll leave it as-is for now.
+		INT d1 = b->p1[i];
+		INT d2 = b->p2[i];
+		if (p1[i] != d2 || p2[i] != d2*2-d1) {
+			b->validity = 0;
+		}
+
 		b->p1[i] = p1[i];
 		b->p2[i] = p2[i];
 	}
@@ -471,12 +533,7 @@ void velbox_refresh(box *root) {
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
 			globalOptionsDest->addAll(b->kids);
-			if (b->validity) {
-#ifdef DEBUG
-				fprintf(stderr, "Validity is %d\n", b->validity);
-#endif
-				continue;
-			}
+			if (b->validity) continue;
 #ifdef DEBUG
 			if (b->intersects.num) {
 				fputs("It should not have had intersects at this point\n", stderr);
@@ -487,7 +544,6 @@ void velbox_refresh(box *root) {
 			if (isWhale(b)) {
 				int x = b->intersects.num;
 				for (int i = 1; i < x; i++) {
-					// TODO this uses globalOptionsDest, that's no bueno
 					addWhale_refresh(b, &b->intersects[i].b->kids);
 				}
 			}
