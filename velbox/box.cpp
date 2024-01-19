@@ -35,27 +35,20 @@ static INT small_min(INT a, INT b) {
 	return (a+b-abs(a-b))/2;
 }
 
+#define DELT_V_MAX (MAX/VALID_MAX)
+
 // Things that are just touching should not count as intersecting,
 // since that's the logic we've got in place for the individual `ent`s in bittoss
 static char intersects(box *o, box *n) {
-	int v1 = o->validity;
-	int v2 = n->validity;
-	int t = small_min(v1,v2);
-#ifdef DEBUG
-	if (!t) {
-		fprintf(stderr, "Bad validities in `intersects()`: %d, %d\n", v1, v2);
-	}
-#endif
-	INT velLimit = MAX/t;
 	range(d, DIMS) {
 		INT d1 = o->p1[d] - n->p1[d];
 		INT vel = o->p2[d] - n->p2[d] - d1;
 		// We're going fast enough we'd probably switch signs on the displacement,
 		// or worse, wrap around. That's probably a collision on this axis.
-		if (vel > velLimit || vel < -velLimit) continue;
+		if (vel > DELT_V_MAX || vel < -DELT_V_MAX) continue;
 
 		// I could do sign math here to force d1 positive? IDK if that's worth it
-		INT d2 = d1 + vel * t;
+		INT d2 = d1 + vel * VALID_MAX;
 		INT r = o->r[d] + n->r[d];
 		if ((d1 >= r && d2 >= r) || (d1 <= -r && d2 <= -r)) return 0;
 		// Technically this will also register a potential collision on this axis

@@ -29,6 +29,10 @@
 #define FIT 3
 #endif
 
+#ifndef VALID_MAX
+#define VALID_MAX 5
+#endif
+
 struct box;
 
 struct sect {
