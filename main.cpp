@@ -101,7 +101,8 @@ static int phys_micros = 0;
 static int draw_micros = 0;
 static int flip_micros = 0;
 static struct timespec t1, t2, t3, t4;
-static int performanceFrames = 0;
+static int performanceFrames = 0, performanceIters = 0;
+#define PERF_FRAMES_MAX 120
 
 #define frame_nanos 33333333
 // TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
@@ -345,7 +346,8 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			if (getNum(&c, &x)) wheelIncr = x;
 			else printf("incr: %d\n", wheelIncr);
 		} else if (isCmd(text, "/perf")) {
-			performanceFrames = 60;
+			performanceFrames = PERF_FRAMES_MAX;
+			performanceIters = 10;
 		} else if (isCmd(text, "/load")) {
 			const char *file = "savegame";
 			if (text[5]) file = text + 6;
@@ -1038,6 +1040,9 @@ static void* pacedThreadFunc(void *_arg) {
 				if (!performanceFrames) {
 					printf("perf: %ld\n", performanceTotal);
 					performanceTotal = 0;
+					performanceIters--;
+					if (performanceIters) performanceFrames = PERF_FRAMES_MAX;
+					else puts("perf done");
 				}
 			}
 		}
