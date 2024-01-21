@@ -103,54 +103,35 @@ static void recordIntersect(box *a, box *b) {
 	b->intersects.add({.b=a, .i=aNum});
 }
 
-static void setIntersects(box *n) {
-#ifndef NODEBUG
+static void setIntersects_refresh(box *n) {
+#ifdef DEBUG
 	if (n->intersects.num) { fputs("Intersect assertion 2 failed\n", stderr); exit(1); }
+	if (n->validity > -2) fprintf(stderr, "Bad validity %d\n", n->validity);
 #endif
 	n->intersects.add({.b=n, .i=0});
 
 	list<sect> &aunts = n->parent->intersects;
 	range(i, aunts.num) {
 		box *aunt = aunts[i].b;
-		if (!intersects(aunt, n)) continue;
+		// Only whales get delayed refresh during single updates, not their parents;
+		// and during bulk refresh, we refresh by layers,
+		// so we only *have to* check the aunt's validity in the whale case, but oh well.
+		// It's better to do it before the `intersects()`, I think.
+		if (aunt->validity <= 0 || !intersects(aunt, n)) continue;
 		if (isWhale(aunt)) {
 			recordIntersect(n, aunt);
 		} else {
 			list<box*> &cousins = aunt->kids;
-			// Not sure if this really matters, but we reverse the iteration order here.
-			// Originally this related to who we chose for child fostering, but now
-			// it's just leftover and possibly to have a fixed end condition (micro-optimization).
-			// Hopefully it's not bad.
-			for (int j = cousins.num - 1; j >= 0; j--) {
+			// Todo: is reverse iteration faster here?
+			range(j, cousins.num) {
 				box *test = cousins[j];
-				if (intersects(test, n) && test != n) {
+				if (test->validity > 0 && intersects(test, n)) {
 					recordIntersect(n, test);
 				}
 			}
 		}
 	}
-}
-
-static void setIntersects_refresh(box *b) {
-	b->intersects.add({.b=b, .i=0});
-	// Pretty similar to `setIntersects`, but we can take some shortcuts since we know everyone's being re-evaluated
-	list<sect> &aunts = b->parent->intersects;
-	range(i, aunts.num) {
-		box *aunt = aunts[i].b;
-		if (!intersects(aunt, b)) continue;
-		if (isWhale(aunt)) {
-			// Aunt is assumed valid, since it's from a previous generation.
-			recordIntersect(b, aunt);
-		} else {
-			list<box*> &cousins = aunt->kids;
-			range(j, cousins.num) {
-				box *test = cousins[j];
-				if (test->validity && b != test && intersects(test, b)) {
-					recordIntersect(b, test);
-				}
-			}
-		}
-	}
+	n->validity = ~n->validity;
 }
 
 #define ALLOC_SIZE 100
@@ -185,11 +166,11 @@ static box* mkContainer(box *parent, box *n, char aligned) {
 	}
 	ret->parent = parent;
 	if (aligned) {
-		ret->validity = parent->validity;
+		ret->validity = ~parent->validity;
 	} else {
-		ret->validity = computeValidity(ret, parent);
+		ret->validity = ~computeValidity(ret, parent);
 	}
-	setIntersects(ret);
+	setIntersects_refresh(ret);
 
 	return ret;
 }
@@ -224,27 +205,10 @@ static box* getMergeBase(box *guess, box *n, INT minParentR) {
 
 static void addWhale(box *w, const list<box*> *opts) {
 	while (opts->num) {
-		globalOptionsDest->num = 0;
-		range(i, opts->num) {
-			box *b = (*opts)[i];
-			if (!intersects(b, w)) continue;
-			recordIntersect(b, w);
-			globalOptionsDest->addAll(b->kids);
-		}
-		swap(globalOptionsSrc, globalOptionsDest);
-		opts = globalOptionsSrc;
-	}
-}
-
-// Just like `addWhale`, except we skip checking any boxes that haven't been revalidated.
-// Depending on how `intersects` gets updated, that check might be moot, but better to wait and see.
-static void addWhale_refresh(box *w, const list<box*> *opts) {
-	while (opts->num) {
 		lookDownDest->num = 0;
 		range(i, opts->num) {
 			box *b = (*opts)[i];
-			if (!b->validity) continue;
-			if (!intersects(b, w)) continue;
+			if (b->validity <= 0 || !intersects(b, w)) continue;
 			recordIntersect(b, w);
 			lookDownDest->addAll(b->kids);
 		}
@@ -306,9 +270,9 @@ static void addToAncestor(box *level, box *n, INT minParentR) {
 		while (level->r[0] >= minGrandparentR) {
 			level = mkContainer(level, n, 1);
 		}
-		n->validity = level->validity;
+		n->validity = ~level->validity;
 	} else {
-		n->validity = computeValidity(n, level);
+		n->validity = ~computeValidity(n, level);
 	}
 	level->kids.add(n);
 	n->parent = level;
@@ -439,13 +403,15 @@ void velbox_insert(box *guess, box *n) {
 		exit(1);
 	}
 #endif
+	// This could probably be a full setIntersects_refresh if we wanted
+	n->validity = ~n->validity;
 	n->intersects.add({.b=n, .i=0});
 }
 
 static void reposition(box *b) {
 	box *p = b->parent;
 	if (contains(p, b)) {
-		b->validity = computeValidity(b, p);
+		b->validity = ~computeValidity(b, p);
 		return;
 	}
 	p->kids.rm(b);
@@ -456,7 +422,10 @@ static void reposition(box *b) {
 void velbox_update(box *b) {
 	reposition(b);
 	clearIntersects(b);
-	setIntersects(b);
+}
+
+void velbox_single_refresh(box *b) {
+	setIntersects_refresh(b);
 	int x = b->intersects.num;
 	for (int i = 1; i < x; i++) {
 		addWhale(b, &b->intersects[i].b->kids);
@@ -537,7 +506,7 @@ void velbox_refresh(box *root) {
 			if (isWhale(b)) {
 				int x = b->intersects.num;
 				for (int i = 1; i < x; i++) {
-					addWhale_refresh(b, &b->intersects[i].b->kids);
+					addWhale(b, &b->intersects[i].b->kids);
 				}
 			}
 		}

@@ -841,6 +841,8 @@ void doPhysics(gamestate *gs) {
 			e->collisionBuddy = NULL;
 			requireCollisionRecursive(e);
 		}
+		// For this part we abuse toCollide just for a sec, we need a list and it's handy
+		toCollide.num = 0;
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
 				i->needsPhysUpdate = 0;
@@ -854,9 +856,11 @@ void doPhysics(gamestate *gs) {
 						i->myBox->p2[j] = i->center[j];
 					}
 					velbox_update(i->myBox);
+					toCollide.add(i);
 				}
 			}
 		}
+		range(j, toCollide.num) velbox_single_refresh(toCollide[j]->myBox);
 	}
 
 	invokeOnCrush(gs);
