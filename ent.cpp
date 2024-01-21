@@ -77,8 +77,8 @@ void assignVelbox(ent *e, box *relBox) {
 	box *b = velbox_alloc();
 	b->data = e;
 	range(d, 3) {
-		b->p1[d] = e->center[d];
-		b->p2[d] = e->center[d] + e->vel[d];
+		b->p1[d] = e->center[d] - e->vel[d];
+		b->p2[d] = e->center[d];
 		int r = e->radius[d];
 		b->r[d] = r ? r : 1; // velbox doesn't like radii of 0, and frankly neither do I
 	}
@@ -183,6 +183,13 @@ static void killEntNoHandlers(gamestate *gs, ent *e) {
 	if (e->ll.n) e->ll.n->ll.p = e->ll.p;
 
 	rmRootEnt(gs, e);
+	if (e->myBox) {
+		// This should be done here, as velbox expects every registered `box` to be stepped
+		// (and we don't step boxes of dead ents)
+		velbox_remove(e->myBox);
+		// This probably isn't necessary, but it's very quick to do and saves potential headache
+		e->myBox = NULL;
+	}
 
 	e->ll.p = gs->deadTail;
 	gs->deadTail = e;
@@ -432,11 +439,11 @@ static char doIteration(gamestate *gs) {
 			//       since we're checking all against all.
 			//       Could repurpose `needsPhysUpdate` (or make it a `union`)
 			//       to fix this, but IDK if it's worth the complexity.
-			list<box*> &intersects = e->myBox->intersects;
+			list<sect> &intersects = e->myBox->intersects;
 			int n = intersects.num; // Small optimization (I hope)
 			// Skip i=0, first intersect is always ourselves
 			for (int i = 1; i < n; i++) {
-				ent *o = (ent*) intersects[i]->data;
+				ent *o = (ent*) intersects[i].b->data;
 				if (!o || o->dead) continue;
 				ret |= checkCollision(e, o);
 			}
@@ -457,7 +464,6 @@ static void clearDeads(gamestate *gs) {
 	ent *d;
 	while ( (d = gs->deadTail) ) {
 		gs->deadTail = d->ll.p;
-		if (d->myBox) velbox_remove(d->myBox);
 		free(d->sliders);
 		d->wires.destroy();
 		d->wiresAdd.destroy();
@@ -794,16 +800,15 @@ void doPhysics(gamestate *gs) {
 	flush2(gs);
 	ent *i;
 	for (i = gs->ents; i; i = i->ll.n) {
-		box *b = i->myBox;
 		memcpy(i->old, i->center, sizeof(i->old));
 		int j;
 		for (j = 0; j < 3; j++) {
 			i->center[j] += i->vel[j];
 			i->forced[j] = 0;
-			if (b) {
-				b->p1[j] = i->old[j];
-				b->p2[j] = i->center[j];
-			}
+		}
+		box *b = i->myBox;
+		if (b) {
+			velbox_step(b, i->old, i->center);
 		}
 		i->needsCollision = 1;
 	}
@@ -836,6 +841,8 @@ void doPhysics(gamestate *gs) {
 			e->collisionBuddy = NULL;
 			requireCollisionRecursive(e);
 		}
+		// For this part we abuse toCollide just for a sec, we need a list and it's handy
+		toCollide.num = 0;
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
 				i->needsPhysUpdate = 0;
@@ -849,9 +856,11 @@ void doPhysics(gamestate *gs) {
 						i->myBox->p2[j] = i->center[j];
 					}
 					velbox_update(i->myBox);
+					toCollide.add(i);
 				}
 			}
 		}
+		range(j, toCollide.num) velbox_single_refresh(toCollide[j]->myBox);
 	}
 
 	invokeOnCrush(gs);
@@ -946,15 +955,18 @@ static ent* cloneEnt(ent *in) {
 }
 
 // I guess this could maybe live in the velbox files, but we'd have to have some way of handling the `data` cloning
+// This does not set `parent` or `validity` on the returned `box*`.
 static box* cloneBox(box *b) {
 	box *ret = velbox_alloc();
 
+#ifdef DEBUG
 	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
+#endif
 	// We don't actually need the intersects to be accurate -
 	// those are really only advisory outside of when actual collision resolution is happening.
 	// However, there is some logic that relies on a box being its own first intersect
 	// (or at least, requires it to be among its intersects, e.g. finding a home for a new box).
-	ret->intersects.add(ret);
+	ret->intersects.add({.b=ret, .i=0});
 
 	range(d, 3) {
 		ret->p1[d] = b->p1[d];
@@ -973,6 +985,8 @@ static box* cloneBox(box *b) {
 			box *clone = cloneBox(oldKids[i]);
 			newKids.add(clone);
 			clone->parent = ret;
+			// This means it will be invalid w/ the next step, which is the soonest possible.
+			clone->validity = 1;
 		}
 	}
 
@@ -1041,6 +1055,8 @@ gamestate* dup(gamestate *in, list<player> *players) {
 
 	ret->rootBox = cloneBox(in->rootBox);
 	ret->rootBox->parent = NULL;
+	// Root box `validity` never changes, and is the max for the tree
+	ret->rootBox->validity = in->rootBox->validity;
 
 	return ret;
 }
