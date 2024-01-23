@@ -178,7 +178,8 @@ void edit_info(ent *e) {
 		} else if (e->tickHeld == tickHandlers.get(TICK_RESPAWN)) {
 			helps = M_RESPAWN_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_LOGIC)
-				|| e->tickHeld == tickHandlers.get(TICK_LOGIC_DEBUG) ) {
+				|| e->tickHeld == tickHandlers.get(TICK_LOGIC_DEBUG)
+				|| e->tickHeld == tickHandlers.get(TICK_RAND) ) {
 			helps = M_LOGIC_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_TIMER)) {
 			helps = M_TIMER_HELP;
@@ -520,6 +521,21 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		ent *e = a[i];
 		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
+		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, 2);
+	}
+}
+
+void edit_t_rand(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_RAND);
+		e->tickHeld = tickHandlers.get(TICK_RAND);
 		e->push = pushHandlers.get(PUSH_LOGIC);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);

@@ -96,7 +96,7 @@ enum {
 	TICK_PLATFORM,
 	TICK_BAUBLE,
 	TICK_HELD_BAUBLE,
-	TICK_reuse1, // Was for thumbtacks, probably not in any save file
+	TICK_RAND,
 	TICK_PLAYER,
 	TICK_EYE,
 	TICK_HELD_EYE,

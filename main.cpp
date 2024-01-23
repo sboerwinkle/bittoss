@@ -628,6 +628,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/cursed", edit_t_cursed(gs, me));
 	cmd("/logic", edit_t_logic(gs, me));
 	cmd("/logic_debug", edit_t_logic_debug(gs, me));
+	cmd("/rand", edit_t_rand(gs, me));
 	cmd("/timer", edit_t_timer(gs, me));
 	cmd("/demolish", edit_t_demolish(gs, me));
 	cmd("/door", edit_t_door(gs, me));

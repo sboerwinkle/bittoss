@@ -66,6 +66,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_dumb">/dumb</a></li>
 		<li><a href="#_logic">/logic</a></li>
 		<li><a href="#_logic_debug">/logic_debug</a></li>
+		<li><a href="#_rand">/rand</a></li>
 		<li><a href="#_delay">/delay</a></li>
 		<li><a href="#_demolish">/demolish</a></li>
 		<li><a href="#_gun">/gun</a></li>
@@ -310,6 +311,9 @@ While this is mainly intended for visualizing logic systems while they are being
 Blocks can be changed freely between /logic and /logic_debug without losing configuration, since they have the same number of sliders.
 <div class="para"></div>
 Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.
+<br/><br/>
+<b id="_rand">/rand</b><br/>
+Similar to <a href="#_logic">/logic</a>, but only sends its signal(s) to one of its wired blocks (at random) when it is active. Blocks which received any logic signal on the previous frame are ineligible for selection.
 <br/><br/>
 <b id="_delay">/delay</b><br/>
 Blocks of this type are similar to a <a href="#_logic">/logic</a> XNOR, but they have a delay before they turn on. There is no delay to turn off, so it "prefers" to be off. The delay is set in <a href="#_slider">slider</a> 0. If this is set to 0, it will behave exactly like an XNOR.

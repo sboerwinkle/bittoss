@@ -29,6 +29,18 @@ static void logic_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int
 	if (type(him) & (T_TERRAIN | T_OBSTACLE | T_DEBRIS)) pushBtn(me, 0);
 }
 
+static char logic_common_input(ent *me, int32_t mode) {
+	const char a = getButton(me, 0);
+	const char b = getButton(me, 1);
+	if ((mode | 1) == 1) {
+		// mode is 0 (XOR) or 1 (XNOR)
+		return a ^ b ^ mode;
+	} else {
+		// mode is something else (presumably 2) (AND)
+		return a && b;
+	}
+}
+
 static void logic_common_output(ent *me) {
 	int32_t outputs = getSlider(me, 1);
 	if (outputs & 1) {
@@ -67,18 +79,7 @@ static void timer_tick(gamestate *gs, ent *me) {
 }
 
 static void logic_inner(ent *me, int32_t mode) {
-	const char a = getButton(me, 0);
-	const char b = getButton(me, 1);
-	char active;
-	if ((mode | 1) == 1) {
-		// mode is 0 (XOR) or 1 (XNOR)
-		active = a ^ b ^ mode;
-	} else {
-		// mode is something else (presumably 2) (AND)
-		active = a && b;
-	}
-
-	if (active) {
+	if (logic_common_input(me, mode)) {
 		logic_common_output(me);
 	}
 }
@@ -101,6 +102,27 @@ static void logic_tick_debug(gamestate *gs, ent *me) {
 	logic_inner(me, mode);
 }
 
+static void randomazzo_tick(gamestate *gs, ent *me) {
+	if (!logic_common_input(me, getSlider(me, 0))) return;
+	// Now for the actual hard work...
+	int options = 0;
+	wiresAnyOrder(w, me) {
+		if (!getButton(w, 0) && !getButton(w, 1)) options++;
+	}
+	if (!options) return;
+	int roll = random(gs) % options;
+	wiresAnyOrder(w2, me) {
+		if (getButton(w2, 0) || getButton(w2, 1)) continue;
+		if (roll--) continue;
+
+		int32_t outputs = getSlider(me, 1);
+		if (outputs & 1) pushBtn(w2, 0);
+		if (outputs & 2) pushBtn(w2, 1);
+		pushBtn(me, 2);
+		return;
+	}
+}
+
 static void demolish_tick(gamestate *gs, ent *me) {
 	if (getButton(me, 0)) uDead(gs, me);
 }
@@ -108,6 +130,7 @@ static void demolish_tick(gamestate *gs, ent *me) {
 void module_logic() {
 	tickHandlers.reg(TICK_LOGIC, logic_tick);
 	tickHandlers.reg(TICK_LOGIC_DEBUG, logic_tick_debug);
+	tickHandlers.reg(TICK_RAND, randomazzo_tick);
 	tickHandlers.reg(TICK_TIMER, timer_tick);
 	tickHandlers.reg(TICK_DEMOLISH, demolish_tick);
 	pushHandlers.reg(PUSH_LOGIC, logic_push);

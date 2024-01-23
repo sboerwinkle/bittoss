@@ -19,6 +19,7 @@ extern void edit_t_dumb(gamestate *gs, ent *me);
 extern void edit_t_cursed(gamestate *gs, ent *me);
 extern void edit_t_logic(gamestate *gs, ent *me);
 extern void edit_t_logic_debug(gamestate *gs, ent *me);
+extern void edit_t_rand(gamestate *gs, ent *me);
 extern void edit_t_timer(gamestate *gs, ent *me);
 extern void edit_t_demolish(gamestate *gs, ent *me);
 extern void edit_t_door(gamestate *gs, ent *me);
