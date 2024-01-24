@@ -589,6 +589,21 @@ void edit_t_door(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_t_teleport(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_NIL);
+		e->tickHeld = tickHandlers.get(TICK_NIL);
+		e->push = pushHandlers.get(PUSH_TELEPORT);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, 0);
+		setNumSliders(gs, e, 0);
+	}
+}
+
 void edit_t_legg(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);

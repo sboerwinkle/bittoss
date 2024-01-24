@@ -107,12 +107,14 @@ static void randomazzo_tick(gamestate *gs, ent *me) {
 	// Now for the actual hard work...
 	int options = 0;
 	wiresAnyOrder(w, me) {
-		if (!getButton(w, 0) && !getButton(w, 1)) options++;
+		if (!getButton(w, 0)) options++;
 	}
 	if (!options) return;
-	int roll = random(gs) % options;
+	rand_t r = random(gs);
+	int roll = r % options;
+	printf("Options is %d, roll is %d (%d)\n", options, roll, r);
 	wiresAnyOrder(w2, me) {
-		if (getButton(w2, 0) || getButton(w2, 1)) continue;
+		if (getButton(w2, 0)) continue;
 		if (roll--) continue;
 
 		int32_t outputs = getSlider(me, 1);

@@ -23,6 +23,7 @@ extern void edit_t_rand(gamestate *gs, ent *me);
 extern void edit_t_timer(gamestate *gs, ent *me);
 extern void edit_t_demolish(gamestate *gs, ent *me);
 extern void edit_t_door(gamestate *gs, ent *me);
+extern void edit_t_teleport(gamestate *gs, ent *me);
 extern void edit_t_legg(gamestate *gs, ent *me);
 extern void edit_t_respawn(gamestate *gs, ent *me);
 extern void edit_t_seat(gamestate *gs, ent *me);

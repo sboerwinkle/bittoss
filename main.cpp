@@ -380,6 +380,14 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			// but it's less to worry about if the serialization out happens at the same
 			// point in the tick cycle as the deserialization in.
 		} else {
+			// Else just put it in the outbound buffer.
+			// /reseed is a special case and gets rewritten, however
+			if (isCmd(text, "/reseed")) {
+				timespec now;
+				clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+				int sec_truncate = now.tv_sec;
+				snprintf(sharedInputs.textBuffer, TEXT_BUF_LEN, "/seed %d", sec_truncate);
+			}
 			int start = out.num;
 			int len = strlen(text);
 			out.num += len;
@@ -632,6 +640,8 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/timer", edit_t_timer(gs, me));
 	cmd("/demolish", edit_t_demolish(gs, me));
 	cmd("/door", edit_t_door(gs, me));
+	cmd("/teleport", edit_t_teleport(gs, me));
+	cmd("/tp", edit_t_teleport(gs, me));
 	cmd("/legg", edit_t_legg(gs, me));
 	cmd("/respawner", edit_t_respawn(gs, me));
 	cmd("/seat", edit_t_seat(gs, me));
@@ -733,6 +743,14 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		} else if (isCmd(chatBuffer, "/_tree")) {
 			if (isMe && isReal) {
 				printTree(gs);
+			}
+		} else if (isCmd(chatBuffer, "/seed")) {
+			int32_t input;
+			const char *c = chatBuffer + 5;
+			if (getNum(&c, &input)) {
+				gs->rand = input;
+			} else if (isMe && isReal) {
+				printf("Seed is %d\n", gs->rand);
 			}
 		} else if (isCmd(chatBuffer, "/edit")) {
 			ent *e = p->entity;

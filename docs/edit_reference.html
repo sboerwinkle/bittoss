@@ -71,6 +71,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_demolish">/demolish</a></li>
 		<li><a href="#_gun">/gun</a></li>
 		<li><a href="#_door">/door</a></li>
+		<li><a href="#_teleport">/teleport</a></li>
 		<li><a href="#_legg">/legg</a></li>
 		<li><a href="#_seat">/seat</a></li>
 		<li><a href="#_respawner">/respawner</a></li>
@@ -92,6 +93,8 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_data">/data</a></li>
 		<li><a href="#_edit">/edit</a></li>
 		<li><a href="#_rule">/rule</a></li>
+		<li><a href="#_seed">/seed</a></li>
+		<li><a href="#_reseed">/reseed</a></li>
 		<li><a href="#_b">/b</a></li>
 		<li><a href="#_d">/d</a></li>
 		<li><a href="#_p">/p</a></li>
@@ -142,7 +145,7 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 		Misc:
 		<ul>
 			<li><a href="#_rule">gamerules</a> - grab bag of on/off flags</li>
-			<li>random seed</li>
+			<li><a href="#_seed">random seed</a></li>
 		</ul>
 	</li>
 </ul>
@@ -313,7 +316,7 @@ Blocks can be changed freely between /logic and /logic_debug without losing conf
 Note that since these blocks re-set their color every tick, commands like <a href="#_c">/c</a> and <a href="#_hl">/hl</a> will not have a visible effect.
 <br/><br/>
 <b id="_rand">/rand</b><br/>
-Similar to <a href="#_logic">/logic</a>, but only sends its signal(s) to one of its wired blocks (at random) when it is active. Blocks which received any logic signal on the previous frame are ineligible for selection.
+Similar to <a href="#_logic">/logic</a>, but only sends its signal(s) to one of its wired blocks (at random) when it is active. Blocks which received a "1" signal on the previous frame are ineligible for selection.
 <br/><br/>
 <b id="_delay">/delay</b><br/>
 Blocks of this type are similar to a <a href="#_logic">/logic</a> XNOR, but they have a delay before they turn on. There is no delay to turn off, so it "prefers" to be off. The delay is set in <a href="#_slider">slider</a> 0. If this is set to 0, it will behave exactly like an XNOR.
@@ -334,6 +337,14 @@ The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_log
 The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.
 <div class="para"></div>
 To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive - you can then do whatever variety of circuitry you want to turn the wall gate on and off. See also <a href="#_logic">/logic</a>.
+<br/><br/>
+<b id="_teleport">/teleport</b><br/>
+<b>/tp</b><br/>
+Makes the block send anything that it touches to a <a href="_wire">wired</a> destination, if the /teleport block is able to push it (as per its <a href="material">material</a>). Things that instead push the /teleport block (like, say, the ground) will not be teleported.
+<div class="para"></div>
+The block can be wired to any number of destinations, which should be <a href="#_logic">/logic</a> blocks. At most one of these /logic blocks should be active. If none are active, nothing will happen; if more than one are active, for the moment it will print a message to the console and do nothing. In the future, multiple destinations may average their offsets, add their offsets, pick a random destination, or something else.
+<div class="para"></div>
+The position and velocity difference between the /teleport block and its chosen destination will be applied to the teleportee block. Note that the sizes of the blocks involved are not taken into consideration, only their centers.
 <br/><br/>
 <b id="_legg">/legg</b><br/>
 Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.
@@ -431,6 +442,12 @@ Turns edit mode on or off for the player. If on, the player controls are used fo
 Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.
 <div class="para"></div>
 A full listing is best found in-game, but these are things like world boundaries, gravity, default player respawning (see <a href="#_respawner">/respawner</a>), and enabling edit commands.
+<br/><br/>
+<b id="_seed">/seed</b> <span>number</span>?<br/>
+Sets (for one argument) or displays (for no arguments) the current RNG seed.
+<br/><br/>
+<b id="_reseed">/reseed</b><br/>
+Resets the current RNG seed based on the time. Note that a <a href="#_load">/load</a> of a game restores the state exactly as it was, including the seed, so /reseed can be helpful if you want "random" events to play out differently.
 <br/><br/>
 <b id="_b">/b</b> <span>number</span>{3}<br/>
 <i>Ctrl+B: /b 400 400 400</i><br/>

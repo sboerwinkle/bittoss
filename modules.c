@@ -32,6 +32,7 @@
 #include "modules/gun.h"
 #include "modules/teamselect.h"
 #include "modules/scoreboard.h"
+#include "modules/teleport.h"
 
 void initMods() {
 	module_common();
@@ -54,4 +55,5 @@ void initMods() {
 	module_gun();
 	module_teamselect();
 	module_scoreboard();
+	module_teleport();
 }
