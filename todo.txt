@@ -1,3 +1,4 @@
+Gotta fix the containers not stepping!!!!! That's important.
 TODO:
 / Things that are being pushed by things that are being pushed aren't resolved first
 / Server exiting cancels input thread but doesn't exit app
@@ -84,6 +85,43 @@ TODO:
 	- default color, maybe
 
 - CTF scoring plz
+
+
+- Clearing buffer has visual feedback
+- Optional max score for scoreboard
+- dual-wield
+	- incl UI changes
+- Temple of the Crane
+	- randomizer
+	- teleporter
+		Exclude "lit" destinations
+	- The Crane
+		- Doors inert when powered
+	- Rooms
+		- Very Open (NSEW)
+		- Treasure Alcove (N/S/E/W)
+		- Straight Chomper (NS/EW)
+		- Rock Wall (N/S)
+		- Elevator (NS/EW)
+		- Portal Room (NSEW)
+		- Zoo Enclosure (NSEW)
+		- High Corner (x4)
+		- Pillars Corner (x4)
+		- Statue Room (NSE/NSW)
+		- Observation Room? (NEW/SEW)
+		- Locked Treasure (EW)
+			Puts a key in the spawn queue, locked while key exists
+	- Treasures
+		- Nothing
+		- Blink Gun
+		- Box Swarm (1-off)
+		- Rock Launcher
+		- Reviver
+		- Reviver (stored)
+		- Gun (normal)
+		- Gun (extra mags)
+		- Thruster Gun (3x)
+	- Build Sequence
 
 
 Okay, we're well on our way!
