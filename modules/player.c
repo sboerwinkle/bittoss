@@ -97,6 +97,7 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		&& !getSlider(me, s_equip_processed)
 		&& (type(him) & T_EQUIP)
 		&& !getSlider(me, s_editmode)
+		&& !him->holder
 	) {
 		// Skip if already holding any equipment
 		holdeesAnyOrder(h, me) {
