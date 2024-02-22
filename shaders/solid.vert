@@ -1,11 +1,11 @@
-#version 110
+#version 330
 uniform mat4 u_camera;
 // No modelview matrix because complex meshes are for CHUMPS
 
-attribute vec3 a_loc;
-attribute vec3 a_color;
+in vec3 a_loc;
+in vec3 a_color;
 
-varying vec3 v_color;
+out vec3 v_color;
 
 void main()
 {
