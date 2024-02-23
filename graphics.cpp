@@ -16,7 +16,7 @@ int frameOffset[3];
 // once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
 GLfloat boxData[216];
 
-static GLuint main_prog, flat_prog;
+static GLuint main_prog, stipple_prog, flat_prog;
 static GLuint vaos[2];
 
 static GLint u_camera_id = -1;
@@ -27,6 +27,7 @@ static GLint u_flat_scale_y_id = -1;
 static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
 static GLfloat cam_lens_ortho[16];
+static GLfloat camera_uniform_mat[16];
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
 static void printGLProgErrors(GLuint prog){
@@ -50,6 +51,11 @@ static void printGLShaderErrors(GLuint shader) {
 	printf("Len: %d\n", len);
 	glMsgBuf[len] = 0;
 	printf("GL Info Log: %s\n", glMsgBuf);
+}
+static char progFailed(GLuint prog) {
+	GLint out;
+	glGetProgramiv(prog, GL_LINK_STATUS, &out);
+	return out != GL_TRUE;
 }
 
 static void cerr(const char* msg){
@@ -103,11 +109,18 @@ void initGraphics() {
 	GLuint vertexShader = mkShader(GL_VERTEX_SHADER, "shaders/solid.vert");
 	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/hud.vert");
 	GLuint fragShader = mkShader(GL_FRAGMENT_SHADER, "shaders/color.frag");
+	GLuint fragShaderStipple = mkShader(GL_FRAGMENT_SHADER, "shaders/stipple.frag");
 
 	main_prog = glCreateProgram();
 	glAttachShader(main_prog, vertexShader);
 	glAttachShader(main_prog, fragShader);
 	glLinkProgram(main_prog);
+	cerr("Post link");
+
+	stipple_prog = glCreateProgram();
+	glAttachShader(stipple_prog, vertexShader);
+	glAttachShader(stipple_prog, fragShaderStipple);
+	glLinkProgram(stipple_prog);
 	cerr("Post link");
 
 	flat_prog = glCreateProgram();
@@ -124,9 +137,11 @@ void initGraphics() {
 	 * - Maybe even a geometry shader??? Not sure if that would have a significant improvement or not.
 	 * - As a third option, leverage the indexing thingy for a slight reduction in vertex data needing to be written?
 	 */
-	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
+	// These will be the same attrib locations as stipple_prog, since they use the same vertex shader
 	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
 	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
+	// Kind of rolling the dice here, but since we only have one uniform it's probably the same for stipple_prog
+	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
 
 	u_flat_camera_id = glGetUniformLocation(flat_prog, "u_camera");
 	u_flat_offset_id = glGetUniformLocation(flat_prog, "u_offset");
@@ -136,7 +151,13 @@ void initGraphics() {
 	GLint a_flat_loc_id = glGetAttribLocation(flat_prog, "a_loc");
 
 	printGLProgErrors(main_prog);
+	printGLProgErrors(stipple_prog);
 	printGLProgErrors(flat_prog);
+
+	if (progFailed(main_prog) || progFailed(stipple_prog) || progFailed(flat_prog)) {
+		puts("Not proceeding further, fix your shaders. See GL Info Logs, above.");
+		exit(1);
+	}
 
 	// glEnable(GL_DEPTH_TEST); Set per-program instead, see `setupFrame` / `setupText`
 	glEnable(GL_CULL_FACE);
@@ -179,14 +200,20 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 
 	float mat_quat[16];
 	float mat_a[16];
-	float mat_final[16];
 	mat4x4fromQuat(mat_quat, quat);
 	mat4x4Transf(mat_quat, 0, up, forward);
 	perspective(mat_a, 1, (float)displayWidth/displayHeight, nearPlane, farPlane);
-	mat4x4Multf(mat_final, mat_a, mat_quat);
+	mat4x4Multf(camera_uniform_mat, mat_a, mat_quat);
 
-	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, mat_final);
+	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, camera_uniform_mat);
 	cerr("End of frame setup");
+}
+
+void stipple() {
+	// This assumes that you've previously called `setupFrame`,
+	// as it doesn't do all the camera math again, or re-bind the VAO
+	glUseProgram(stipple_prog);
+	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, camera_uniform_mat);
 }
 
 void setupText() {

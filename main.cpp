@@ -148,8 +148,8 @@ static void outerSetupFrame(list<player> *ps) {
 	ent *e = (*ps)[myPlayer].entity;
 	float up = 0, forward = 0;
 	if (thirdPerson) {
-		up = 32*PTS_PER_PX;
-		forward = -64*PTS_PER_PX;
+		//up = 32*PTS_PER_PX;
+		forward = -80*PTS_PER_PX;
 	}
 	if (e) {
 		ent *h = e->holder;
@@ -438,6 +438,7 @@ static void cleanupDeadHeroes(gamestate *gs) {
 		player *p = &(*gs->players)[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
+			if (i == myPlayer) thirdPerson = 1;
 		}
 	}
 }
@@ -992,9 +993,9 @@ static void* pacedThreadFunc(void *_arg) {
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
 		outerSetupFrame(&phantomPlayers);
 
-		ent *inhabit = thirdPerson ? NULL : phantomPlayers[myPlayer].entity;
-		if (inhabit) inhabit = inhabit->holdRoot;
-		doDrawing(phantomState, inhabit);
+		ent *root = phantomPlayers[myPlayer].entity;
+		if (root) root = root->holdRoot;
+		doDrawing(phantomState, root, thirdPerson);
 
 		drawOverlay(&phantomPlayers);
 
@@ -1396,9 +1397,9 @@ int main(int argc, char **argv) {
 	file_init();
 	colors_init();
 	velbox_init();
-	ent_init();
 	edit_init();
 	initMods(); //Set up modules
+	ent_init();
 	hud_init();
 	frameData.init();
 	outboundData.init();
@@ -1520,8 +1521,8 @@ int main(int argc, char **argv) {
 	destroyFont();
 	destroy_registrar();
 	hud_destroy();
-	edit_destroy();
 	ent_destroy();
+	edit_destroy();
 	velbox_destroy();
 	colors_destroy();
 	file_destroy();

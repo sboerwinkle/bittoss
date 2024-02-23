@@ -8,10 +8,12 @@
 #include "ent.h"
 #include "main.h"
 #include "graphics.h"
+#include "handlerRegistrar.h"
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
-static list<ent*> toCollide;
+static list<ent*> entList;
+static tick_t bulletHeldTick;
 
 void boundVec(int32_t *values, int32_t bound, int32_t len) {
 	int32_t max = bound;
@@ -373,7 +375,7 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 static byte tryCollide(ent *leaf, ent *buddy, byte axis, int dir, char mutual) {
 	ent *root = leaf->holdRoot;
 	if (collisionBetter(root, leaf, buddy, axis, dir, mutual)) {
-		if (!root->collisionBuddy) toCollide.add(root);
+		if (!root->collisionBuddy) entList.add(root);
 		root->collisionLeaf = leaf;
 		root->collisionBuddy = buddy;
 		root->collisionAxis = axis;
@@ -430,7 +432,9 @@ static byte checkCollision(ent *a, ent *b) {
 
 static char doIteration(gamestate *gs) {
 	char ret = 0;
-	toCollide.num = 0;
+	// `entList` accumulates items during the iteration below.
+	// These are the items that need collisions processed.
+	entList.num = 0;
 	for (ent *e = gs->ents; e; e = e->ll.n) {
 		if (!e->needsCollision) continue;
 
@@ -823,26 +827,26 @@ void doPhysics(gamestate *gs) {
 		// Of the items elligible for collision,
 		// we're going to maybe rule some out as not needing resolution right now.
 		// We'll sort the ones that do need resolution to the beginning of the list.
-		int realNum = toCollide.num;
-		toCollide.num = 0;
+		int realNum = entList.num;
+		entList.num = 0;
 		for (int j = 0; j < realNum; j++) {
-			ent *test = toCollide[j];
+			ent *test = entList[j];
 			if (shouldResolveCollision(gs, test)) {
-				toCollide[j] = toCollide[toCollide.num];
-				toCollide[toCollide.num++] = test;
+				entList[j] = entList[entList.num];
+				entList[entList.num++] = test;
 			}
 		}
-		for (int j = 0; j < toCollide.num; j++) {
-			ent *e = toCollide[j];
+		for (int j = 0; j < entList.num; j++) {
+			ent *e = entList[j];
 			push(gs, e->collisionLeaf, e->collisionBuddy, e->collisionAxis, e->collisionDir);
 		}
 		for (int j = 0; j < realNum; j++) {
-			ent *e = toCollide[j];
+			ent *e = entList[j];
 			e->collisionBuddy = NULL;
 			requireCollisionRecursive(e);
 		}
-		// For this part we abuse toCollide just for a sec, we need a list and it's handy
-		toCollide.num = 0;
+
+		entList.num = 0;
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
 				i->needsPhysUpdate = 0;
@@ -856,11 +860,11 @@ void doPhysics(gamestate *gs) {
 						i->myBox->p2[j] = i->center[j];
 					}
 					velbox_update(i->myBox);
-					toCollide.add(i);
+					entList.add(i);
 				}
 			}
 		}
-		range(j, toCollide.num) velbox_single_refresh(toCollide[j]->myBox);
+		range(j, entList.num) velbox_single_refresh(entList[j]->myBox);
 	}
 
 	invokeOnCrush(gs);
@@ -873,8 +877,21 @@ void finishStep(gamestate *gs) {
 	clearDeads(gs);
 }
 
-static void drawEnt(ent *e, ent *inhabit) {
-	if (e->holdRoot == inhabit && (e->typeMask & T_NO_DRAW_FP)) return;
+static void drawEnt(ent *e, ent *inhabit, char thirdPerson) {
+	if (e->holdRoot == inhabit) {
+		if (thirdPerson) {
+			// A little hacky, but we make an exception for bullets at the moment, since
+			// that's the one thing that might be stuck to you that you'd want to see regardless.
+			// If a lot of things need this behavior, maybe figure out some way to unify this
+			// sort of thing with the `T_NO_DRAW_FP` hack.
+			if (e->tickHeld != bulletHeldTick) {
+				entList.add(e);
+				return;
+			}
+		} else {
+			if (e->typeMask & T_NO_DRAW_FP) return;
+		}
+	}
 	int32_t color = e->color;
 	if (color == -1) return;
 	drawEnt(
@@ -885,10 +902,16 @@ static void drawEnt(ent *e, ent *inhabit) {
 	);
 }
 
-void doDrawing(gamestate *gs, ent *inhabit) {
-	ent *i;
-	for (i = gs->ents; i; i = i->ll.n) {
-		drawEnt(i, inhabit);
+void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson) {
+	// We'll add things to this list in `drawEnt` if it should be stippled instead
+	entList.num = 0;
+	for (ent *i = gs->ents; i; i = i->ll.n) {
+		drawEnt(i, inhabit, thirdPerson);
+	}
+
+	stipple();
+	for (int i = 0; i < entList.num; i++) {
+		drawEnt(entList[i], NULL, 0);
 	}
 }
 
@@ -1062,9 +1085,10 @@ gamestate* dup(gamestate *in, list<player> *players) {
 }
 
 void ent_init() {
-	toCollide.init();
+	entList.init();
+	bulletHeldTick = tickHandlers.get(TICK_HELD_BULLET);
 	// Used to do something lol
 }
 void ent_destroy() {
-	toCollide.destroy();
+	entList.destroy();
 }

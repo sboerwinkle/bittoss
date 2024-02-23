@@ -210,7 +210,7 @@ extern void doUpdates(gamestate *gs);
 extern void prepPhysics(gamestate *gs);
 extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
-extern void doDrawing(gamestate *gs, ent *inhabit);
+extern void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson);
 extern void doCleanup(gamestate *gs);
 extern gamestate* mkGamestate(list<player> *players);
 extern void resetGamestate(gamestate *gs);

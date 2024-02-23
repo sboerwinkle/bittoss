@@ -16,6 +16,7 @@ extern void initGraphics();
 
 extern void setDisplaySize(int width, int height);
 extern void setupFrame(float pitch, float yaw, float up, float forward);
+extern void stipple();
 extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
