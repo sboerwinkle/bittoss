@@ -25,6 +25,7 @@
 #include "edit.h"
 #include "file.h"
 #include "hud.h"
+#include "raycast.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -146,10 +147,29 @@ static char doReload = 0;
 
 static void outerSetupFrame(list<player> *ps) {
 	ent *e = (*ps)[myPlayer].entity;
+	if (e) {
+		range(i, 3) ghostCenter[i] = e->center[i];
+	}
+	range(i, 3) frameOffset[i] = -ghostCenter[i];
+
+	// It's a different thread that writes the pitch/yaw values, and I just realized access
+	// has been unsynchronized for a while. It's possible that `double` writes are effectively
+	// atomic on modern processors, but whatever the case:
+	// A) Nobody's complained about weirdness here
+	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
+	double pitchRadians = sharedInputs.basic.viewPitch;
+	double yawRadians = sharedInputs.basic.viewYaw;
+
 	float up = 0, forward = 0;
 	if (thirdPerson) {
-		//up = 32*PTS_PER_PX;
-		forward = -80*PTS_PER_PX;
+		// Cast a ray to figure out where to put the camera...
+		double ray[3];
+		double pitchCos = cos(pitchRadians);
+		ray[0] = -sin(yawRadians) * pitchCos;
+		ray[1] = cos(yawRadians) * pitchCos;
+		ray[2] = -sin(pitchRadians);
+		forward = -cameraCast(phantomState, ghostCenter, ray, e);
+		if (forward < -80*PTS_PER_PX) forward = -80*PTS_PER_PX;
 	}
 	if (e) {
 		ent *h = e->holder;
@@ -158,26 +178,16 @@ static void outerSetupFrame(list<player> *ps) {
 		char piloting = (h && (h->tick == seat_tick || h->tick == seat_tick_old));
 		if (piloting) e = h; // This centers the camera on the seat
 		if (thirdPerson) {
+			// For now we don't raycast this case, since it would be at a funny angle.
+			// If pilotable things become more common and this becomes a problem,
+			// we can revisit how to think about this.
 			if (piloting && h->numSliders >= 2) {
 				up = getSlider(h, h->numSliders - 2);
 				forward = -getSlider(h, h->numSliders - 1);
 			}
 		}
 	}
-	// It's a different thread that writes the pitch/yaw values, and I just realized access
-	// has been unsynchronized for a while. It's possible that `double` writes are effectively
-	// atomic on modern processors, but whatever the case:
-	// A) Nobody's complained about weirdness here
-	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
-	setupFrame(-activeInputs.basic.viewPitch, activeInputs.basic.viewYaw, up, forward);
-	if (e) {
-		frameOffset[0] = -e->center[0];
-		frameOffset[1] = -e->center[1];
-		frameOffset[2] = -e->center[2];
-		range(i, 3) ghostCenter[i] = e->center[i];
-	} else {
-		range(i, 3) frameOffset[i] = -ghostCenter[i];
-	}
+	setupFrame(-pitchRadians, yawRadians, up, forward);
 }
 
 static float overlayColor[3] = {0.0, 0.5, 0.5};
