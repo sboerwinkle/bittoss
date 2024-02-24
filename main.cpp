@@ -146,12 +146,6 @@ static char doReload = 0;
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
 static void outerSetupFrame(list<player> *ps) {
-	ent *e = (*ps)[myPlayer].entity;
-	if (e) {
-		range(i, 3) ghostCenter[i] = e->center[i];
-	}
-	range(i, 3) frameOffset[i] = -ghostCenter[i];
-
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
 	// atomic on modern processors, but whatever the case:
@@ -159,14 +153,37 @@ static void outerSetupFrame(list<player> *ps) {
 	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
 	double pitchRadians = sharedInputs.basic.viewPitch;
 	double yawRadians = sharedInputs.basic.viewYaw;
+	double cosine = cos(yawRadians);
+	double sine = sin(yawRadians);
+
+	ent *e = (*ps)[myPlayer].entity;
+	if (e) {
+		range(i, 3) ghostCenter[i] = e->center[i];
+	} else {
+		// This was pretty much copied from serializeControls,
+		// but there's just enough different that factoring it
+		// out as common code would make things ugly.
+		const char *const k = sharedInputs.basic.p1Keys;
+		int axis1 = k[1] - k[0];
+		int axis2 = k[3] - k[2];
+		double r_x = cosine * axis1 - sine * axis2;
+		double r_y = cosine * axis2 + sine * axis1;
+
+		// As a point of trivia, movement as a ghost is circular,
+		// whereas movement as a player is square (diagonals are faster).
+		ghostCenter[0] += r_x * 500;
+		ghostCenter[1] += r_y * 500;
+		ghostCenter[2] += 500 * (k[5]-k[4]);
+	}
+	range(i, 3) frameOffset[i] = -ghostCenter[i];
 
 	float up = 0, forward = 0;
 	if (thirdPerson) {
 		// Cast a ray to figure out where to put the camera...
 		double ray[3];
 		double pitchCos = cos(pitchRadians);
-		ray[0] = -sin(yawRadians) * pitchCos;
-		ray[1] = cos(yawRadians) * pitchCos;
+		ray[0] = -sine * pitchCos;
+		ray[1] = cosine * pitchCos;
 		ray[2] = -sin(pitchRadians);
 		forward = -cameraCast(phantomState, ghostCenter, ray, e);
 		if (forward < -80*PTS_PER_PX) forward = -80*PTS_PER_PX;
