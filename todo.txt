@@ -20,6 +20,7 @@ TODO:
 ! Need to switch the handler-serialization scheme to use compile-time enums instead of string lookup
 	Necessary for proper serialization
 	/ Jokes on me, turns out you can count without using enums lol
+	/ Joke's on me again, at some point I did change to enums lol
 / Velbox (R-trees to handle collisions)
 - Tweak platform spawning
 / Flags explode on contact <3
@@ -38,7 +39,7 @@ TODO:
 / User platforms less prone to jank
 	! Magic expanding pellet magic
 	/ Should also refund player resources if they have to abort
-/ Automatic state sync on join
+- Automatic state sync on join
 	Close enough, there's a message for new players at least
 / Some way to use tools
 / State serizalization
@@ -56,9 +57,9 @@ TODO:
 / Rework handler registrar again so module load order isn't so closely tied to the handler's ID
 	Probably a big header with enums is the way to go here, so handlers have an ID rather than a name
 	Could still associate the ID with a name of course
-- more circuit components
+/ more circuit components
 	/ delay (timer)
-	- randomizer
+	/ randomizer
 / Magic steppy legs
 	These "work" but I think they could be dumber and also more functional
 	/ Rework leggs
@@ -78,51 +79,66 @@ TODO:
 	This would also require a complete rework of how weapons were going to function... hm
 		Unless they also only read A/B signals?
 		With decor for targeting?
+- Better tools
+	I'm thinking tools come in 3 sizes:
+		2-H (two handed) tools are like the tools we have now. You can hold one, and it can read either mouse button.
+		Pri (primary) tools can only read LMB. You can only hold one, and never with a 2-handed tool.
+		Aux tools will be weird.
+			They can be in either "hand", and can read either LMB or RMB depending on which hand they're in.
+			You can hold two, or one in additon to a Pri tool.
+			(None with a 2-handed tool)
+			Aux tools will need to display in the HUD differently depending on which hand they're in
+	Shift doesn't drop the active tool anymore; shfit+(mouse button) drops the tool in that hand.
+		If there's nothing in that hand, any Aux tool in the other hand gets swapped there
+			(Aux tools being the only ambidexterous tools)
+		In the event you pick up a Primary tool while holding only an LMB Aux tool,
+			the Aux tool must be swapped to RMB to make space.
+			This should be the only situation where tools change hands automatically.
+	Purpose:
+		More flexible "builds", but still not a full inventory system
+		"better" tools can compensate by being Pri or 2-H
+		Complex tools can still use 2 inputs, if they need to, by being 2-H
+	Not sure how exactly to track this, when they're both just held objects, but I'll find a way
+		Maybe Aux tools just always dedicate their first slider to this.
 - config file
-	- some keybinds maybe, like save/load?
+	- Regular key binds (WASD Space Shift)
+	- Some edit keybinds, like save/load?
 	- mouseDragSize
-	- maybe configuration for scroll wheel handling, if you've got one of thsoe fancy smooth scroll wheels?
-	- default color, maybe
+	- maybe configuration for scroll wheel handling, if you've got one of those fancy smooth scroll wheels?
+	- left-handed mode for mouse button inputs
+	- left-handed mode for Aux tool HUD display
+	- default color, *maybe*
+- resizing things in the editor causes them to skip a frame of collision. Why? Probably to do with recent optimizations, and the fact that resizing requires a special kind of re-check
 
 - CTF scoring plz
 
-
-- Clearing buffer has visual feedback
+- Editing HUD shows number of items in blue/red buffer, as dots above/below crosshair
 - Optional max score for scoreboard
-- dual-wield
-	- incl UI changes
-- Temple of the Crane
-	- randomizer
-	- teleporter
-		Exclude "lit" destinations
-	- The Crane
-		- Doors inert when powered
-	- Rooms
-		- Very Open (NSEW)
-		- Treasure Alcove (N/S/E/W)
-		- Straight Chomper (NS/EW)
-		- Rock Wall (N/S)
-		- Elevator (NS/EW)
-		- Portal Room (NSEW)
-		- Zoo Enclosure (NSEW)
-		- High Corner (x4)
-		- Pillars Corner (x4)
-		- Statue Room (NSE/NSW)
-		- Observation Room? (NEW/SEW)
-		- Locked Treasure (EW)
-			Puts a key in the spawn queue, locked while key exists
-	- Treasures
-		- Nothing
-		- Blink Gun
-		- Box Swarm (1-off)
-		- Rock Launcher
-		- Reviver
-		- Reviver (stored)
-		- Gun (normal)
-		- Gun (extra mags)
-		- Thruster Gun (3x)
-	- Build Sequence
 
+- Optimizations
+	- Can some parts of velbox be multi-threaded? Thinking divide the pool of aunts to check among multiple threads.
+	- For the cost of one more frame of latency, we can double how long we have to foward-simulate
+		Not sure if this should be activated dynamically on the client side,
+		or if we should make the decision server-side for "fairness"
+
+- Mario-Party-like race concept
+	- Touching each checkpoint sets it as the spawn area
+		chk -> latch -> (latch, previous latch, suppressor (XNOR), knife(2) -> previous suppressor)
+		suppressor -> all spawners in this zone
+	- Each stage has 4x6(?) grid of boxes, which *may* contain a platform
+	- Difficult narrow path is always available, so there's less constraints on the random gen
+	- Checkpoints raise the upcoming platforms, on a timer
+		chk -> chk -> inv -> (timer -> raise, timer2(3) -> chk)
+	- Exit TP is lower, so you can't be swept into it
+	- Victory zone has clear floor, so you can watch their misfortune
+	- Accel Wall of Doom reaches to the bottom of the Victory floor, so there's no escape for mortals
+	- Successive stages might be lowered slightly (starting with the checkpoint), so it's easier to see from behind
+
+. Modular procedural levels!
+- Move proc gen to C, so it's less awful
+- step climbing? Or some other trick to deal with the resulting lips??
+- Big Crane
+	- Doors (crane hand base) go limp when signaled
 
 Okay, we're well on our way!
 We've got
