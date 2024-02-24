@@ -8,8 +8,8 @@
 #include "scoreboard.h"
 
 enum {
-	s_foo_todo,
-	s_foo_rename,
+	s_result,
+	s_timer,
 	s_team_blu,
 	s_team_red,
 	s_num
@@ -20,8 +20,16 @@ static void scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 	// We're only interested in collisions with other scoreboards
 	if (me->tick != him->tick) return;
 
+	// This makes it so that it won't "wake up" until at least one person is alive,
+	// so any level initialization mechanics can run.
+	// Probably not necessary unless you're doing something goofy like procedurally
+	// generating levels using in-game logic blocks...
+	uSlider(me, s_result, 0);
+	uSlider(me, s_timer, 0);
+	// Carry over score from last round
 	uSlider(me, s_team_blu, getSlider(him, s_team_blu));
 	uSlider(me, s_team_red, getSlider(him, s_team_red));
+	// Signal start of a new round (if we're connected to anything);
 	wiresAnyOrder(w, me) { pushBtn(w, 0); }
 }
 
@@ -34,17 +42,17 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 		alive |= 1 << (3 & p->data);
 	}
 
-	int32_t result = getSlider(me, 0);
-	int32_t timer = getSlider(me, 1);
+	int32_t result = getSlider(me, s_result);
+	int32_t timer = getSlider(me, s_timer);
 
 	if (result != alive) {
-		uSlider(me, 0, alive);
+		uSlider(me, s_result, alive);
 		timer = 150;
 	}
 
 	if (timer) {
 		timer--;
-		uSlider(me, 1, timer);
+		uSlider(me, s_timer, timer);
 		if (timer) return;
 		if (alive == 2 || alive == 4 || alive == 0) {
 			int blu = getSlider(me, s_team_blu);
@@ -70,7 +78,7 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 				if (e != me) uErase(gs, e);
 			}
 			// We erased everything, so the "expected" state is now emptiness.
-			uSlider(me, 0, 0);
+			uSlider(me, s_result, 0);
 			// Now the leap of faith
 			requestReload(gs);
 			uMyCollideMask(me, T_TERRAIN);

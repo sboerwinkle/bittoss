@@ -375,7 +375,7 @@ Makes the block keep score. The block can be anywhere on the level, and it will 
 <div class="para"></div>
 More specifically, the block determines the team of each player by taking their <a href="#_data">/data</a> (modulus 4). The block will decide the round is over if any of the following conditions hold continuously for 5 seconds:
 <ul>
-	<li>All players are dead - tie</li>
+	<li>All players are dead - tie<br/><i>Note that a tie will not be declared if no one has ever been alive since the start of the round, as the assumption is that the rounded isn't "started" yet.</i></li>
 	<li>All living players are team 1 - blue victory</li>
 	<li>All living players are team 2 - red victory</li>
 </ul>
