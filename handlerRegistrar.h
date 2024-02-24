@@ -165,7 +165,7 @@ enum {
 	FUMBLED_DECOR,
 	FUMBLE_SEAT,
 	PICKUP_PLAYER,
-	ENDPAIR_reuse1, // Was for bullets, there probably aren't many of those in savefiles
+	ENTPAIR_reuse1, // Was for bullets, there probably aren't many of those in savefiles
 	ENTPAIR_NUM
 };
 // Did you include your module in "modules.c"?
