@@ -18,7 +18,7 @@ static int stackem_whoMoves(ent *a, ent *b, int axis, int dir) {
 		return MOVE_HIM;
 	}
 
-	return goodTeam ? MOVE_ME : MOVE_HIM;
+	return goodTeam ? MOVE_BOTH : MOVE_HIM;
 }
 
 static const int32_t stackemSize[3] = {450, 450, 450};
