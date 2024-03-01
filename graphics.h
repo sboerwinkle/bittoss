@@ -8,7 +8,7 @@
 // is 16/sqrt(2) = approx 11.3
 #define nearPlane (11*PTS_PER_PX)
 // Pretty arbitrary; remember that increasing the ratio of far/near decreases z-buffer accuracy
-#define farPlane (15000*PTS_PER_PX)
+#define farPlane (1500000*PTS_PER_PX)
 
 extern int32_t frameOffset[3];
 

@@ -526,7 +526,7 @@ box* velbox_getRoot() {
 	ret->intersects.add({.b=ret, .i=0});
 	ret->parent = NULL;
 	range(d, DIMS) {
-		ret->r[d] = MAX/2 + 1;
+		ret->r[d] = MAX/SCALE + 1;
 		// This *shouldn't* matter, but uninitialized data is never a *good* thing.
 		ret->p1[d] = ret->p2[d] = 0;
 	}
