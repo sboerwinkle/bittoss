@@ -51,8 +51,18 @@ static void radiusFix(ent *e) {
 }
 
 static void setNumSliders(gamestate *gs, ent *e, int sliders) {
-	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
 	int oldSliders = e->numSliders;
+	if (oldSliders < 0) {
+		// Some versions of GCC inline this function in certain cases;
+		// when inlining for (sliders == 0), it gets nervous about the possibility that we might
+		// be committing an obvious buffer overflow when we reset the new sliders.
+		// While oldSliders should never be negative, the static analyzer sleeps better at night
+		// knowing we've checked for that case.
+		fprintf(stderr, "Not setting sliders to %d; existing numSliders is %d, which shouldn't be possible.\n", sliders, oldSliders);
+		return;
+	}
+
+	e->sliders = (slider*) realloc(e->sliders, sliders * sizeof(slider));
 	e->numSliders = sliders;
 	if (sliders > oldSliders) {
 		// Reset all the sliders we added
