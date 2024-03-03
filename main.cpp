@@ -1393,6 +1393,7 @@ int main(int argc, char **argv) {
 	players.init();
 	phantomPlayers.init();
 
+	velbox_init();
 	rootState = mkGamestate(&players);
 	phantomState = mkGamestate(&phantomPlayers);
 
@@ -1423,7 +1424,6 @@ int main(int argc, char **argv) {
 
 	file_init();
 	colors_init();
-	velbox_init();
 	edit_init();
 	initMods(); //Set up modules
 	ent_init();
