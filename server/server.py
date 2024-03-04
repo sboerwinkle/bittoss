@@ -2,15 +2,13 @@
 # Copied from https://www.bogotobogo.com/python/python_network_programming_tcp_server_client_chat_server_chat_client_select.php
 # ... and then modified
 
-# chat_server.py
- 
-import sys, socket, select, time, traceback
+import sys
+import socket
+import time
+import traceback
 import asyncio
 import os
 
-HOST = '' 
-SOCKET_LIST = []
-RECV_BUFFER = 4096
 FRAME_ID_MAX = 1<<29
 BUF_SLOTS = 128
 if (FRAME_ID_MAX % BUF_SLOTS != 0):
@@ -29,10 +27,9 @@ class Host:
         self.latency = latency
 
 class Client:
-    def __init__(self, ix, sock):
+    def __init__(self, ix, nethandler):
         self.ix = ix
-        self.sock = sock
-        self.listener = None
+        self.nethandler = nethandler
         self.inited = False
 
 def rm(clients, ix, cl):
@@ -53,49 +50,49 @@ def rm(clients, ix, cl):
         print("All clients disconnected, resetting client list")
         # I don't think this will mess up any threads? I guess we'll see...
         clients.clear()
-    # According to https://docs.python.org/3/library/asyncio-task.html#creating-tasks,
-    # asyncio only keeps weak references to tasks, so no need to gather it up or anything
-    # if we just want it to disappear after cancellation.
-    # I want to say I had a different experience, so maybe I'm misreading the docs -
-    # but even if this does leak a reference, it's only when a player disconnects, which is pretty rare.
-    cl.handler.cancel()
-    # Honestly I have no idea what I'm doing here, let's try to close this socket politely
-    try:
-        cl.sock.shutdown(socket.SHUT_RDWR)
-    except:
-        pass
-    try:
-        cl.sock.close()
-    except:
-        pass
 
-async def handle_client(host, ix):
-    lp = asyncio.get_event_loop()
-    cl = host.clients[ix]
-    sock = cl.sock
-    recvd = b'';
-    try:
-        while True:
-            data = await lp.sock_recv(sock, RECV_BUFFER)
-            if not data:
-                print(f"Client {ix} disconnected")
-                rm(host.clients, ix, cl)
-                return
-            recvd += data
+class ClientNetHandler(asyncio.Protocol):
+    def __init__(self, host):
+        self.host = host
+        self.recvd = b''
+    def connection_made(self, transport):
+        print(transport.get_write_buffer_limits())
+        sock = transport.get_extra_info('socket')
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.transport = transport
+        clients = self.host.clients
+        for ix in range(len(clients)):
+            if clients[ix] is None:
+                break
+        else:
+            ix = len(clients)
+            clients.append(None)
+            for b in self.host.buf:
+                b.append(EMPTY_MSG)
+        self.ix = ix
+        self.client = Client(ix, self)
+        clients[ix] = self.client
+        print(f"Connected client at position {ix} from {transport.get_extra_info('peername')}")
+
+    def data_received(self, data):
+        host = self.host
+        ix = self.ix
+        self.recvd += data
+        try:
             while True:
-                l = len(recvd)
+                l = len(self.recvd)
                 if l < 4:
                     break
-                end = 4 + int.from_bytes(recvd[:4], 'big')
+                end = 4 + int.from_bytes(self.recvd[:4], 'big')
                 if end < 8:
                     print(f"Client {ix} sent too few bytes expecting minimum 4 for the frame ID")
-                    rm(host.clients, ix, cl)
-                    return
+                    raise Exception("Too few bytes")
                 if l < end:
+                    # We don't yet have enough data for the next complete message
                     break
-                src_frame = int.from_bytes(recvd[4:8], 'big')
-                payload = recvd[:end]
-                recvd = recvd[end:]
+                src_frame = int.from_bytes(self.recvd[4:8], 'big')
+                payload = self.recvd[:end]
+                self.recvd = self.recvd[end:]
 
                 if src_frame >= FRAME_ID_MAX:
                     print(f"Bad frame number {src_frame}, raising exception now")
@@ -115,66 +112,33 @@ async def handle_client(host, ix):
                             continue
                     dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
                 host.buf[dest_frame%BUF_SLOTS][ix] = payload
-    except:
-        # TODO Print exception
-        print(f"Exception, closing socket {ix}")
-        try:
-            rm(host.clients, ix, cl)
-        except:
-            pass # TODO be more descriptive
+        except Exception as exc:
+            print(f"Exception while handling client data, killing client {exc}")
+            traceback.print_exc()
+            self.transport.close()
 
-async def get_clients(host, port):
-    lp = asyncio.get_event_loop()
-
-    try:
-        # Open port
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.setblocking(False)
-        server_socket.bind((HOST, port))
-        server_socket.listen()
- 
-        print("Server started on port " + str(port))
-    except:
-        print("Couldn't open server port!")
-        traceback.print_exc()
-        return
-
-    clients = host.clients
-    while True:
-        s, _addr = await lp.sock_accept(server_socket)
-        s.setblocking(False)
-        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-
-        for ix in range(len(clients)):
-            if clients[ix] is None:
-                break
-        else:
-            ix = len(clients)
-            clients.append(None)
-            for b in host.buf:
-                b.append(EMPTY_MSG)
-        cl = Client(ix, s)
-        clients[ix] = cl
-        cl.handler = asyncio.create_task(handle_client(host, ix))
-        print(f"Connected client at position {ix}")
-    # TODO This is unreachable, do we need to clean this up?
-    #      May not matter since this only happens when the program exits,
-    #      in which case we can probably (maybe) rely on the OS to handle the cleanup
-    server_socket.shutdown(socket.SHUT_RDWR) # Not sure this is necessary, but I know it doesn't hurt!
-    server_socket.close()
-
-""" TODO: Rework into not operating directly on sockets?
-https://docs.python.org/3/library/asyncio-eventloop.html#working-with-socket-objects-directly
-
-In general, protocol implementations that use transport-based APIs such as loop.create_connection() and loop.create_server() are faster than implementations that work with sockets directly. However, there are some use cases when performance is not critical, and working with socket objects directly is more convenient.
-"""
+    def connection_lost(self, exc):
+        #rm MUST ONLY be called from here. If you want this, call client.nethandler.transport.close()
+        rm(self.host.clients, self.ix, self.client)
+        if exc is not None:
+            print(f'Client connection aborted: {exc}')
+            traceback.print_exc()
 
 async def loop(host, port, framerate = 30):
-    connection_listener = asyncio.create_task(get_clients(host, port))
-
-    recv_len_warnings = 10
-
+    lp = asyncio.get_event_loop()
+    try:
+        # Open port
+        server = await lp.create_server(
+            lambda: ClientNetHandler(host),
+            '', port,
+            reuse_address = True,
+            family=socket.AF_INET
+        )
+        print("Server started on port " + str(port))
+    except:
+        print("Couldn't create network server!")
+        traceback.print_exc()
+        return
 
     # Framerate setup
     incr = 1 / framerate
@@ -183,7 +147,6 @@ async def loop(host, port, framerate = 30):
     # Main loop
     # TODO: Maybe need an exit condition?
     while True:
-
         # Framerate
         t = time.monotonic()
         duration = target - t
@@ -192,11 +155,7 @@ async def loop(host, port, framerate = 30):
                 print("Missed a frame!")
             target = t
         else:
-            try:
-                await asyncio.sleep(duration)
-            except KeyboardInterrupt:
-                print("Keyboard interrupt caught, quitting")
-                break
+            await asyncio.sleep(duration)
         target += incr
 
         clients = host.clients.copy()
@@ -208,27 +167,22 @@ async def loop(host, port, framerate = 30):
         # Haven't done that yet, not sure how much help it would be.
         msg = frame.to_bytes(4, 'big') + len(clients).to_bytes(1, 'big')
         pieces = host.buf[frame%BUF_SLOTS]
+        # Add everyone's data to the message, then clear their data
         for ix in range(len(clients)):
             msg += pieces[ix]
             pieces[ix] = EMPTY_MSG
 
-        msg_len = len(msg)
         for ix in range(len(clients)):
             cl = clients[ix]
             if cl is None:
                 continue
             if cl.inited: # Ugh this feels ugly but oh well
                 m = msg
-                l = msg_len
             else:
+                # Make other clients aware by sending an intro message before the data.
                 cl.inited = True
                 m = bytes([0x80, ix, host.latency]) + frame.to_bytes(4, 'big') + msg
-                l = 7 + msg_len
-            if cl.sock.send(m) != l:
-                # Time to pay the piper for my shitty netcode,
-                # I think there's a good chance this will choke up if I try to send a couple KB at once...
-                print(f"Network backup, closing socket for client {ix}");
-                rm(host.clients, ix, cl)
+            cl.nethandler.transport.write(m)
 
     print("Gathering up tasks")
     connection_listener.cancel()
@@ -270,7 +224,6 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         starting_players = 0
-
 
     asyncio.get_event_loop().run_until_complete(loop(Host(latency, starting_players), port))
     print("Goodbye!")
