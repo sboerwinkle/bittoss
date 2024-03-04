@@ -55,10 +55,8 @@ class ClientNetHandler(asyncio.Protocol):
     def __init__(self, host):
         self.host = host
         self.recvd = b''
+
     def connection_made(self, transport):
-        print(transport.get_write_buffer_limits())
-        sock = transport.get_extra_info('socket')
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.transport = transport
         clients = self.host.clients
         for ix in range(len(clients)):
@@ -128,11 +126,17 @@ async def loop(host, port, framerate = 30):
     lp = asyncio.get_event_loop()
     try:
         # Open port
+        server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # This should be inherited by sockets created via 'accept'
+        server_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        # Asyncio turns off mapped addresses, so we have to provide our own socket with mapped addresses enabled
+        server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        server_socket.bind(('', port))
+
         server = await lp.create_server(
             lambda: ClientNetHandler(host),
-            '', port,
-            reuse_address = True,
-            family=socket.AF_INET
+            sock=server_socket
         )
         print("Server started on port " + str(port))
     except:
