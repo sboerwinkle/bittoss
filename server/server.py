@@ -232,7 +232,7 @@ async def loop(host, port, framerate = 30):
 
     print("Gathering up tasks")
     connection_listener.cancel()
-    await asycio.gather(connection_listener, return_exceptions=True)
+    await asyncio.gather(connection_listener, return_exceptions=True)
 
     # Originally we'd never get here until everybody had disconnected anyway,
     # so it we could assume the `gather` would complete almost immediately.
