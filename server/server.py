@@ -26,35 +26,11 @@ class Host:
         self.clients = [None] * starting_players
         self.latency = latency
 
-class Client:
-    def __init__(self, ix, nethandler):
-        self.ix = ix
-        self.nethandler = nethandler
-        self.inited = False
-
-def rm(clients, ix, cl):
-    if ix >= len(clients) or clients[ix] is not cl:
-        # We have a couple conditions that can cause us to throw out a client.
-        # Without getting too much into it, we've got at least one condition where we might try to remove somebody that's already removed.
-        # Fortunately we can just synchronize on the list of clients
-        return
-    clients[ix] = None
-    for c in clients:
-        if c is not None:
-            break
-    else:
-        # Normally we don't do this since the client doesn't handle disconnections as elegantly as new connections.
-        # (Partly by design; people should be allowed to rejoin games.)
-        # However, if there's nobody left to remember, we can cleanly reset w/out confusing anybody.
-        # This is also nice so the server can be running continuously, at least in theory.
-        print("All clients disconnected, resetting client list")
-        # I don't think this will mess up any threads? I guess we'll see...
-        clients.clear()
-
 class ClientNetHandler(asyncio.Protocol):
     def __init__(self, host):
         self.host = host
         self.recvd = b''
+        self.inited = False
 
     def connection_made(self, transport):
         self.transport = transport
@@ -68,8 +44,7 @@ class ClientNetHandler(asyncio.Protocol):
             for b in self.host.buf:
                 b.append(EMPTY_MSG)
         self.ix = ix
-        self.client = Client(ix, self)
-        clients[ix] = self.client
+        clients[ix] = self
         print(f"Connected client at position {ix} from {transport.get_extra_info('peername')}")
 
     def data_received(self, data):
@@ -93,8 +68,7 @@ class ClientNetHandler(asyncio.Protocol):
                 self.recvd = self.recvd[end:]
 
                 if src_frame >= FRAME_ID_MAX:
-                    print(f"Bad frame number {src_frame}, raising exception now")
-                    raise Exception("Bad frame number, invalid network communication")
+                    raise Exception("Bad frame number {src_frame}, invalid network communication")
                 delt = (host.frame + FRAME_ID_MAX//2 - src_frame) % FRAME_ID_MAX - FRAME_ID_MAX//2
                 if delt > host.latency:
                     print(f"client {ix} delivered packet {delt-host.latency} frames late")
@@ -111,16 +85,27 @@ class ClientNetHandler(asyncio.Protocol):
                     dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
                 host.buf[dest_frame%BUF_SLOTS][ix] = payload
         except Exception as exc:
-            print(f"Exception while handling client data, killing client {exc}")
+            print("Exception while handling client data, killing client")
             traceback.print_exc()
             self.transport.close()
 
     def connection_lost(self, exc):
-        #rm MUST ONLY be called from here. If you want this, call client.nethandler.transport.close()
-        rm(self.host.clients, self.ix, self.client)
+        print(f"Connection to client {self.ix} lost")
         if exc is not None:
-            print(f'Client connection aborted: {exc}')
-            traceback.print_exc()
+            # Apparently in Python 3.11 this is less clumsy
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
+        clients = self.host.clients
+        clients[self.ix] = None
+        for c in clients:
+            if c is not None:
+                break
+        else:
+            # Normally we don't do this since the client doesn't handle disconnections as elegantly as new connections.
+            # (Partly by design; people should be allowed to rejoin games.)
+            # However, if there's nobody left to remember, we can cleanly reset w/out confusing anybody.
+            # This is also nice so the server can be running continuously, at least in theory.
+            print("All clients disconnected, resetting client list")
+            clients.clear()
 
 async def loop(host, port, framerate = 30):
     lp = asyncio.get_event_loop()
@@ -183,20 +168,16 @@ async def loop(host, port, framerate = 30):
             if cl.inited: # Ugh this feels ugly but oh well
                 m = msg
             else:
-                # Make other clients aware by sending an intro message before the data.
+                # This is the first time we've talked to this client,
+                # they need to know which index they are and what latency
+                # we're using.
                 cl.inited = True
                 m = bytes([0x80, ix, host.latency]) + frame.to_bytes(4, 'big') + msg
-            cl.nethandler.transport.write(m)
-
-    print("Gathering up tasks")
-    connection_listener.cancel()
-    await asyncio.gather(connection_listener, return_exceptions=True)
-
-    # Originally we'd never get here until everybody had disconnected anyway,
-    # so it we could assume the `gather` would complete almost immediately.
-    # Now this is actually unreachable, so... guess we'll have to revisit this
-    # when the exit condition is fixed.
-    #await asyncio.gather(*handlers, return_exceptions = True)
+            cl.transport.write(m)
+    # End of our infinite `loop()`.
+    # We don't have any exit condition right now,
+    # but if we did we'd probably want to cancel `server`
+    # and possibly clean up anybody still in `host.clients`...
 
 if __name__ == "__main__":
     args = sys.argv
