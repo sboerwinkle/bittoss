@@ -68,7 +68,7 @@ class ClientNetHandler(asyncio.Protocol):
                 self.recvd = self.recvd[end:]
 
                 if src_frame >= FRAME_ID_MAX:
-                    raise Exception("Bad frame number {src_frame}, invalid network communication")
+                    raise Exception(f"Bad frame number {src_frame}, invalid network communication")
                 delt = (host.frame + FRAME_ID_MAX//2 - src_frame) % FRAME_ID_MAX - FRAME_ID_MAX//2
                 if delt > host.latency:
                     print(f"client {ix} delivered packet {delt-host.latency} frames late")
