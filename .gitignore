@@ -10,7 +10,7 @@ Makefile.old
 savegame
 *.gam
 *.itm
-!itm/*.itm
+!**/itm/*.itm
 
 # VIM files
 *.swp
