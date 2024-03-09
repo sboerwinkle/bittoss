@@ -4,7 +4,10 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 #include "main.h"
 
@@ -16,32 +19,74 @@ static char buf[BUF_SIZE];
 static int buf_ix = 0;
 static int buf_len = 0;
 
-char initSocket(char *srvAddr, int port) {
-	// This function lifted from Martin Boerwinkle's Ring Game
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+char initSocket(const char *srvAddr, const char* port){
+	struct addrinfo addrhints = {
+		.ai_flags =
+			// Use mapped addresses if the stars align
+			AI_V4MAPPED |
+			// Require numeric port numbers - don't accept service names
+			AI_NUMERICSERV |
+			// We plan to connect to the result - only return results for stuff that we can support (like no v6 addresses on v4-only hosts)
+			AI_ADDRCONFIG,
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_protocol = 0,
+		// Beyond this point are unused
+		.ai_addrlen = 0,
+		.ai_addr = NULL,
+		.ai_canonname = 0,
+		.ai_next = NULL
+	};
+	struct addrinfo* addrinfo = NULL;
+	int addrinfores = getaddrinfo(srvAddr, port, &addrhints, &addrinfo);
+	if(addrinfores != 0 || addrinfo == NULL){
+		const char* msg = "Unknown Error";
+		switch(addrinfores){
+			case EAI_AGAIN:
+				msg = "Temporary name resolution failure";
+				break;
+			case EAI_FAIL:
+				msg = "Permanent name resolution failure";
+				break;
+			case EAI_FAMILY:
+				msg = "IPv4/6 not supported";
+				break;
+			case EAI_NODATA:
+				msg = "Remote host has no addresses";
+				break;
+			case EAI_NONAME:
+				msg = "Unknown remote host or service";
+				break;
+		}
+		printf("GetAddrInfo failed: %s (%d)\n", msg, addrinfores);
+		return 1;
+	}
+	sockfd = socket(addrinfo->ai_addr->sa_family, SOCK_STREAM, 0);
 	if(sockfd < 0){
-		puts("Failed to create socket");
+		printf("Failed to create socket: '%s'\n", strerror(errno));
 		return 1;
 	}
-
-	struct sockaddr_in server;
-	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = inet_addr(srvAddr);
-	server.sin_port=htons(port);
-
-	printf("Connecting to server at %s\n", srvAddr);
-	if(connect(sockfd, (struct sockaddr*)&server, sizeof(server))){
-		puts("Failed to connect to server");
+	char hostbuf[64] = "UNKNOWN HOST";
+	char portbuf[32] = "UNKNOWN PORT";
+	// Don't perform name resolution - just tell us what numeric address/port we're connecting to.
+	if(0 != getnameinfo(addrinfo->ai_addr, addrinfo->ai_addrlen, hostbuf, 64, portbuf, 32, NI_NUMERICHOST|NI_NUMERICSERV)){
+		puts("Failed to get address name");
+	}
+	if(addrinfo->ai_addr->sa_family == AF_INET){
+		printf("Connecting to server at %s:%s\n", hostbuf, portbuf);
+	}else{
+		printf("Connecting to server at [%s]:%s\n", hostbuf, portbuf);
+	}
+	if(connect(sockfd, addrinfo->ai_addr, addrinfo->ai_addrlen)){
+		printf("Failed to connect to server: '%s'\n", strerror(errno));
 		return 1;
 	}
-
+	freeaddrinfo(addrinfo);
 	// Set TCP_NODELAY for more real-time TCP, we're not terribly concerned with network congestion.
 	int flag = 1;
-	int result = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
-	if (result < 0) {
-		printf("\n!!!!! Failed to set TCP_NODELAY, errno is %d\n\n", errno);
+	if(-1 == setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int))){
+		printf("Failed to set TCP_NODELAY: '%s'\n", strerror(errno));
 	}
-
 	return 0;
 }
 
@@ -53,16 +98,11 @@ void closeSocket() {
 	sockfd = -1;
 }
 
-static void cp(char* dst, char* src, int len) {
-	// Going to assume looping is faster than a syscall for the amounts of data we're dealing with here
-	while (len--) *(dst++) = *(src++);
-}
-
 char readData(void *dst_arg, int len) {
 	char *dst = (char*)dst_arg;
 	while (buf_ix + len > buf_len) {
 		int available = buf_len - buf_ix;
-		cp(dst, buf + buf_ix, available);
+		memcpy(dst, buf + buf_ix, available);
 		len -= available;
 		dst += available;
 		int ret = recv(sockfd, buf, BUF_SIZE, 0);
@@ -84,7 +124,7 @@ char readData(void *dst_arg, int len) {
 		buf_ix = 0;
 	}
 
-	cp(dst, buf + buf_ix, len);
+	memcpy(dst, buf + buf_ix, len);
 	buf_ix += len;
 	return 0;
 }

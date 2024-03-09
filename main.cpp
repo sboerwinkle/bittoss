@@ -1382,12 +1382,10 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	char *srvAddr = argv[1];
-	int port;
+	const char *port = "15000";
 	if (argc > 2) {
-		port = atoi(argv[2]);
-		printf("Using specified port of %d\n", port);
-	} else {
-		port = 15000;
+		port = argv[2];
+		printf("Using specified port of %s\n", port);
 	}
 
 	players.init();
