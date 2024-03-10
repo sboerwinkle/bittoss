@@ -15,6 +15,9 @@ There's some other stuff as well, but I'm not going to put effort into writing t
 
 sboerwinkle: Yours truly, primary author
 
-mboerwinkle: Starter graphics code, as well as some graphical QoL improvements
+mboerwinkle:
+
+- Starter graphics code, as well as some graphical QoL improvements
+- IPv6 support and host resolution for networking
 
 pboerwinkle: Designed `itm/statue.itm`
