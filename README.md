@@ -18,6 +18,6 @@ sboerwinkle: Yours truly, primary author
 mboerwinkle:
 
 - Starter graphics code, as well as some graphical QoL improvements
-- IPv6 support and host resolution for networking
+- IPv6 support, server hardening, and host resolution for networking
 
 pboerwinkle: Designed `itm/statue.itm`
