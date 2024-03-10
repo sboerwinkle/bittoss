@@ -199,8 +199,8 @@ async def loop(host, port, framerate = 30):
         host.frame = (frame+1)%FRAME_ID_MAX
 
         host.clientpool += CLIENT_POOL_RECOVERY_PER_SEC * incr
-        if host.clientpool > MAX_CLIENTS:
-            host.clientpool = MAX_CLIENTS
+        if host.clientpool > CLIENT_POOL:
+            host.clientpool = CLIENT_POOL
 
         # Considered sending the frame early if we got all the data in,
         # including a 4-byte "delay" entry in the header.
