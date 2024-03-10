@@ -15,17 +15,20 @@ if (FRAME_ID_MAX % BUF_SLOTS != 0):
     print("Bad server configuration, please fix bugs.")
     exit()
 
+# max number of clients at any given time
 MAX_CLIENTS = 32
-# how big can a single 'message' be from a client. Unit is bytes
+# max number of new clients in a quick burst. We allow our clients to fill up immediately on server start.
+CLIENT_POOL = MAX_CLIENTS
+# max sustained rate of new clients. Unit is clients/sec
+CLIENT_POOL_RECOVERY_PER_SEC = 0.2
+# how big can a single 'message' be from a client (how much data can be associated with one game frame). Unit is bytes
 MAX_MESSAGE_SIZE = 2 * (1024 * 1024)
 # max built-up leeway before kicking a client for over-usage. Unit is bytes
 USAGE_POOL = 4 * (1024 * 1024)
 # max sustained data transfer. Unit is bytes/sec
 USAGE_POOL_RECOVERY_PER_SEC = 20 * 1024
-# allow a sustained rate of one new connection every 1/CLIENT_POOL_RECOVERY_PER_SEC seconds. Unit is clients/sec
-CLIENT_POOL_RECOVERY_PER_SEC = 0.2
-# allow our max clients to fill up immediately on server start. Unit is clients
-CLIENT_POOL = MAX_CLIENTS
+# We add some bytes to our usage calculations to compensate for headers. Unit is bytes
+HEADERADJ = 120
 
 EMPTY_MSG = b'\0\0\0\0'
 
@@ -36,6 +39,7 @@ class Host:
         self.buf = [[EMPTY_MSG] * starting_players for _ in range(BUF_SLOTS)]
         self.frame = 0
         self.clients = [None] * starting_players
+        self.clientpool = CLIENT_POOL
         self.latency = latency
 
 class ClientNetHandler(asyncio.Protocol):
@@ -45,17 +49,15 @@ class ClientNetHandler(asyncio.Protocol):
         self.inited = False
         # for client network-rate-limiting
         self.usagepool = USAGE_POOL
-        self.usage = 0
         self.usagesince = time.monotonic()
 
     def connection_made(self, transport):
-        global CLIENT_POOL
         self.transport = transport
         # for client reconnection limiting
-        if CLIENT_POOL < 1:
-            print("Rejecting client because CLIENT_POOL is exhausted")
+        if self.host.clientpool < 1:
+            print("Rejecting client because host's clientpool is exhausted")
             self.transport.close()
-        CLIENT_POOL -= 1
+        self.host.clientpool -= 1
         clients = self.host.clients
         for ix in range(len(clients)):
             if clients[ix] is None:
@@ -78,17 +80,13 @@ class ClientNetHandler(asyncio.Protocol):
         self.recvd += data
 
         ti = time.monotonic()
-        # We add some bytes to our usage calculations to compensate for headers.
-        HEADERADJ = 120
-        self.usage += len(data)+HEADERADJ
-        self.usagepool -= len(data)+HEADERADJ
         if ti - self.usagesince >= 1.0:
             self.usagepool += USAGE_POOL_RECOVERY_PER_SEC*(ti-self.usagesince)
             if self.usagepool > USAGE_POOL:
                 self.usagepool = USAGE_POOL
             #print(f"Client {ix} data usage: {round(self.usage/(ti-self.usagesince)/1024, 1)} kb/sec (sustained max limit is {round(USAGE_POOL_RECOVERY_PER_SEC/1024, 1)} kb/sec, pool remaining is {round(self.usagepool/1024, 1)} kb)")
-            self.usage = 0
             self.usagesince = ti
+        self.usagepool -= len(data)+HEADERADJ
         if self.usagepool < 0:
             print(f"Closed client {ix} for using too much data")
             self.transport.close()
@@ -101,6 +99,10 @@ class ClientNetHandler(asyncio.Protocol):
                 if end < 8:
                     print(f"Client {ix} sent too few bytes expecting minimum 4 for the frame ID")
                     raise Exception("Too few bytes")
+                if end > MAX_MESSAGE_SIZE:
+                    print(f"Closed client {ix} for trying to broadcast too large a message")
+                    self.transport.close()
+                    break
                 if l < end:
                     # We don't yet have enough data for the next complete message
                     break
@@ -149,7 +151,6 @@ class ClientNetHandler(asyncio.Protocol):
             clients.clear()
 
 async def loop(host, port, framerate = 30):
-    global CLIENT_POOL
     lp = asyncio.get_event_loop()
     try:
         # Open port
@@ -193,12 +194,9 @@ async def loop(host, port, framerate = 30):
         frame = host.frame
         host.frame = (frame+1)%FRAME_ID_MAX
 
-        CLIENT_POOL += CLIENT_POOL_RECOVERY_PER_SEC * incr
-        if CLIENT_POOL > MAX_CLIENTS:
-            CLIENT_POOL = MAX_CLIENTS
-        else:
-            pass
-            # print(f"Client pool: {CLIENT_POOL}")
+        host.clientpool += CLIENT_POOL_RECOVERY_PER_SEC * incr
+        if host.clientpool > MAX_CLIENTS:
+            host.clientpool = MAX_CLIENTS
 
         # Considered sending the frame early if we got all the data in,
         # including a 4-byte "delay" entry in the header.
