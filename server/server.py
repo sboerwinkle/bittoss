@@ -18,6 +18,7 @@ if (FRAME_ID_MAX % BUF_SLOTS != 0):
 # max number of clients at any given time
 MAX_CLIENTS = 32
 # max number of new clients in a quick burst. We allow our clients to fill up immediately on server start.
+# Probably not any reason this should ever be different from MAX_CLIENTS.
 CLIENT_POOL = MAX_CLIENTS
 # max sustained rate of new clients. Unit is clients/sec
 CLIENT_POOL_RECOVERY_PER_SEC = 0.2
@@ -84,7 +85,7 @@ class ClientNetHandler(asyncio.Protocol):
             self.usagepool += USAGE_POOL_RECOVERY_PER_SEC*(ti-self.usagesince)
             if self.usagepool > USAGE_POOL:
                 self.usagepool = USAGE_POOL
-            #print(f"Client {ix} data usage: {round(self.usage/(ti-self.usagesince)/1024, 1)} kb/sec (sustained max limit is {round(USAGE_POOL_RECOVERY_PER_SEC/1024, 1)} kb/sec, pool remaining is {round(self.usagepool/1024, 1)} kb)")
+            #print(f"Client {ix} data usage pool remaining is {round(self.usagepool/1024, 1)} kb)")
             self.usagesince = ti
         self.usagepool -= len(data)+HEADERADJ
         if self.usagepool < 0:
