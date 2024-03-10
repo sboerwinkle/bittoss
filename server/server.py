@@ -112,6 +112,8 @@ class ClientNetHandler(asyncio.Protocol):
 
                 if src_frame >= FRAME_ID_MAX:
                     raise Exception(f"Bad frame number {src_frame}, invalid network communication")
+                # TODO Feels like this `dest_frame` logic needs to be rearranged to express the same
+                #      checks in a less confusing way, but I'm too tired for that right now
                 delt = (host.frame + FRAME_ID_MAX//2 - src_frame) % FRAME_ID_MAX - FRAME_ID_MAX//2
                 if delt > host.latency:
                     print(f"client {ix} delivered packet {delt-host.latency} frames late")
@@ -121,8 +123,10 @@ class ClientNetHandler(asyncio.Protocol):
                 else:
                     if delt <= 0:
                         print(f"client {ix} delivered packet {1-delt} frames _early_?")
-                        # If it's too far in advance, we'd be writing it into a weird nonsense place
-                        if host.latency - delt >= BUF_SLOTS:
+                        # If it's too far in advance, we'd be writing it into a weird nonsense place.
+                        # We add a `- 1` to protect the previous buffer slot, which the outbound "thread"
+                        # might be reading from currently.
+                        if host.latency - delt >= BUF_SLOTS - 1:
                             print("    (discarding)")
                             continue
                     dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
