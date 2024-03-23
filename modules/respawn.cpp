@@ -30,7 +30,7 @@ static void respawn_tick(gamestate *gs, ent *me) {
 	int32_t mask = getSlider(me, 0);
 	int32_t check = getSlider(me, 1);
 	int32_t delay = getSlider(me, 2);
-	list<player> *ps = gs->players;
+	list<player> *ps = &gs->players;
 	player *toRevive = NULL;
 	range(i, ps->num) {
 		player *p = &(*ps)[i];

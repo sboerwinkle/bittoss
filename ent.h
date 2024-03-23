@@ -188,7 +188,7 @@ struct gamestate {
 	int32_t gamerules;
 	box *rootBox;
 
-	list<player> *players;
+	list<player> players;
 };
 
 extern void boundVec(int32_t *values, int32_t bound, int32_t len);
@@ -212,11 +212,11 @@ extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
 extern void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson);
 extern void doCleanup(gamestate *gs);
-extern gamestate* mkGamestate(list<player> *players);
+extern gamestate* mkGamestate();
 extern void resetGamestate(gamestate *gs);
 
 extern rand_t random(gamestate *gs);
-extern gamestate* dup(gamestate *gs, list<player> *players);
+extern gamestate* dup(gamestate *gs);
 
 extern void ent_init();
 extern void ent_destroy();

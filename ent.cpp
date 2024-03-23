@@ -458,6 +458,11 @@ static char doIteration(gamestate *gs) {
 }
 
 static void invokeOnCrush(gamestate *gs) {
+	// TODO: Ents added here won't have `old` set,
+	//       which is necessary for interpolation.
+	//       Additionally, maybe worth an audit: if any ents are added during
+	//       collision resolution, their uninitialized `old` could result in
+	//       desync.
 	for (ent *e = gs->deadTail; e; e = e->ll.p) {
 		// Skip handler if dead > 1
 		if (e->crush && e->dead == 1) (*e->crush)(gs, e);
@@ -923,13 +928,13 @@ void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 	clearDeads(gs);
 	velbox_freeRoot(gs->rootBox);
+	gs->players.destroy();
 }
 
-gamestate *mkGamestate(list<player> *players) {
+gamestate *mkGamestate() {
 	gamestate *ret = (gamestate*)calloc(1, sizeof(gamestate));
 	ret->rand = 1;
-	players->num = 0;
-	ret->players = players;
+	ret->players.init();
 	ret->rootBox = velbox_getRoot();
 	return ret;
 }
@@ -937,13 +942,11 @@ gamestate *mkGamestate(list<player> *players) {
 // Usually we'll just make a new one, but it's possible to need this version as well.
 // Note that we're not cleaning anything up, so the caller had better do that first!
 void resetGamestate(gamestate *gs) {
-	// Save off `players`
-	list<player> *p = gs->players;
 	// Zero everything
 	bzero(gs, sizeof(gamestate));
-	// Restore / reset the fields we care about
-	gs->players = p;
+
 	gs->rand = 1;
+	gs->players.init();
 	gs->rootBox = velbox_getRoot();
 }
 
@@ -1016,7 +1019,7 @@ static box* cloneBox(box *b) {
 	return ret;
 }
 
-gamestate* dup(gamestate *in, list<player> *players) {
+gamestate* dup(gamestate *in) {
 	gamestate *ret = (gamestate*) malloc(sizeof(gamestate));
 
 	ret->rand = in->rand;
@@ -1066,15 +1069,14 @@ gamestate* dup(gamestate *in, list<player> *players) {
 
 	ret->flipFlop_death = in->flipFlop_death;
 
-	players->num = 0;
-	players->addAll(*in->players);
-	range(i, players->num) {
-		player *p = &(*players)[i];
+	ret->players.init();
+	ret->players.addAll(in->players);
+	range(i, ret->players.num) {
+		player *p = &ret->players[i];
 		if (p->entity) {
 			p->entity = p->entity->clone.ref;
 		}
 	}
-	ret->players = players;
 
 	ret->rootBox = cloneBox(in->rootBox);
 	ret->rootBox->parent = NULL;

@@ -37,7 +37,7 @@
 
 char globalRunning = 1;
 
-static list<player> players, phantomPlayers;
+static list<player> *phantomPlayers;
 static int myPlayer;
 
 static char const * defaultColors[6] = {
@@ -71,6 +71,13 @@ struct inputs {
 	// may want to consider a `queue` of message objects or something...
 };
 inputs activeInputs = {0}, sharedInputs = {0};
+
+static struct {
+	gamestate *gs;
+	char gfxResponsible;
+} renderData;
+gamestate *renderedState;
+pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int typingLen = -1;
 
@@ -232,7 +239,7 @@ static void drawOverlay(list<player> *ps) {
 }
 
 static void resetPlayer(gamestate *gs, int i) {
-	player *p = &(*gs->players)[i];
+	player *p = &gs->players[i];
 	// A really big number; new players should be considered as "dead a long time" so they spawn immediately
 	p->reviveCounter = 100000;
 	p->data = 0;
@@ -241,7 +248,13 @@ static void resetPlayer(gamestate *gs, int i) {
 }
 
 static void resetPlayers(gamestate *gs) {
-	range(i, gs->players->num) resetPlayer(gs, i);
+	range(i, gs->players.num) resetPlayer(gs, i);
+}
+
+static void setupPlayers(gamestate *gs, int numPlayers) {
+	gs->players.setMaxUp(numPlayers);
+	gs->players.num = numPlayers;
+	resetPlayers(gs);
 }
 
 static void saveGame(const char *name) {
@@ -447,9 +460,9 @@ static void handleSharedInputs(int outboundFrame) {
 }
 
 static void mkHeroes(gamestate *gs) {
-	int numPlayers = gs->players->num;
+	int numPlayers = gs->players.num;
 	range(i, numPlayers) {
-		player *p = &(*gs->players)[i];
+		player *p = &gs->players[i];
 		if (p->entity == NULL) {
 			if (p->reviveCounter < FRAMERATE * 3) continue;
 			p->entity = mkHero(gs, i, numPlayers);
@@ -460,9 +473,9 @@ static void mkHeroes(gamestate *gs) {
 }
 
 static void cleanupDeadHeroes(gamestate *gs) {
-	int numPlayers = gs->players->num;
+	int numPlayers = gs->players.num;
 	range(i, numPlayers) {
-		player *p = &(*gs->players)[i];
+		player *p = &gs->players[i];
 		if (p->entity && p->entity->dead) {
 			p->entity = NULL;
 			if (i == myPlayer) thirdPerson = 1;
@@ -635,7 +648,7 @@ static void processLoopbackCommand(gamestate *gs) {
 			puts("/export requries a filename");
 			return;
 		}
-		ent *me = (*gs->players)[myPlayer].entity;
+		ent *me = gs->players[myPlayer].entity;
 		edit_export(gs, me, c + 8);
 	} else {
 		printf("Unknown loopback command: %s\n", c);
@@ -708,12 +721,13 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		if (!isReal) return;
 		if (*(unsigned char*)data == BIN_CMD_LOAD) isLoader = isMe;
 		syncNeeded = 0;
+		int numPlayers = rootState->players.num;
 		doCleanup(rootState);
 		// Can't make a new gamestate here (as we might be tempted to),
 		// since stuff further up the call stack (like `doUpdate`) has a reference
 		// to the existing `gamestate` pointer
 		resetGamestate(rootState);
-		resetPlayers(rootState);
+		setupPlayers(rootState, numPlayers);
 
 		list<char> fakeList;
 		fakeList.items = data+1;
@@ -829,7 +843,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 
 static char doWholeStep(gamestate *state, char *inputData, char *data2, int32_t expectedFrame) {
 	unsigned char numPlayers = *inputData++;
-	list<player> &players = *state->players;
+	list<player> &players = state->players;
 	players.setMaxUp(numPlayers);
 	while (players.num < numPlayers) {
 		resetPlayer(state, players.num++);
@@ -946,7 +960,8 @@ void requestReload(gamestate const * const gs) {
 static void cloneToPhantom() {
 	doCleanup(phantomState);
 	free(phantomState);
-	phantomState = dup(rootState, &phantomPlayers);
+	phantomState = dup(rootState);
+	phantomPlayers = &phantomState->players;
 }
 
 static void* pacedThreadFunc(void *_arg) {
@@ -960,7 +975,7 @@ static void* pacedThreadFunc(void *_arg) {
 	list<char> latestFrameData;
 	{
 		// Initialize it with valid (but "empty") data
-		int numPlayers = rootState->players->num;
+		int numPlayers = rootState->players.num;
 		latestFrameData.init(1 + numPlayers*4);
 		latestFrameData.add(numPlayers);
 		range(i, numPlayers*4) latestFrameData.add(0);
@@ -1014,20 +1029,80 @@ static void* pacedThreadFunc(void *_arg) {
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
 
+		// Wake up and send player inputs
 		handleSharedInputs(outboundFrame);
 		outboundFrame = (outboundFrame + 1) % FRAME_ID_MAX;
 
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-		outerSetupFrame(&phantomPlayers);
 
-		ent *root = phantomPlayers[myPlayer].entity;
+		// Contract information for the renderData:
+		// TODO: the "Access" flags can be done away with if we clone phantomState
+		//       in the event that we have no further server data available for viewing.
+		//       (just need to be sure cloning a gamestate that Gfx Thread might be
+		//        looking at won't cause problems)
+		/*
+			the gamestate object - written only by Paced thread
+			`requestPacedAccess` - set by Paced, cleared by Gfx
+			`gfxAccess` - set by Paced, cleared by Gfx
+			`gfxResponsible` - set by Gfx, cleared by Paced
+			Gfx thread is responsible for disposing of the given object
+				Gfx thread will wait until it has been changed to something else
+				(or program termination)
+				to dispose of it, as paced thread may still need it
+			Gfx thread will not write to the given object
+			Upon completion of a frame, Gfx thread will lock the renderData and:
+				Determine if it has a wakeup time
+				if no wakeup time, and object is unchanged:
+					gfxDoneWithRenderData();
+				Sleep on signal (with wakeup time, as appropriate) ...
+				If program exit:
+					if object is changed:
+						free old object
+					gfxDoneWithRenderData();
+				Figure out if it's time to render
+				update `gfxResponsible` and thread-private variables as appropriate
+			void gfxDoneWithRenderData() {
+				renderData.gfxAccess = 0;
+				if(renderData.requestPacedAccess) {
+					renderData.requestPacedAccess = 0;
+					// TODO Signal other thread. Or should we do away with this and always signal?
+				}
+			}
+		*/
+
+
+		// TODO: Right now we're drawing,
+		//       but instead we probably want to:
+		//       - If our phantom state is the same as the renderData one:
+		//       	- lock render data
+		//       	if (renderData.gfxAccess) {
+		//       		renderData.requestPacedAccess = 1;
+		//       		do {
+		//       			// TODO sleep on cond
+		//       		} while (renderData.gfxAccess && !/*TODO exit cont*/0);
+		//       	}
+		//       - simulate phantom state forward 1 step using recently-captured inputs
+		//       - lock some mutex for talking to GFX thread - is this also the input thread?
+		//       	- If object is different
+		//         		- if not gfxResponsible
+		//         			put the item in a thread-local variable so we can clean it up
+		//         		write new object in
+		//         		clear gfxResponsible
+		//         	Set gfxAccess
+		//         	Set timing info
+		//         	Signal other thread
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+		outerSetupFrame(phantomPlayers);
+
+		ent *root = (*phantomPlayers)[myPlayer].entity;
 		if (root) root = root->holdRoot;
 		doDrawing(phantomState, root, thirdPerson);
 
-		drawOverlay(&phantomPlayers);
+		drawOverlay(phantomPlayers);
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 		glfwSwapBuffers(display);
+
+
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
 		int framesProcessed = 0;
@@ -1069,6 +1144,10 @@ static void* pacedThreadFunc(void *_arg) {
 			cloneToPhantom();
 			outboundStart = 0;
 		} else {
+			// TODO Idea is that in this case we would clone the phantom to a new phantom,
+			//      so we're never operating on a state we've offered to the Gfx thread.
+			//      We also don't have to do any stepping here at all; we've already applied
+			//      the most recent input to the existing phantom, at the top of the loop.
 			outboundStart = outboundSize - 1;
 		}
 		while (outboundStart < outboundSize) {
@@ -1296,6 +1375,27 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	activeInputs.framebuffer.changed = 1;
 }
 
+static void maybeRender() {
+	gamestate *freeMe = NULL;
+
+	lock(renderMutex);
+	if (renderData.gfxResponsible) { // Ofc this condition will have to change
+		unlock(renderMutex);
+		return;
+	}
+	if (renderData.gs != renderedState) { // Always true, at the moment
+		freeMe = renderedState;
+		renderedState = renderData.gs;
+		renderData.gfxResponsible = 1;
+	}
+	unlock(renderMutex);
+
+	if (freeMe != NULL) {
+		doCleanup(freeMe);
+		free(freeMe);
+	}
+}
+
 static void* inputThreadFunc(void *_arg) {
 	glfwSetKeyCallback(display, key_callback);
 	glfwSetCharCallback(display, character_callback);
@@ -1307,14 +1407,9 @@ static void* inputThreadFunc(void *_arg) {
 	while (!glfwWindowShouldClose(display)) {
 		glfwWaitEvents();
 		shareInputs();
+		maybeRender();
 	}
 	return NULL;
-}
-
-static void setupPlayers(gamestate *gs, int numPlayers) {
-	gs->players->setMaxUp(numPlayers);
-	gs->players->num = numPlayers;
-	resetPlayers(gs);
 }
 
 static void* netThreadFunc(void *_arg) {
@@ -1388,12 +1483,12 @@ int main(int argc, char **argv) {
 		printf("Using specified port of %s\n", port);
 	}
 
-	players.init();
-	phantomPlayers.init();
+	renderData.gs = NULL;
+	renderData.gfxResponsible = 1;
 
 	velbox_init();
-	rootState = mkGamestate(&players);
-	phantomState = mkGamestate(&phantomPlayers);
+	rootState = mkGamestate();
+	phantomState = mkGamestate();
 
 	init_registrar();
 	init_entFuncs();
@@ -1554,10 +1649,6 @@ int main(int argc, char **argv) {
 	puts("Done.");
 	puts("Cleaning up GLFW...");
 	glfwTerminate();
-	puts("Done.");
-	puts("Final misc cleanup...");
-	players.destroy();
-	phantomPlayers.destroy();
 	puts("Done.");
 	puts("Cleanup complete, goodbye!");
 	return 0;

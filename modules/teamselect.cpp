@@ -32,9 +32,9 @@ static void updatePlayer(ent *me, player *p) {
 }
 
 static void teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
-	list<player> *ps = gs->players;
-	range(i, ps->num) {
-		player *p = &(*ps)[i];
+	list<player> &ps = gs->players;
+	range(i, ps.num) {
+		player *p = &ps[i];
 		if (p->entity == him) {
 			updatePlayer(me, p);
 		}

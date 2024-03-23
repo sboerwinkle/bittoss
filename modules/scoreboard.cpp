@@ -34,10 +34,10 @@ static void scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 }
 
 static void scoreboard_tick(gamestate *gs, ent *me) {
-	list<player> *ps = gs->players;
+	list<player> &ps = gs->players;
 	int alive = 0;
-	range(i, ps->num) {
-		player *p = &(*ps)[i];
+	range(i, ps.num) {
+		player *p = &ps[i];
 		if (!p->entity) continue;
 		alive |= 1 << (3 & p->data);
 	}

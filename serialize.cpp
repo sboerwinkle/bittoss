@@ -161,10 +161,10 @@ void serialize(gamestate *gs, list<char> *data) {
 
 	serializeEnts(gs->ents, data, zeroVec, zeroVec);
 
-	int numPlayers = gs->players->num;
+	int numPlayers = gs->players.num;
 	write32(data, numPlayers);
 	range(i, numPlayers) {
-		player *p = &(*gs->players)[i];
+		player *p = &gs->players[i];
 		write32(data, p->color);
 		write32(data, p->reviveCounter);
 		write32(data, p->data);
@@ -324,7 +324,7 @@ void deserialize(gamestate *gs, const list<char> *data) {
 	player dummy;
 	range(i, serializedPlayers) {
 		player *p;
-		if (i < gs->players->num) p = &(*gs->players)[i];
+		if (i < gs->players.num) p = &gs->players[i];
 		else p = &dummy;
 
 		p->color = read32(data, ix);
