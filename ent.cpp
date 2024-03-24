@@ -12,7 +12,7 @@
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
-static list<ent*> entList;
+static list<ent*> entList, stippleList;
 static tick_t bulletHeldTick;
 
 void boundVec(int32_t *values, int32_t bound, int32_t len) {
@@ -890,7 +890,7 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson) {
 			// If a lot of things need this behavior, maybe figure out some way to unify this
 			// sort of thing with the `T_NO_DRAW_FP` hack.
 			if (e->tickHeld != bulletHeldTick) {
-				entList.add(e);
+				stippleList.add(e);
 				return;
 			}
 		} else {
@@ -909,14 +909,14 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson) {
 
 void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson) {
 	// We'll add things to this list in `drawEnt` if it should be stippled instead
-	entList.num = 0;
+	stippleList.num = 0;
 	for (ent *i = gs->ents; i; i = i->ll.n) {
 		drawEnt(i, inhabit, thirdPerson);
 	}
 
 	stipple();
-	for (int i = 0; i < entList.num; i++) {
-		drawEnt(entList[i], NULL, 0);
+	for (int i = 0; i < stippleList.num; i++) {
+		drawEnt(stippleList[i], NULL, 0);
 	}
 }
 
@@ -1088,9 +1088,11 @@ gamestate* dup(gamestate *in) {
 
 void ent_init() {
 	entList.init();
+	stippleList.init();
 	bulletHeldTick = tickHandlers.get(TICK_HELD_BULLET);
 	// Used to do something lol
 }
 void ent_destroy() {
 	entList.destroy();
+	stippleList.destroy();
 }

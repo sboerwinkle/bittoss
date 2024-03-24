@@ -37,7 +37,6 @@
 
 char globalRunning = 1;
 
-static list<player> *phantomPlayers;
 static int myPlayer;
 
 static char const * defaultColors[6] = {
@@ -60,23 +59,20 @@ struct inputs {
 	char textBuffer[TEXT_BUF_LEN];
 	char sendInd;
 
-	// Since the "paced" thread draws the scene, it's also responsible for miscellaneous GL housekeeping.
-	// This includes notifying GL when the framebuffer changes resolution.
-	struct {
-		int width, height;
-		char changed;
-	} framebuffer;
-
 	// If this struct gets much bigger,
 	// may want to consider a `queue` of message objects or something...
 };
 inputs activeInputs = {0}, sharedInputs = {0};
 
+struct {
+	int width, height;
+	char changed;
+} framebuffer;
+
 static struct {
-	gamestate *gs;
-	char gfxResponsible;
+	gamestate *pickup, *dropoff;
 } renderData;
-gamestate *renderedState;
+gamestate *renderedState = NULL;
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int typingLen = -1;
@@ -152,7 +148,7 @@ static char doReload = 0;
 #define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
-static void outerSetupFrame(list<player> *ps) {
+static void outerSetupFrame(list<player> *ps, gamestate *gs) {
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
 	// atomic on modern processors, but whatever the case:
@@ -192,7 +188,7 @@ static void outerSetupFrame(list<player> *ps) {
 		ray[0] = -sine * pitchCos;
 		ray[1] = cosine * pitchCos;
 		ray[2] = -sin(pitchRadians);
-		forward = -cameraCast(phantomState, ghostCenter, ray, e);
+		forward = -cameraCast(gs, ghostCenter, ray, e);
 		if (forward < -80*PTS_PER_PX) forward = -80*PTS_PER_PX;
 	}
 	if (e) {
@@ -440,9 +436,9 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 }
 
 static void updateResolution() {
-	if (sharedInputs.framebuffer.changed) {
-		sharedInputs.framebuffer.changed = 0;
-		setDisplaySize(sharedInputs.framebuffer.width, sharedInputs.framebuffer.height);
+	if (framebuffer.changed) {
+		framebuffer.changed = 0;
+		setDisplaySize(framebuffer.width, framebuffer.height);
 	}
 }
 
@@ -452,7 +448,6 @@ static void handleSharedInputs(int outboundFrame) {
 	lock(sharedInputsMutex);
 
 	serializeControls(outboundFrame, out);
-	updateResolution();
 
 	unlock(sharedInputsMutex);
 
@@ -497,10 +492,6 @@ void shareInputs() {
 		activeInputs.sendInd = 0;
 		sharedInputs.sendInd = 1;
 		strcpy(sharedInputs.textBuffer, activeInputs.textBuffer);
-	}
-	if (activeInputs.framebuffer.changed) {
-		sharedInputs.framebuffer = activeInputs.framebuffer;
-		activeInputs.framebuffer.changed = 0;
 	}
 	unlock(sharedInputsMutex);
 }
@@ -957,15 +948,13 @@ void requestReload(gamestate const * const gs) {
 	if (isLoader) doReload = 1;
 }
 
-static void cloneToPhantom() {
-	doCleanup(phantomState);
-	free(phantomState);
-	phantomState = dup(rootState);
-	phantomPlayers = &phantomState->players;
+static void newPhantom(gamestate *gs) {
+	phantomState = dup(gs);
 }
 
 static void* pacedThreadFunc(void *_arg) {
-	glfwMakeContextCurrent(display);
+	// This was necessary when this thread did GFX work
+	// glfwMakeContextCurrent(display);
 
 	long destNanos;
 	long performanceTotal = 0;
@@ -1069,6 +1058,36 @@ static void* pacedThreadFunc(void *_arg) {
 			}
 		*/
 
+		// TODO working on this, need to roll phantomState forward based on latest inputs and pass over to input/gfx thread.
+		{
+			char *newestData = outboundData.peek(outboundData.size() -  1).items;
+			// You could argue that we should update `latestFrameData` before we take this step,
+			// but I think it's better to not. If there's an event at time T, and another player
+			// presses their button on that event, currently our prediction of what happens at T
+			// looks like this (as "real" time gets closer to and then reaches T):
+			// "didn't press" -> "pressed on time"
+			// If we update latestFrameData here, then instead we add a frame in the middle:
+			// "didn't press" -> "pressed late" -> "pressed on time"
+			doWholeStep(phantomState, latestFrameData.items, newestData, 0);
+			gamestate *disposeMe = NULL;
+
+			lock(renderMutex);
+			if (renderData.dropoff) {
+				disposeMe = renderData.dropoff;
+				renderData.dropoff = NULL;
+			} else if (renderData.pickup) {
+				disposeMe = renderData.pickup;
+			}
+			renderData.pickup = phantomState;
+			unlock(renderMutex);
+
+			glfwPostEmptyEvent();
+			if (disposeMe) {
+				doCleanup(disposeMe);
+				free(disposeMe);
+			}
+		}
+
 
 		// TODO: Right now we're drawing,
 		//       but instead we probably want to:
@@ -1091,20 +1110,9 @@ static void* pacedThreadFunc(void *_arg) {
 		//         	Set timing info
 		//         	Signal other thread
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-		outerSetupFrame(phantomPlayers);
-
-		ent *root = (*phantomPlayers)[myPlayer].entity;
-		if (root) root = root->holdRoot;
-		doDrawing(phantomState, root, thirdPerson);
-
-		drawOverlay(phantomPlayers);
-
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
-		glfwSwapBuffers(display);
-
-
-
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
+
 		int framesProcessed = 0;
 		while(1) {
 			lock(timingMutex); // Should we hang onto this lock for longer??
@@ -1138,25 +1146,22 @@ static void* pacedThreadFunc(void *_arg) {
 
 		outboundData.multipop(framesProcessed);
 
-		int outboundSize = outboundData.size();
-		int outboundStart;
 		if (framesProcessed) {
-			cloneToPhantom();
-			outboundStart = 0;
+			newPhantom(rootState);
+			int outboundSize = outboundData.size();
+			for (int outboundIx = 0; outboundIx < outboundSize; outboundIx++) {
+				char *myData = outboundData.peek(outboundIx).items;
+				doWholeStep(phantomState, latestFrameData.items, myData, 0);
+			}
 		} else {
-			// TODO Idea is that in this case we would clone the phantom to a new phantom,
-			//      so we're never operating on a state we've offered to the Gfx thread.
-			//      We also don't have to do any stepping here at all; we've already applied
-			//      the most recent input to the existing phantom, at the top of the loop.
-			outboundStart = outboundSize - 1;
-		}
-		while (outboundStart < outboundSize) {
-			char *myData = outboundData.peek(outboundStart++).items;
-			doWholeStep(phantomState, latestFrameData.items, myData, 0);
+			// We still need to make a copy since the rendering stuff is probably working with
+			// the current phantomState.
+			newPhantom(phantomState);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
 		{
+			// TODO All this timing stuff will have to be reconsidered since we're moving stuff about
 			draw_micros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
 			flip_micros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
 			phys_micros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
@@ -1370,30 +1375,36 @@ static void window_focus_callback(GLFWwindow* window, int focused) {
 }
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-	activeInputs.framebuffer.width = width;
-	activeInputs.framebuffer.height = height;
-	activeInputs.framebuffer.changed = 1;
+	framebuffer.width = width;
+	framebuffer.height = height;
+	framebuffer.changed = 1;
 }
 
 static void maybeRender() {
-	gamestate *freeMe = NULL;
-
 	lock(renderMutex);
-	if (renderData.gfxResponsible) { // Ofc this condition will have to change
+	if (!renderData.pickup) {
 		unlock(renderMutex);
 		return;
 	}
-	if (renderData.gs != renderedState) { // Always true, at the moment
-		freeMe = renderedState;
-		renderedState = renderData.gs;
-		renderData.gfxResponsible = 1;
-	}
+	// TODO: We might use marginally less RAM on average if we dropoff as soon as
+	// we finish rendering all the frames we want to from this gamestate.
+	renderData.dropoff = renderedState;
+	renderedState = renderData.pickup;
+	renderData.pickup = NULL;
 	unlock(renderMutex);
 
-	if (freeMe != NULL) {
-		doCleanup(freeMe);
-		free(freeMe);
-	}
+	// Timing T1 was here
+	list<player> *players = &renderedState->players;
+	outerSetupFrame(players, renderedState);
+
+	ent *root = (*players)[myPlayer].entity;
+	if (root) root = root->holdRoot;
+	doDrawing(renderedState, root, thirdPerson);
+
+	drawOverlay(players);
+	// Timing T2 was here
+	glfwSwapBuffers(display);
+	// Timing T3 was here
 }
 
 static void* inputThreadFunc(void *_arg) {
@@ -1407,6 +1418,7 @@ static void* inputThreadFunc(void *_arg) {
 	while (!glfwWindowShouldClose(display)) {
 		glfwWaitEvents();
 		shareInputs();
+		updateResolution();
 		maybeRender();
 	}
 	return NULL;
@@ -1483,12 +1495,10 @@ int main(int argc, char **argv) {
 		printf("Using specified port of %s\n", port);
 	}
 
-	renderData.gs = NULL;
-	renderData.gfxResponsible = 1;
+	renderData.pickup = renderData.dropoff = NULL;
 
 	velbox_init();
 	rootState = mkGamestate();
-	phantomState = mkGamestate();
 
 	init_registrar();
 	init_entFuncs();
@@ -1513,7 +1523,7 @@ int main(int argc, char **argv) {
 
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())
-	glfwMakeContextCurrent(NULL);
+	//glfwMakeContextCurrent(NULL); // 2/2 needed if handing control over to different thread
 
 	file_init();
 	colors_init();
@@ -1557,8 +1567,8 @@ int main(int argc, char **argv) {
 	prepPhysics(rootState);
 	doPhysics(rootState);
 	finishStep(rootState);
-	// Not 100% sure this part is necessary, but it's simpler if we know the phantom state is also in a valid state.
-	cloneToPhantom();
+	// init phantomState
+	newPhantom(rootState);
 
 	// Setup text buffers.
 	// We make it so the player automatically sends the "syncme" command on their first frame,
@@ -1633,6 +1643,11 @@ int main(int argc, char **argv) {
 	free(rootState);
 	doCleanup(phantomState);
 	free(phantomState);
+	if (renderData.pickup) renderData.dropoff = renderData.pickup;
+	if (renderData.dropoff) {
+		doCleanup(renderData.dropoff);
+		free(renderData.dropoff);
+	}
 	puts("Done.");
 	puts("Cleaning up simple interal components...");
 	syncData.destroy();
