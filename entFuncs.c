@@ -56,6 +56,10 @@ void initEnt(
 	memcpy(e->center, c, sizeof(e->center));
 	memcpy(e->vel, v, sizeof(e->vel));
 	memcpy(e->radius, r, sizeof(e->radius));
+	// Having this well-defined in all cases is nice for the visual interpolation we do,
+	// and actually there might have been some edge cases causing desync if ents got
+	// added in the middle of collision processing??? If that's possible??
+	range(i, 3) e->old[i] = c[i] - v[i];
 
 	e->whoMoves = NULL;
 	e->tick = NULL;

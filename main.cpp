@@ -148,6 +148,14 @@ static char doReload = 0;
 #define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
 #define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
+// Simple utility to get "time" in just a regular (long) number.
+// `startSec` exists so we're more confident we don't overflow.
+static long nowNanos() {
+	timespec now;
+	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+	return 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+}
+
 static void outerSetupFrame(list<player> *ps, gamestate *gs) {
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
@@ -958,7 +966,6 @@ static void* pacedThreadFunc(void *_arg) {
 
 	long destNanos;
 	long performanceTotal = 0;
-	timespec t;
 	int32_t outboundFrame = startFrame;
 	
 	list<char> latestFrameData;
@@ -1004,17 +1011,17 @@ static void* pacedThreadFunc(void *_arg) {
 		unlock(timingMutex);
 		if (!globalRunning) break;
 
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-		destNanos = destNanos - t.tv_nsec - 1000000000 * (t.tv_sec - startSec);
-		if (destNanos > 999999999) {
+		long sleepNanos = destNanos - nowNanos();
+		if (sleepNanos > 999999999) {
 			puts("WARN - Tried to wait for more than a second???");
 			// No idea why this would ever come up, but also it runs afoul of the spec to
 			// request an entire second or more in the tv_nsec field.
-			destNanos = 999999999;
+			sleepNanos = 999999999;
 		}
-		if (destNanos > 0) {
+		if (sleepNanos > 0) {
+			timespec t;
 			t.tv_sec = 0;
-			t.tv_nsec = destNanos;
+			t.tv_nsec = sleepNanos;
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
 
@@ -1417,6 +1424,7 @@ static void* inputThreadFunc(void *_arg) {
 	glfwSetFramebufferSizeCallback(display, framebuffer_size_callback);
 	while (!glfwWindowShouldClose(display)) {
 		glfwWaitEvents();
+		//glfwWaitEventsTimeout(); // Arg should be positive and finite
 		shareInputs();
 		updateResolution();
 		maybeRender();
@@ -1436,9 +1444,7 @@ static void* netThreadFunc(void *_arg) {
 		}
 		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
 
-		timespec now;
-		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		long nanos = 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+		long nanos = nowNanos();
 		nanos = nanos - frame_nanos * serverLead;
 
 		// This is a cheap trick which I need to codify as a method.

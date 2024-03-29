@@ -458,11 +458,6 @@ static char doIteration(gamestate *gs) {
 }
 
 static void invokeOnCrush(gamestate *gs) {
-	// TODO: Ents added here won't have `old` set,
-	//       which is necessary for interpolation.
-	//       Additionally, maybe worth an audit: if any ents are added during
-	//       collision resolution, their uninitialized `old` could result in
-	//       desync.
 	for (ent *e = gs->deadTail; e; e = e->ll.p) {
 		// Skip handler if dead > 1
 		if (e->crush && e->dead == 1) (*e->crush)(gs, e);
