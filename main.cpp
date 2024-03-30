@@ -71,9 +71,15 @@ struct {
 
 static struct {
 	gamestate *pickup, *dropoff;
+	long nanos;
 } renderData;
-gamestate *renderedState = NULL;
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
+gamestate *renderedState = NULL;
+// Eventually we'll change this, this is fine for now. 30hz * 2 = 60fps
+#define INTERP_MAX 2
+#define INTERP_NANOS 16666666 // 1/60, * 1 billion
+long renderTargetNanos;
+int renderCounter = INTERP_MAX; // Initially we don't have a frame planned / no render work to do
 
 static int typingLen = -1;
 
@@ -108,6 +114,8 @@ static struct timespec t1, t2, t3, t4;
 static int performanceFrames = 0, performanceIters = 0;
 #define PERF_FRAMES_MAX 120
 
+// 1 sec = 1 billion nanos
+#define BILLION 1000000000
 #define frame_nanos 33333333
 // TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
 #define micros_per_frame (1000000 / FRAMERATE)
@@ -153,7 +161,7 @@ static char doReload = 0;
 static long nowNanos() {
 	timespec now;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-	return 1000000000 * (now.tv_sec - startSec) + now.tv_nsec;
+	return BILLION * (now.tv_sec - startSec) + now.tv_nsec;
 }
 
 static void outerSetupFrame(list<player> *ps, gamestate *gs) {
@@ -1086,6 +1094,7 @@ static void* pacedThreadFunc(void *_arg) {
 				disposeMe = renderData.pickup;
 			}
 			renderData.pickup = phantomState;
+			renderData.nanos = destNanos;
 			unlock(renderMutex);
 
 			glfwPostEmptyEvent();
@@ -1387,7 +1396,7 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	framebuffer.changed = 1;
 }
 
-static void maybeRender() {
+static void checkRenderData() {
 	lock(renderMutex);
 	if (!renderData.pickup) {
 		unlock(renderMutex);
@@ -1398,7 +1407,31 @@ static void maybeRender() {
 	renderData.dropoff = renderedState;
 	renderedState = renderData.pickup;
 	renderData.pickup = NULL;
+	renderTargetNanos = renderData.nanos + INTERP_NANOS;
 	unlock(renderMutex);
+
+	renderCounter = 0;
+}
+
+static double maybeRender() {
+	// May want to revisit this later,
+	// if it turns out we care about interrupting a run of interpolation.
+	// This is just easier to think about and get off the ground.
+	if (renderCounter >= INTERP_MAX) {
+		// TODO These "render" variables should maybe go in their own file?
+		//      I'm already treating it like a de-facto namespace
+		checkRenderData();
+		if (renderCounter >= INTERP_MAX) {
+			// Nothing to be done, wait around I guess
+			return 0;
+		}
+	}
+	long now = nowNanos();
+	if (now < renderTargetNanos) { // Should there be a margin of error here? Does it matter?
+		return (double)(renderTargetNanos - now) / BILLION;
+	}
+	renderCounter++;
+	renderTargetNanos += INTERP_NANOS;
 
 	// Timing T1 was here
 	list<player> *players = &renderedState->players;
@@ -1412,6 +1445,23 @@ static void maybeRender() {
 	// Timing T2 was here
 	glfwSwapBuffers(display);
 	// Timing T3 was here
+
+	// Drop off finished frame data and/or determine how long to sleep for next frame
+	if (renderCounter >= INTERP_MAX) {
+		checkRenderData();
+		if (renderCounter >= INTERP_MAX) {
+			return 0;
+		}
+	}
+	now = nowNanos();
+	if (now > renderTargetNanos) {
+		// We could skip ahead, but that's extra logic to be correct.
+		// We could just render immediately, but we really need to return so we don't block input processing.
+		// So instead, since this is hopefully a rare case, we just print and request a new wakeup soon.
+		fputs("Negative render wait. Frame render took too long??\n", stderr);
+		now = renderTargetNanos - 1;
+	}
+	return (double)(renderTargetNanos - now) / BILLION;
 }
 
 static void* inputThreadFunc(void *_arg) {
@@ -1422,12 +1472,14 @@ static void* inputThreadFunc(void *_arg) {
 	glfwSetScrollCallback(display, scroll_callback);
 	glfwSetWindowFocusCallback(display, window_focus_callback);
 	glfwSetFramebufferSizeCallback(display, framebuffer_size_callback);
+	double sleep = 0;
 	while (!glfwWindowShouldClose(display)) {
-		glfwWaitEvents();
-		//glfwWaitEventsTimeout(); // Arg should be positive and finite
+		if (sleep) glfwWaitEventsTimeout(sleep);
+		else glfwWaitEvents();
+
 		shareInputs();
 		updateResolution();
-		maybeRender();
+		sleep = maybeRender();
 	}
 	return NULL;
 }
