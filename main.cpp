@@ -1398,19 +1398,18 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 static void checkRenderData() {
 	lock(renderMutex);
-	if (!renderData.pickup) {
-		unlock(renderMutex);
-		return;
+	if (renderedState && !renderData.dropoff) {
+		renderData.dropoff = renderedState;
+		renderedState = NULL;
 	}
-	// TODO: We might use marginally less RAM on average if we dropoff as soon as
-	// we finish rendering all the frames we want to from this gamestate.
-	renderData.dropoff = renderedState;
-	renderedState = renderData.pickup;
-	renderData.pickup = NULL;
-	renderTargetNanos = renderData.nanos + INTERP_NANOS;
+	if (renderData.pickup) {
+		renderedState = renderData.pickup;
+		renderData.pickup = NULL;
+		renderTargetNanos = renderData.nanos + INTERP_NANOS;
+		renderCounter = 0;
+	}
 	unlock(renderMutex);
 
-	renderCounter = 0;
 }
 
 static double maybeRender() {
@@ -1443,8 +1442,11 @@ static double maybeRender() {
 
 	drawOverlay(players);
 	// Timing T2 was here
+	//long t_1 = nowNanos();
 	glfwSwapBuffers(display);
 	// Timing T3 was here
+	//long t_2 = nowNanos();
+	//printf("%8ld!!!\n", t_2 - t_1);
 
 	// Drop off finished frame data and/or determine how long to sleep for next frame
 	if (renderCounter >= INTERP_MAX) {
@@ -1453,6 +1455,7 @@ static double maybeRender() {
 			return 0;
 		}
 	}
+
 	now = nowNanos();
 	if (now > renderTargetNanos) {
 		// We could skip ahead, but that's extra logic to be correct.
