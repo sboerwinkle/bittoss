@@ -164,7 +164,7 @@ static long nowNanos() {
 	return BILLION * (now.tv_sec - startSec) + now.tv_nsec;
 }
 
-static void outerSetupFrame(list<player> *ps, gamestate *gs) {
+static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, int32_t *newPos) {
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
 	// atomic on modern processors, but whatever the case:
@@ -177,7 +177,8 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs) {
 
 	ent *e = (*ps)[myPlayer].entity;
 	if (e) {
-		range(i, 3) ghostCenter[i] = e->center[i];
+		memcpy(ghostCenter, e->center, sizeof(ghostCenter));
+		memcpy(oldPos, e->old, sizeof(e->old));
 	} else {
 		// This was pretty much copied from serializeControls,
 		// but there's just enough different that factoring it
@@ -193,8 +194,12 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs) {
 		ghostCenter[0] += r_x * 500;
 		ghostCenter[1] += r_y * 500;
 		ghostCenter[2] += 500 * (k[5]-k[4]);
+		// So long as we're calling this method every frame (not every update),
+		// there's no need to have `oldPos` different from `newPos` in the case where
+		// we're dead, because we update ghostCenter continuously anyway.
+		memcpy(oldPos, ghostCenter, sizeof(ghostCenter));
 	}
-	range(i, 3) frameOffset[i] = -ghostCenter[i];
+	memcpy(newPos, ghostCenter, sizeof(ghostCenter));
 
 	float up = 0, forward = 0;
 	if (thirdPerson) {
@@ -1433,12 +1438,16 @@ static double maybeRender() {
 	renderTargetNanos += INTERP_NANOS;
 
 	// Timing T1 was here
+	int32_t oldPos[3], newPos[3];
 	list<player> *players = &renderedState->players;
-	outerSetupFrame(players, renderedState);
+	// Todo Maybe only need to call this per update instead of per frame?
+	//      Not like it makes a big difference.
+	outerSetupFrame(players, renderedState, oldPos, newPos);
 
 	ent *root = (*players)[myPlayer].entity;
 	if (root) root = root->holdRoot;
-	doDrawing(renderedState, root, thirdPerson);
+	float interpRatio = (float)renderCounter / INTERP_MAX;
+	doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
 
 	drawOverlay(players);
 	// Timing T2 was here

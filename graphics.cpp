@@ -10,8 +10,6 @@
 static int displayWidth = 0;
 static int displayHeight = 0;
 
-int32_t frameOffset[3];
-
 // Might improve this later, for now we just send the updated coords to the graphics card
 // once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
 GLfloat boxData[216];
@@ -259,12 +257,12 @@ void drawHudRect(double x, double y, double w, double h, float *color) {
 
 void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	// TODO This could be improved in a number of ways, see other TODO higher in this file
-	GLfloat L = (float)(p[0] + frameOffset[0] - r[0]);
-	GLfloat R = (float)(p[0] + frameOffset[0] + r[0]);
-	GLfloat U = (float)(p[2] + frameOffset[2] - r[2]); // World coordinate axes don't line up with GL axes, really should fix this.
-	GLfloat D = (float)(p[2] + frameOffset[2] + r[2]);
-	GLfloat F = (float)(p[1] + frameOffset[1] - r[1]);
-	GLfloat B = (float)(p[1] + frameOffset[1] + r[1]);
+	GLfloat L = (float)(p[0] - r[0]);
+	GLfloat R = (float)(p[0] + r[0]);
+	GLfloat U = (float)(p[2] - r[2]); // World coordinate axes don't line up with GL axes, really should fix this.
+	GLfloat D = (float)(p[2] + r[2]);
+	GLfloat F = (float)(p[1] - r[1]);
+	GLfloat B = (float)(p[1] + r[1]);
 	GLfloat r1 = red;
 	GLfloat g1 = grn;
 	GLfloat b1 = blu;

@@ -204,13 +204,11 @@ extern void assignVelbox(ent *e, box *relBox);
 extern void addEnt(gamestate *gs, ent *e, ent *relative);
 extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags);
 
-extern void drawEnt(ent *e, float r, float g, float b);
-
 extern void doUpdates(gamestate *gs);
 extern void prepPhysics(gamestate *gs);
 extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
-extern void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson);
+extern void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *oldPos, int32_t const *newPos, float interpRatio);
 extern void doCleanup(gamestate *gs);
 extern gamestate* mkGamestate();
 extern void resetGamestate(gamestate *gs);

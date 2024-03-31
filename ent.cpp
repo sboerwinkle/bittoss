@@ -877,7 +877,7 @@ void finishStep(gamestate *gs) {
 	clearDeads(gs);
 }
 
-static void drawEnt(ent *e, ent *inhabit, char thirdPerson) {
+static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	if (e->holdRoot == inhabit) {
 		if (thirdPerson) {
 			// A little hacky, but we make an exception for bullets at the moment, since
@@ -894,24 +894,37 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson) {
 	}
 	int32_t color = e->color;
 	if (color == -1) return;
-	drawEnt(
-		e,
-		(color&0xFF0000) / 16777216.0,
-		(color&0xFF00) / 65536.0,
-		(color&0xFF) / 256.0
-	);
+
+	float red = (color&0xFF0000) / 16777216.0;
+	float grn = (color&0xFF00) / 65536.0;
+	float blu = (color&0xFF) / 256.0;
+	int32_t pos[3];
+	range(i, 3) {
+		// Me being goofy again.
+		// We interpolate between the old and new offsets
+		// (rather than taking the offset between interpolated positions)
+		// with the goal of making things not look wrong if the whole play
+		// area is moving at relativistic speeds. This does mean we pass in
+		// 2 positions instead of one (interpolated) one, however.
+		int32_t o1 = e->old[i] - oldPos[i];
+		int32_t delt = (e->center[i] - newPos[i]) - o1;
+		pos[i] = o1 + delt*ratio;
+	}
+	rect(pos, e->radius, red, grn, blu);
 }
 
-void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson) {
+void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const interpRatio) {
 	// We'll add things to this list in `drawEnt` if it should be stippled instead
 	stippleList.num = 0;
 	for (ent *i = gs->ents; i; i = i->ll.n) {
-		drawEnt(i, inhabit, thirdPerson);
+		// Passing in oldPos, newPos, and interpRatio for every single ent every frame seems a touch excessive.
+		// If we ever need performance here, they could probably be file-level fields.
+		drawEnt(i, inhabit, thirdPerson, oldPos, newPos, interpRatio);
 	}
 
 	stipple();
 	for (int i = 0; i < stippleList.num; i++) {
-		drawEnt(stippleList[i], NULL, 0);
+		drawEnt(stippleList[i], NULL, 0, oldPos, newPos, interpRatio);
 	}
 }
 
