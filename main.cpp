@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -72,14 +73,12 @@ struct {
 static struct {
 	gamestate *pickup, *dropoff;
 	long nanos;
-} renderData;
+} renderData = {0};
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
-gamestate *renderedState = NULL;
-// Eventually we'll change this, this is fine for now. 30hz * 2 = 60fps
-#define INTERP_MAX 2
-#define INTERP_NANOS 16666666 // 1/60, * 1 billion
-long renderTargetNanos;
-int renderCounter = INTERP_MAX; // Initially we don't have a frame planned / no render work to do
+gamestate *renderedState;
+long renderStartNanos = 0;
+char manualGlFinish = 0;
+char showFps = 0;
 
 static int typingLen = -1;
 
@@ -116,7 +115,7 @@ static int performanceFrames = 0, performanceIters = 0;
 
 // 1 sec = 1 billion nanos
 #define BILLION 1000000000
-#define frame_nanos 33333333
+#define STEP_NANOS 33333333
 // TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
 #define micros_per_frame (1000000 / FRAMERATE)
 // How many frames of data are kept to help guess the server clock
@@ -191,6 +190,7 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, in
 
 		// As a point of trivia, movement as a ghost is circular,
 		// whereas movement as a player is square (diagonals are faster).
+		// TODO: Move speed when dead is currently dependent on framerate, which is goofy leftover behavior
 		ghostCenter[0] += r_x * 500;
 		ghostCenter[1] += r_y * 500;
 		ghostCenter[2] += 500 * (k[5]-k[4]);
@@ -541,6 +541,9 @@ char handleKey(int code, char pressed) {
 	} else if (code == GLFW_KEY_LEFT_ALT || code == GLFW_KEY_RIGHT_ALT) {
 		altPressed = pressed;
 		if (mouseDragMode) mouseDragMode = -1;
+	} else if (code == GLFW_KEY_F3 && pressed) {
+		if (ctrlPressed) manualGlFinish ^= 1;
+		else showFps ^= 1;
 	}
 	return false;
 }
@@ -974,9 +977,6 @@ static void newPhantom(gamestate *gs) {
 }
 
 static void* pacedThreadFunc(void *_arg) {
-	// This was necessary when this thread did GFX work
-	// glfwMakeContextCurrent(display);
-
 	long destNanos;
 	long performanceTotal = 0;
 	int32_t outboundFrame = startFrame;
@@ -1020,7 +1020,7 @@ static void* pacedThreadFunc(void *_arg) {
 			puts("Server isn't responding, pausing pacing thread...");
 			wait(timingCond, timingMutex);
 		}
-		destNanos = medianTime + (long)(frame_nanos * latency * padding);
+		destNanos = medianTime + (long)(STEP_NANOS * latency * padding);
 		unlock(timingMutex);
 		if (!globalRunning) break;
 
@@ -1091,6 +1091,10 @@ static void* pacedThreadFunc(void *_arg) {
 			doWholeStep(phantomState, latestFrameData.items, newestData, 0);
 			gamestate *disposeMe = NULL;
 
+			// Doing this outside the mutex probably doesn't matter much,
+			// but waiting for the lock could be a bit inconsistent,
+			// so this is marginally better I think
+			long now = nowNanos();
 			lock(renderMutex);
 			if (renderData.dropoff) {
 				disposeMe = renderData.dropoff;
@@ -1099,10 +1103,10 @@ static void* pacedThreadFunc(void *_arg) {
 				disposeMe = renderData.pickup;
 			}
 			renderData.pickup = phantomState;
-			renderData.nanos = destNanos;
+			renderData.nanos = now;
 			unlock(renderMutex);
 
-			glfwPostEmptyEvent();
+			//glfwPostEmptyEvent(); // This was used when event thread might want to wake up and render
 			if (disposeMe) {
 				doCleanup(disposeMe);
 				free(disposeMe);
@@ -1207,8 +1211,8 @@ static void* pacedThreadFunc(void *_arg) {
 			printLateStats();
 		}
 		serverLead--;
-		range(i, frame_time_num) frameTimes[i] += frame_nanos;
-		medianTime += frame_nanos;
+		range(i, frame_time_num) frameTimes[i] += STEP_NANOS;
+		medianTime += STEP_NANOS;
 		unlock(timingMutex);
 	}
 #undef printLateStats
@@ -1403,77 +1407,55 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 static void checkRenderData() {
 	lock(renderMutex);
-	if (renderedState && !renderData.dropoff) {
-		renderData.dropoff = renderedState;
-		renderedState = NULL;
-	}
 	if (renderData.pickup) {
+		renderData.dropoff = renderedState;
 		renderedState = renderData.pickup;
 		renderData.pickup = NULL;
-		renderTargetNanos = renderData.nanos + INTERP_NANOS;
-		renderCounter = 0;
+		renderStartNanos = renderData.nanos;
 	}
 	unlock(renderMutex);
-
 }
 
-static double maybeRender() {
-	// May want to revisit this later,
-	// if it turns out we care about interrupting a run of interpolation.
-	// This is just easier to think about and get off the ground.
-	if (renderCounter >= INTERP_MAX) {
-		// TODO These "render" variables should maybe go in their own file?
-		//      I'm already treating it like a de-facto namespace
+static void* renderThreadFunc(void *_arg) {
+	glfwMakeContextCurrent(display);
+	// Explicitly request v-sync;
+	// otherwise GLFW leaves it up to the driver default
+	glfwSwapInterval(1);
+	long drawingNanos = 0;
+	long totalNanos = 0;
+	long t0 = nowNanos();
+	while (globalRunning) {
 		checkRenderData();
-		if (renderCounter >= INTERP_MAX) {
-			// Nothing to be done, wait around I guess
-			return 0;
+
+		int32_t oldPos[3], newPos[3];
+		list<player> *players = &renderedState->players;
+		outerSetupFrame(players, renderedState, oldPos, newPos);
+
+		ent *root = (*players)[myPlayer].entity;
+		if (root) root = root->holdRoot;
+		float interpRatio = (float)(nowNanos() - renderStartNanos) / STEP_NANOS;
+		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
+		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
+
+		drawOverlay(players);
+
+		if (showFps) {
+			// TODO: draw timing bars from last time maybe
+			// draw FPS
 		}
-	}
-	long now = nowNanos();
-	if (now < renderTargetNanos) { // Should there be a margin of error here? Does it matter?
-		return (double)(renderTargetNanos - now) / BILLION;
-	}
-	renderCounter++;
-	renderTargetNanos += INTERP_NANOS;
+		long t1 = nowNanos();
 
-	// Timing T1 was here
-	int32_t oldPos[3], newPos[3];
-	list<player> *players = &renderedState->players;
-	// Todo Maybe only need to call this per update instead of per frame?
-	//      Not like it makes a big difference.
-	outerSetupFrame(players, renderedState, oldPos, newPos);
-
-	ent *root = (*players)[myPlayer].entity;
-	if (root) root = root->holdRoot;
-	float interpRatio = (float)renderCounter / INTERP_MAX;
-	doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
-
-	drawOverlay(players);
-	// Timing T2 was here
-	//long t_1 = nowNanos();
-	glfwSwapBuffers(display);
-	// Timing T3 was here
-	//long t_2 = nowNanos();
-	//printf("%8ld!!!\n", t_2 - t_1);
-
-	// Drop off finished frame data and/or determine how long to sleep for next frame
-	if (renderCounter >= INTERP_MAX) {
-		checkRenderData();
-		if (renderCounter >= INTERP_MAX) {
-			return 0;
+		glfwSwapBuffers(display);
+		if (manualGlFinish) {
+			glFinish();
 		}
-	}
+		long t2 = nowNanos();
 
-	now = nowNanos();
-	if (now > renderTargetNanos) {
-		// We could skip ahead, but that's extra logic to be correct.
-		// We could just render immediately, but we really need to return so we don't block input processing.
-		// So instead, since this is hopefully a rare case, we just print and request a new wakeup soon.
-		fputs("Negative render wait. Frame render took too long??\n", stderr);
-		now = renderTargetNanos - 1;
+		drawingNanos = t1-t0;
+		totalNanos = t2-t0;
+		t0 = t2;
 	}
-	return (double)(renderTargetNanos - now) / BILLION;
+	return NULL;
 }
 
 static void* inputThreadFunc(void *_arg) {
@@ -1484,14 +1466,14 @@ static void* inputThreadFunc(void *_arg) {
 	glfwSetScrollCallback(display, scroll_callback);
 	glfwSetWindowFocusCallback(display, window_focus_callback);
 	glfwSetFramebufferSizeCallback(display, framebuffer_size_callback);
-	double sleep = 0;
 	while (!glfwWindowShouldClose(display)) {
-		if (sleep) glfwWaitEventsTimeout(sleep);
-		else glfwWaitEvents();
+		glfwWaitEvents();
 
 		shareInputs();
+		// Todo maybe we can do this immediately when we get the event now?
+		//      have to make sure there's no restrictions in GLFW about calling the
+		//      relevant fn from inside a callback.
 		updateResolution();
-		sleep = maybeRender();
 	}
 	return NULL;
 }
@@ -1509,7 +1491,7 @@ static void* netThreadFunc(void *_arg) {
 		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
 
 		long nanos = nowNanos();
-		nanos = nanos - frame_nanos * serverLead;
+		nanos = nanos - STEP_NANOS * serverLead;
 
 		// This is a cheap trick which I need to codify as a method.
 		// It's a threadsafe way to get what the next `add` will be, assuming we're the only
@@ -1565,8 +1547,6 @@ int main(int argc, char **argv) {
 		printf("Using specified port of %s\n", port);
 	}
 
-	renderData.pickup = renderData.dropoff = NULL;
-
 	velbox_init();
 	rootState = mkGamestate();
 
@@ -1593,7 +1573,7 @@ int main(int argc, char **argv) {
 
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())
-	//glfwMakeContextCurrent(NULL); // 2/2 needed if handing control over to different thread
+	glfwMakeContextCurrent(NULL); // Give up control so other thread can take it
 
 	file_init();
 	colors_init();
@@ -1639,6 +1619,7 @@ int main(int argc, char **argv) {
 	finishStep(rootState);
 	// init phantomState
 	newPhantom(rootState);
+	renderedState = dup(rootState); // Give us something to render, so we can skip null checks
 
 	// Setup text buffers.
 	// We make it so the player automatically sends the "syncme" command on their first frame,
@@ -1657,7 +1638,7 @@ int main(int argc, char **argv) {
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		startSec = now.tv_sec;
-		long firstFrame = now.tv_nsec + frame_nanos;
+		long firstFrame = now.tv_nsec + STEP_NANOS;
 		range(i, frame_time_num) {
 			frameTimes[i] = firstFrame;
 		}
@@ -1668,6 +1649,7 @@ int main(int argc, char **argv) {
 	//Main loop
 	pthread_t pacedThread;
 	pthread_t netThread;
+	pthread_t renderThread;
 	{
 		int ret = pthread_create(&pacedThread, NULL, pacedThreadFunc, NULL);
 		if (ret) {
@@ -1678,6 +1660,13 @@ int main(int argc, char **argv) {
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
 			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway
+			return 1;
+		}
+		ret = pthread_create(&renderThread, NULL, renderThreadFunc, NULL);
+		if (ret) {
+			printf("pthread_create returned %d for renderThread\n", ret);
+			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway
+			pthread_cancel(netThread);
 			return 1;
 		}
 	}
@@ -1706,6 +1695,17 @@ int main(int argc, char **argv) {
 		//if (ret) printf("Error cancelling input thread: %d\n", ret);
 		int ret = pthread_join(pacedThread, NULL);
 		if (ret) printf("Error while joining paced thread: %d\n", ret);
+	}
+	puts("Done.");
+	puts("Cancelling render thread...");
+	{
+		// Todo: If there's a chance of the main thread in this loop
+		//       optimizing out the read to globalRunning
+		//       (after all, we don't make any pthread calls),
+		//       then we might have to mark it volatile or kill the
+		//       thread or something.
+		int ret = pthread_join(renderThread, NULL);
+		if (ret) printf("Error while joining render thread: %d\n", ret);
 	}
 	puts("Done.");
 	puts("Cleaning up game objects...");
