@@ -223,18 +223,21 @@ void setupText() {
 	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
 }
 
-void drawHudText(const char* str, double x, double y, double scale, float* color){
-	float fontMultX = (float) fontSizePx / displayWidth;
-	float fontMultY = (float) fontSizePx / displayHeight;
-	x *= fontMultX;
-	y *= fontMultY;
-	glUniform1f(u_flat_scale_y_id, (float)(scale*myfont.invaspect) * fontMultY);
-	scale *= fontMultX;
-	glUniform1f(u_flat_scale_x_id, (float)scale);
+void drawHudText(const char* str, double xBase, double yBase, double x, double y, double scale, float* color){
+	float fontMultX = (float) (scale * fontSizePx / displayWidth);
+	float fontMultY = (float) (scale * myfont.invaspect * fontSizePx / displayHeight);
+	glUniform1f(u_flat_scale_y_id, (float)fontMultY);
+	glUniform1f(u_flat_scale_x_id, (float)fontMultX);
+
 	glUniform3fv(u_flat_color_id, 1, color);
 
+	fontMultX *= 1.0 + myfont.spacing;
+
+	x = xBase + x*fontMultX;
+	y = yBase + y*fontMultY;
+
 	for(int idx = 0;; idx++){
-		glUniform2f(u_flat_offset_id, x+(1.0+myfont.spacing)*scale*idx, y);
+		glUniform2f(u_flat_offset_id, x+fontMultX*idx, y);
 		int letter = str[idx];
 		if(!letter) return;
 		letter -= 33;

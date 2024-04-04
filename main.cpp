@@ -238,10 +238,10 @@ static float redColor[3] = {1.0, 0.0, 0.0};
 static void drawOverlay(list<player> *ps) {
 	setupText();
 	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
-	drawHudText(drawMe, 1, 1, 1, overlayColor);
+	drawHudText(drawMe, 0, 0, 0.5, 0.5, 1, overlayColor);
 	// The very last char of this buffer is always and forever '\0',
 	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
-	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 1, 3, 1, overlayColor);
+	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 0, 0, 0.5, 1.6, 1, overlayColor);
 
 	float f1 = (double) draw_micros / micros_per_frame;
 	float f2 = (double) flip_micros / micros_per_frame;
@@ -253,6 +253,14 @@ static void drawOverlay(list<player> *ps) {
 
 	// Draw actual hud elements
 	drawHud((*ps)[myPlayer].entity);
+}
+static void drawFps(long drawingNanos, long totalNanos) {
+	char fps[7];
+	snprintf(fps, 7, "%c%5.1lf", manualGlFinish ? '!' : ' ', (double) BILLION / totalNanos);
+	drawHudText(fps, 1, 0, -6.5, 0.5, 1, overlayColor);
+	// + 1 as a cheap way to avoid NAN
+	float drawingRatio = (float)drawingNanos/(totalNanos+1);
+	drawHudRect(0, 1 - 2.0/64, drawingRatio, 1.0/64, bluColor);
 }
 
 static void resetPlayer(gamestate *gs, int i) {
@@ -1433,15 +1441,14 @@ static void* renderThreadFunc(void *_arg) {
 
 		ent *root = (*players)[myPlayer].entity;
 		if (root) root = root->holdRoot;
-		float interpRatio = (float)(nowNanos() - renderStartNanos) / STEP_NANOS;
+		float interpRatio = (float)(t0 - renderStartNanos) / STEP_NANOS;
 		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
 
 		drawOverlay(players);
 
 		if (showFps) {
-			// TODO: draw timing bars from last time maybe
-			// draw FPS
+			drawFps(drawingNanos, totalNanos);
 		}
 		long t1 = nowNanos();
 
