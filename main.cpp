@@ -1408,9 +1408,14 @@ static void window_focus_callback(GLFWwindow* window, int focused) {
 }
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+	// Usually I avoid locking mutexes directly in callbacks,
+	// since they could be called a lot,
+	// but this one's quite rare
+	lock(renderMutex);
 	framebuffer.width = width;
 	framebuffer.height = height;
 	framebuffer.changed = 1;
+	unlock(renderMutex);
 }
 
 static void checkRenderData() {
@@ -1421,6 +1426,7 @@ static void checkRenderData() {
 		renderData.pickup = NULL;
 		renderStartNanos = renderData.nanos;
 	}
+	updateResolution();
 	unlock(renderMutex);
 }
 
@@ -1477,10 +1483,6 @@ static void* inputThreadFunc(void *_arg) {
 		glfwWaitEvents();
 
 		shareInputs();
-		// Todo maybe we can do this immediately when we get the event now?
-		//      have to make sure there's no restrictions in GLFW about calling the
-		//      relevant fn from inside a callback.
-		updateResolution();
 	}
 	return NULL;
 }
