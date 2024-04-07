@@ -710,6 +710,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/respawner", edit_t_respawn(gs, me));
 	cmd("/seat", edit_t_seat(gs, me));
 	cmd("/gun", edit_t_gun(gs, me));
+	cmd("/blink", edit_t_blink(gs, me));
 	cmd("/teamselect", edit_t_teamselect(gs, me));
 	cmd("/scoreboard", edit_m_t_scoreboard(gs, me));
 	cmd("/veheye", edit_m_t_veh_eye(gs, me)); // TODO remove?

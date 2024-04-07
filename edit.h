@@ -28,6 +28,7 @@ extern void edit_t_legg(gamestate *gs, ent *me);
 extern void edit_t_respawn(gamestate *gs, ent *me);
 extern void edit_t_seat(gamestate *gs, ent *me);
 extern void edit_t_gun(gamestate *gs, ent *me);
+extern void edit_t_blink(gamestate *gs, ent *me);
 extern void edit_t_teamselect(gamestate *gs, ent *me);
 extern void edit_m_t_scoreboard(gamestate *gs, ent *me);
 extern void edit_m_t_veh_eye(gamestate *gs, ent *me);

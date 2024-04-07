@@ -70,6 +70,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_delay">/delay</a></li>
 		<li><a href="#_demolish">/demolish</a></li>
 		<li><a href="#_gun">/gun</a></li>
+		<li><a href="#_blink">/blink</a></li>
 		<li><a href="#_door">/door</a></li>
 		<li><a href="#_teleport">/teleport</a></li>
 		<li><a href="#_legg">/legg</a></li>
@@ -218,7 +219,7 @@ These commands typically print some information to the terminal which launched t
 <b id="_i">/i</b><br/>
 The original info command. Prints information about the block in the Blue buffer; if there are more than one, I believe it takes the most recent?
 <div class="para"></div>
-Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types (currently <a href="#_legg">/legg</a> / <a href="#_respawner">/respawner</a> / <a href="#_teamselect">/teamselect</a>), the slider output will be annotated with the meaning of each slider.
+Information printed includes the position, size, and color, as well as the values of any <a href="#_slider">sliders</a>. For some types, the slider output will be annotated with the meaning of each slider.
 <div class="para"></div>
 Finally, it prints the number of items in the Blue and Red buffers.
 <br/><br/>
@@ -328,6 +329,9 @@ Blocks of this type will destroy themselves when they receive a <a href="#_logic
 <br/><br/>
 <b id="_gun">/gun</b><br/>
 Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!
+<br/><br/>
+<b id="_blink">/blink</b><br/>
+Makes the block a short-range teleport equipment. Configurable cooldown and range, more details in-game with <a href="#_i">/i</a>.
 <br/><br/>
 <b id="_door">/door</b><br/>
 Makes the block travel between waypoints based on logic signals.

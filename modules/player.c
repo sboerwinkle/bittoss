@@ -95,13 +95,13 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 	if (
 		getButton(me, 1)
 		&& !getSlider(me, s_equip_processed)
-		&& (type(him) & T_EQUIP)
+		&& (type(him) & EQUIP_MASK)
 		&& !getSlider(me, s_editmode)
 		&& !him->holder
 	) {
 		// Skip if already holding any equipment
 		holdeesAnyOrder(h, me) {
-			if (h->typeMask & T_EQUIP) return;
+			if (h->typeMask & EQUIP_MASK) return;
 		}
 
 		uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
@@ -118,7 +118,7 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 }
 
 static void player_pickup(gamestate *gs, ent *me, ent *him) {
-	if (type(him) & T_EQUIP) {
+	if (type(him) & EQUIP_MASK) {
 		int32_t offset[3];
 		getPos(offset, him, me);
 		uCenter(him, offset);
@@ -218,7 +218,7 @@ static void player_tick(gamestate *gs, ent *me) {
 		// This is fun block making stuff, i.e. not edittool
 		int numHoldees = 0;
 		holdeesAnyOrder(h, me) {
-			if (!(h->typeMask & T_EQUIP)) continue;
+			if (!(h->typeMask & EQUIP_MASK)) continue;
 			if (++numHoldees > 1) break; // Don't care about counting any higher than 2
 		}
 		if (!utility) uSlider(me, s_equip_processed, 0);
@@ -230,7 +230,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				int32_t vel[3];
 				range(i, 3) vel[i] = 100 * look[i] / axisMaxis;
 				holdeesAnyOrder(h, me) {
-					if (!(h->typeMask & T_EQUIP)) continue;
+					if (!(h->typeMask & EQUIP_MASK)) continue;
 					uVel(h, vel);
 					uCenter(h, vel);
 					uDrop(gs, h);

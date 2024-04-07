@@ -120,6 +120,7 @@ enum {
 	TICK_SCOREBOARD,
 	TICK_TIMER,
 	TICK_DEMOLISH,
+	TICK_HELD_BLINK,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

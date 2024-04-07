@@ -19,6 +19,7 @@
 #include "modules/seat.h"
 #include "modules/legg.h"
 #include "modules/gun.h"
+#include "modules/blink.h"
 #include "modules/respawn.h"
 #include "modules/teamselect.h"
 #include "modules/scoreboard.h"
@@ -193,6 +194,8 @@ void edit_info(ent *e) {
 			helps = M_LOGIC_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_TIMER)) {
 			helps = M_TIMER_HELP;
+		} else if (e->tickHeld == tickHandlers.get(TICK_HELD_BLINK)) {
+			helps = M_BLINK_HELP;
 		} else if (e->push == pushHandlers.get(PUSH_TEAMSELECT)) {
 			helps = M_TEAMSELECT_HELP;
 		}
@@ -671,6 +674,21 @@ void edit_t_gun(gamestate *gs, ent *me) {
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, T_EQUIP);
 		setNumSliders(gs, e, M_GUN_NUM_SLIDERS);
+	}
+}
+
+void edit_t_blink(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->tick = tickHandlers.get(TICK_NIL);
+		e->tickHeld = tickHandlers.get(TICK_HELD_BLINK);
+		e->push = pushHandlers.get(PUSH_NIL);
+		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+		typemask_t(e, T_EQUIP_SM);
+		setNumSliders(gs, e, M_BLINK_NUM_SLIDERS);
 	}
 }
 
