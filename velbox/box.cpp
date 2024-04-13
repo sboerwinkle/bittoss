@@ -403,8 +403,14 @@ void velbox_insert(box *guess, box *n) {
 		exit(1);
 	}
 #endif
-	// This could probably be a full setIntersects_refresh if we wanted
-	n->validity = ~n->validity;
+	// This is valid state, though it's not an accurate list of intersections.
+	// Having validity==1 means it'll be refreshed before we report intersects, however.
+	//
+	// The alternative, I think, is velbox_single_refresh - that avoids re-checking
+	// parentage and validity immediately, but I think this way is slightly better
+	// if we could be adding many things at once, since setIntersects_refresh
+	// can avoid checking intersections both ways if it's batched (not one-by-one).
+	n->validity = 1;
 	n->intersects.add({.b=n, .i=0});
 }
 
@@ -521,7 +527,7 @@ box* velbox_getRoot() {
 	// Since most of the effort is put into transient gamestates that only last 5-8 frames depending
 	// on the configured server latency, extending the max validity past that is just going to add
 	// more potential intersects that are never going to come to pass.
-	ret->validity = 5;
+	ret->validity = VALID_MAX;
 	// `kids` can just stay empty for now
 	ret->intersects.add({.b=ret, .i=0});
 	ret->parent = NULL;
