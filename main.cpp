@@ -114,8 +114,8 @@ static int performanceFrames = 0, performanceIters = 0;
 #define PERF_FRAMES_MAX 120
 
 // 1 sec = 1 billion nanos
-#define BILLION 1000000000
-#define STEP_NANOS 33333333
+#define BILLION  1000000000
+#define STEP_NANOS 66666666
 // How many frames of data are kept to help guess the server clock
 #define frame_time_num 90
 // How many frames have to agree that we're early (or late) before we start adjusting our clock

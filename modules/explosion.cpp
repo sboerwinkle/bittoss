@@ -11,7 +11,7 @@ static int explosion_whoMoves(ent *me, ent *him, int axis, int dir) {
 
 static void explosion_tick(gamestate *gs, ent *me) {
 	int timer = getSlider(me, 0);
-	if (timer < 5) {
+	if (timer < 3) {
 		uSlider(me, 0, timer+1);
 	} else {
 		uDead(gs, me);

@@ -1,4 +1,4 @@
-#define DEFAULT_FRICTION 4
+#define DEFAULT_FRICTION 16
 
 extern int tickTypeDefault(ent *a, ent *b);
 

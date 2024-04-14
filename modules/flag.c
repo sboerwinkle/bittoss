@@ -15,7 +15,7 @@ static char flag_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int
 }
 
 static void flag_crush(gamestate *gs, ent *me) {
-	explode(gs, me, 4, 400);
+	explode(gs, me, 4, 800);
 }
 
 static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
@@ -42,7 +42,7 @@ static void flagSpawner_tick(gamestate *gs, ent *me) {
 	int cooldown = getSlider(me, 0);
 	if (cooldown == 0) {
 		if (me->wires.num) return;
-		cooldown = 90; // 3 seconds
+		cooldown = 45; // 3 seconds
 		int team = getSlider(me, 1);
 		uWire(me, mkFlag(gs, me, team));
 	}

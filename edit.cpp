@@ -194,6 +194,8 @@ void edit_info(ent *e) {
 			helps = M_LOGIC_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_TIMER)) {
 			helps = M_TIMER_HELP;
+		} else if (e->tickHeld == tickHandlers.get(TICK_HELD_GUN)) {
+			helps = M_GUN_HELP;
 		} else if (e->tickHeld == tickHandlers.get(TICK_HELD_BLINK)) {
 			helps = M_BLINK_HELP;
 		} else if (e->push == pushHandlers.get(PUSH_TEAMSELECT)) {

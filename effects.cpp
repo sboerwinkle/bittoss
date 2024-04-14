@@ -33,7 +33,7 @@ char const * const rulesHelp[13] = {
 };
 
 void doGravity(gamestate *gs) {
-	int32_t grav[3] = {0, 0, 8};
+	int32_t grav[3] = {0, 0, 32};
 	ent *i;
 	for (i = gs->rootEnts; i; i = i->LL.n) {
 		if (!(i->typeMask & T_WEIGHTLESS)) uVel(i, grav);
@@ -107,8 +107,8 @@ void createDebris(gamestate *gs) {
 	// For now we make do with flipping a "coin" once per face per frame, which is somewhat close
 	// so long as the probability stays low.
 
-	const rand_t limit = randomMax / 200; // Odds of appearing each frame
-	const int max_v = 96;
+	const rand_t limit = randomMax / 100; // Odds of appearing each frame
+	const int max_v = 192;
 	// 1.5x wider than manmade platforms, same height
 	const int32_t size[3] = {6400, 6400, 512};
 	const int32_t bounds[3] = {128000, 64000, 64000};

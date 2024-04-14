@@ -30,6 +30,7 @@ USAGE_POOL = 4 * (1024 * 1024)
 USAGE_POOL_RECOVERY_PER_SEC = 20 * 1024
 # We add some bytes to our usage calculations to compensate for headers. Unit is bytes
 HEADERADJ = 120
+FRAMERATE = 15
 
 EMPTY_MSG = b'\0\0\0\0'
 
@@ -155,7 +156,7 @@ class ClientNetHandler(asyncio.Protocol):
             print("All clients disconnected, resetting client list")
             clients.clear()
 
-async def loop(host, port, framerate = 30):
+async def loop(host, port):
     lp = asyncio.get_event_loop()
     try:
         # Open port
@@ -178,7 +179,7 @@ async def loop(host, port, framerate = 30):
         return
 
     # Framerate setup
-    incr = 1 / framerate
+    incr = 1 / FRAMERATE
     target = 0
 
     # Main loop

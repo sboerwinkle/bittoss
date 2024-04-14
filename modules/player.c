@@ -73,8 +73,8 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 	int32_t vel[3];
 	getVel(vel, him, me);
 	// Reset what "stationary" is, according to ground speed
-	vel[0] = bound(vel[0], 128);
-	vel[1] = bound(vel[1], 128);
+	vel[0] = bound(vel[0], 256);
+	vel[1] = bound(vel[1], 256);
 	if (axis == 2) {
 		if (dir < 0) {
 			// Indicate that we can jump
@@ -177,12 +177,12 @@ static void player_tick(gamestate *gs, ent *me) {
 	sliders[1] = getSlider(me, s_vel1);
 
 	int vel[3];
-	vel[2] = getButton(me, 0) && grounded ? -192 : 0;
+	vel[2] = getButton(me, 0) && grounded ? -384 : 0;
 	range(i, 2) {
-		vel[i] = (128/axisMaxis)*axis[i] - sliders[i];
+		vel[i] = (256/axisMaxis)*axis[i] - sliders[i];
 	}
 	// Can't push as hard in the air
-	boundVec(vel, grounded ? 14 : 4, 2);
+	boundVec(vel, grounded ? 56 : 16, 2);
 	range(i, 2) {
 		uSlider(me, s_vel + i, sliders[i] + vel[i]);
 	}
@@ -206,10 +206,10 @@ static void player_tick(gamestate *gs, ent *me) {
 				cooldown = 0;
 			}
 		} else { // Shift not pressed - click to select
-			if (cooldown >= 10 && fire) {
+			if (cooldown >= 5 && fire) {
 				cooldown = 0;
 				edittool_select(gs, me, 0);
-			} else if (cooldown >= 10 && altFire) {
+			} else if (cooldown >= 5 && altFire) {
 				cooldown = 0;
 				edittool_select(gs, me, 1);
 			}
@@ -228,7 +228,7 @@ static void player_tick(gamestate *gs, ent *me) {
 			getLook(look, me);
 			if (numHoldees > 1 || (utility && !getSlider(me, s_equip_processed))) {
 				int32_t vel[3];
-				range(i, 3) vel[i] = 100 * look[i] / axisMaxis;
+				range(i, 3) vel[i] = 200 * look[i] / axisMaxis;
 				holdeesAnyOrder(h, me) {
 					if (!(h->typeMask & EQUIP_MASK)) continue;
 					uVel(h, vel);
@@ -261,14 +261,14 @@ static void player_tick(gamestate *gs, ent *me) {
 				}
 				*/
 			}
-		} else if (cooldown >= 10 && charge >= 60) {
+		} else if (cooldown >= 5 && charge >= 60) {
 			if (fire && !(gs->gamerules & EFFECT_NO_BLOCK)) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
 				// Hack - not scaling `look` here, but that's fine for a "small" offset
 				ent* stackem = mkStackem(gs, me, look);
-				range(i, 3) { look[i] *= (double)(7*32)/axisMaxis; }
+				range(i, 3) { look[i] *= (double)(14*32)/axisMaxis; }
 				uVel(stackem, look);
 			} else if (charge >= 180 && altFire && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
 				charge -= 180;
@@ -283,8 +283,8 @@ static void player_tick(gamestate *gs, ent *me) {
 		}
 	}
 
-	if (charge < 180) uSlider(me, s_charge, charge + 1);
-	if (cooldown < 10) uSlider(me, s_cooldown, cooldown + 1);
+	if (charge < 180) uSlider(me, s_charge, charge + 2);
+	if (cooldown < 5) uSlider(me, s_cooldown, cooldown + 1);
 }
 
 int32_t playerSize[3] = {512, 512, 512};

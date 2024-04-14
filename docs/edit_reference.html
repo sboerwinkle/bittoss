@@ -275,7 +275,7 @@ This is intended for use on blocks that are currently <a href="#_pickup">held</a
 This is intended to add decorative elements on vehicles or other complex objects, which will then turn into debris if the object is destroyed.
 <br/><br/>
 <b id="_friction">/friction</b> <span>number</span>?<br/>
-Sets the friction on the blocks to the given number (or the default, 4, if no number is given). This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">Leggs</a>, to give them more "grip".
+Sets the friction on the blocks to the given number (or the default, 16, if no number is given). This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">Leggs</a>, to give them more "grip".
 <br/><br/>
 <b id="_fpdraw">/fpdraw</b> [01]?<br/>
 Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.
@@ -329,7 +329,7 @@ As with regular /logic blocks, the output signals are controlled by slider 1.
 Blocks of this type will destroy themselves when they receive a <a href="#_logic">logical</a> signal "1".
 <br/><br/>
 <b id="_gun">/gun</b><br/>
-Makes the block a gun. Players can pick it up and shoot stuff. This one was easy to write about, if I don't get too far into specifics!
+Makes the block a gun. Players can pick it up and shoot stuff. To be useful it will need configuration (see <a href="#_i">/i</a> in-game), or you can just <a href="#_import">import</a> <pre>itm/gun.itm</pre> for a copy with sensible defaults.
 <br/><br/>
 <b id="_blink">/blink</b><br/>
 Makes the block a short-range teleport equipment. Configurable cooldown and range, more details in-game with <a href="#_i">/i</a>.

@@ -25,7 +25,8 @@ char const * const * const M_BLINK_HELP = (char const * const[]) {
 	"hand - internal use",
 	"cooldown - internal countdown to next activation",
 	"max cooldown - how long between activations",
-	"range - distance to blink"
+	"range - distance to blink",
+	NULL
 };
 
 static void blink_tick_held(gamestate *gs, ent *me) {

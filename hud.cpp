@@ -49,13 +49,18 @@ static void drawEquipUi(ent *e) {
 			d(0.1+4*unit, 0    , unit, unit, hudColor);
 		}
 	} else if (e->tickHeld == gun_tick_held) {
-		double start = 0.5 - 5.0/64;
-		int ammo = getSlider(e, 0); // out of 10
-		int reload = getSlider(e, 2); // out of 90
+		int ammo = getSlider(e, 0);
+		int ammoMax = getSlider(e, 3);
+		if (ammoMax <= 0) ammoMax = 1;
+		int reload = getSlider(e, 2);
+		int reloadMax = getSlider(e, 5);
+		if (reloadMax <= 0) reloadMax = 1;
+		double fullWidth = ammoMax/64.0;
+		double start = 0.5 - fullWidth/2;
 		double width = ammo/64.0;
 		drawHudRect(start, 0.5, width, 1.0/64, hudColor); // Ammo present
-		drawHudRect(start + width, 0.5 + 1.0/256, 10.0/64 - width, 1.0/128, hudColor); // Ammo absent
-		drawHudRect(start, 0.5 + 5.0/256, reload*10/64.0/90, 1.0/128, hudColor); // Reload progress
+		drawHudRect(start + width, 0.5 + 1.0/256, fullWidth - width, 1.0/128, hudColor); // Ammo absent
+		drawHudRect(start, 0.5 + 5.0/256, fullWidth*reload/reloadMax, 1.0/128, hudColor); // Reload progress
 	}
 }
 

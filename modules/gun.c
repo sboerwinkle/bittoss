@@ -16,10 +16,25 @@ enum {
 	s_ammo,
 	s_cooldown,
 	s_reload,
+	s_ammo_max, // 10
+	s_cooldown_max, // 3
+	s_reload_max, // 45
+	s_speed, // 14000
 	s_num
 };
 
 static_assert(s_num == M_GUN_NUM_SLIDERS);
+
+char const * const * const M_GUN_HELP = (char const * const[]) {
+	"(internal) ammo",
+	"(internal) cooldown",
+	"(internal) reload progress",
+	"max ammo",
+	"cooldown (frames per shot)",
+	"reload time (frames)",
+	"bullet speed",
+	NULL
+};
 
 static const int32_t bulletSize[3] = {100, 100, 100};
 
@@ -30,19 +45,20 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 
 	int32_t cooldown = getSlider(me, s_cooldown);
 	int32_t ammo = getSlider(me, s_ammo);
-	if (cooldown > 0) {
+	if (cooldown > 1) {
 		uSlider(me, s_cooldown, cooldown - 1);
 	} else if (getTrigger(h, 0) && ammo) {
-		uSlider(me, s_cooldown, 4);
+		uSlider(me, s_cooldown, getSlider(me, s_cooldown_max));
 		uSlider(me, s_ammo, ammo-1);
 		uSlider(me, s_reload, 0);
 
 		int32_t vel[3];
 		getLook(vel, h);
 		int32_t pos[3];
+		int32_t spd = getSlider(me, s_speed);
 		range(i, 3) {
 			pos[i] = me->center[i] + (32*vel[i]/axisMaxis);
-			vel[i] = me->vel[i] + (10000*vel[i]/axisMaxis);
+			vel[i] = me->vel[i] + (spd*vel[i]/axisMaxis);
 		}
 		ent* bullet = initEnt(
 			gs, me,
@@ -50,7 +66,7 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 			1,
 			T_WEIGHTLESS, T_TERRAIN + T_OBSTACLE + T_DEBRIS
 		);
-		uSlider(bullet, 0, 60);
+		uSlider(bullet, 0, 30);
 		bullet->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 		bullet->color = 0xC0C0C0;
 		bullet->pushed = pushedHandlers.get(PUSHED_BULLET);
@@ -59,11 +75,12 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 		return;
 	}
 
-	if (ammo != 10) {
+	int32_t ammoMax = getSlider(me, s_ammo_max);
+	if (ammo != ammoMax) {
 		int32_t reload = getSlider(me, s_reload) + 1;
-		if (reload >= 90) {
+		if (reload >= getSlider(me, s_reload_max)) {
 			uSlider(me, s_reload, 0);
-			uSlider(me, s_ammo, 10);
+			uSlider(me, s_ammo, ammoMax);
 		} else {
 			uSlider(me, s_reload, reload);
 		}
@@ -76,11 +93,10 @@ static char bullet_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 	// Immediate slider update, hacky but who cares
 	me->sliders[0].v = 0;
 
-	// I'll probably have to use 64-bit math here soon.
-	// Bullet velocity is 100000, so say collision speed might be
-	// 200000 for fun. We can't exceed around 280000 without
-	// hitting int32_t limits, but if we make the scale any
-	// smaller we start to get more noticeable errors
+	// Existing notes said this scale starts to have issues at
+	// a relative velocity of 280000, not sure if that's right offhand.
+	// Changing it down gives larger errors, but changing it up
+	// means we'll hit int limits more easily.
 	if (dv) {
 		int32_t scale = 7000;
 		int32_t ratio = dx*scale / dv;
@@ -108,7 +124,7 @@ static void bullet_tick(gamestate *gs, ent *me) {
 
 static void bullet_tick_held(gamestate *gs, ent *me) {
 	int32_t ttl = getSlider(me, 0);
-	if (ttl <= -30 || ttl > 0) { // >0 shouldn't happen...
+	if (ttl <= -15 || ttl > 0) { // >0 shouldn't happen...
 		ent *h = me->holder;
 		int32_t t = type(h);
 		// I think with the current rate of fire and bullet TTL,
@@ -132,7 +148,7 @@ static void bullet_tick_held(gamestate *gs, ent *me) {
 		uDead(gs, me);
 	} else {
 		ttl--;
-		me->color = 0xC0C0C0 - 0x10101 * (0xC0*ttl/-30);
+		me->color = 0xC0C0C0 - 0x10101 * (0xC0*ttl/-15);
 		uSlider(me, 0, ttl);
 	}
 }
