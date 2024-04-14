@@ -56,8 +56,8 @@ struct gamestate;
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
 typedef void (*tick_t)(struct gamestate *gs, struct ent*);
 typedef void (*crush_t)(struct gamestate *gs, struct ent*);
-typedef char (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
+typedef char (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*entPair_t)(struct gamestate *gs, struct ent*, struct ent*);
 
 typedef struct {

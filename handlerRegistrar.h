@@ -136,7 +136,7 @@ enum {
 enum {
 	PUSHED_NIL,
 	PUSHED_gap1, // Unused
-	PUSHED_EXPLOSION,
+	PUSHED_FRAGILE,
 	PUSHED_FLAG,
 	PUSHED_reuse1, // Was for thumbtacks, probably not in any save file
 	PUSHED_PLAYER,

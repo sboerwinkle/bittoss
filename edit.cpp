@@ -496,6 +496,7 @@ void edit_t_dumb(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -512,6 +513,15 @@ void edit_t_cursed(gamestate *gs, ent *me) {
 	}
 }
 
+void edit_t_fragile(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		e->pushed = pushedHandlers.get(PUSHED_FRAGILE);
+	}
+}
+
 void edit_t_logic(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -520,6 +530,7 @@ void edit_t_logic(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -535,6 +546,7 @@ void edit_t_logic_debug(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -550,6 +562,7 @@ void edit_t_rand(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_RAND);
 		e->tickHeld = tickHandlers.get(TICK_RAND);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -565,6 +578,7 @@ void edit_t_timer(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_TIMER);
 		e->tickHeld = tickHandlers.get(TICK_TIMER);
 		e->push = pushHandlers.get(PUSH_LOGIC);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -580,6 +594,7 @@ void edit_t_demolish(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_DEMOLISH);
 		e->tickHeld = tickHandlers.get(TICK_DEMOLISH);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -595,6 +610,7 @@ void edit_t_door(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_DOOR);
 		e->tickHeld = tickHandlers.get(TICK_DOOR);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -610,6 +626,7 @@ void edit_t_teleport(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_TELEPORT);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -625,6 +642,7 @@ void edit_t_legg(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL); //Leggs don't do anything if not held
 		e->tickHeld = tickHandlers.get(TICK_LEGG);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -640,6 +658,7 @@ void edit_t_respawn(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_RESPAWN);
 		e->tickHeld = tickHandlers.get(TICK_RESPAWN);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -655,6 +674,7 @@ void edit_t_seat(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_SEAT);
 		e->tickHeld = tickHandlers.get(TICK_SEAT);
 		e->push = pushHandlers.get(PUSH_SEAT);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
 		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
 		typemask_t(e, T_INPUTS);
@@ -670,6 +690,7 @@ void edit_t_gun(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_HELD_GUN);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, T_EQUIP);
@@ -685,6 +706,7 @@ void edit_t_blink(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_HELD_BLINK);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, T_EQUIP_SM);
@@ -700,6 +722,7 @@ void edit_t_teamselect(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_TEAMSELECT);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		typemask_t(e, 0);
@@ -720,6 +743,7 @@ void edit_m_t_scoreboard(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_SCOREBOARD);
 		e->tickHeld = tickHandlers.get(TICK_NIL);
 		e->push = pushHandlers.get(PUSH_SCOREBOARD);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, M_SCOREBOARD_NUM_SLIDERS);
@@ -742,6 +766,7 @@ void edit_m_t_veh_eye(gamestate *gs, ent *me) {
 		e->tick = tickHandlers.get(TICK_NIL);
 		e->tickHeld = tickHandlers.get(TICK_HELD_VEH_EYE);
 		e->push = pushHandlers.get(PUSH_NIL);
+		e->pushed = pushedHandlers.get(PUSHED_NIL);
 		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
 		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
 		setNumSliders(gs, e, 0);

@@ -9,10 +9,6 @@ static int explosion_whoMoves(ent *me, ent *him, int axis, int dir) {
 	return (type(him) & T_TERRAIN) ? MOVE_ME : MOVE_HIM;
 }
 
-static char explosion_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
-	return 1;
-}
-
 static void explosion_tick(gamestate *gs, ent *me) {
 	int timer = getSlider(me, 0);
 	if (timer < 5) {
@@ -32,7 +28,7 @@ static void mkExplosion(gamestate *gs, ent *parent, int32_t *pos, int32_t *vel) 
 		T_OBSTACLE + T_HEAVY, T_TERRAIN + T_OBSTACLE);
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_EXPLOSION);
 	ret->color = 0xFFB233;
-	ret->pushed = pushedHandlers.get(PUSHED_EXPLOSION);
+	ret->pushed = pushedHandlers.get(PUSHED_FRAGILE);
 	ret->tick = tickHandlers.get(TICK_EXPLOSION);
 }
 
@@ -64,6 +60,5 @@ vel[ix] = parent->vel[ix] + 2 * force * counter/(count-1) - force
 
 void module_explosion() {
 	whoMovesHandlers.reg(WHOMOVES_EXPLOSION, explosion_whoMoves);
-	pushedHandlers.reg(PUSHED_EXPLOSION, explosion_pushed);
 	tickHandlers.reg(TICK_EXPLOSION, explosion_tick);
 }

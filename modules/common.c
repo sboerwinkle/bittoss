@@ -53,6 +53,11 @@ static void cursed_tick(gamestate *gs, ent *me) {
 	uDead(gs, me);
 }
 
+static char fragile_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
+	// return 1 so ent is crushed
+	return 1;
+}
+
 static void decor_fumbled(gamestate *gs, ent *me, ent *him) {
 	// When dropped, make us collidable.
 	// Also clears this handler, since it isn't necessary anymore
@@ -65,4 +70,5 @@ void module_common() {
 	whoMovesHandlers.reg(WHOMOVES_ME, move_me);
 	tickHandlers.reg(TICK_CURSED, cursed_tick);
 	entPairHandlers.reg(FUMBLED_DECOR, decor_fumbled);
+	pushedHandlers.reg(PUSHED_FRAGILE, fragile_pushed);
 }
