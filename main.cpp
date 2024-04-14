@@ -106,9 +106,9 @@ static int32_t ghostCenter[3] = {0, -15000, 16000};
 static tick_t seat_tick, seat_tick_old;
 
 
-static int phys_micros = 0;
-static int draw_micros = 0;
-static int flip_micros = 0;
+static long inputs_nanos = 0;
+static long update_nanos = 0;
+static long follow_nanos = 0;
 static struct timespec t1, t2, t3, t4;
 static int performanceFrames = 0, performanceIters = 0;
 #define PERF_FRAMES_MAX 120
@@ -116,8 +116,6 @@ static int performanceFrames = 0, performanceIters = 0;
 // 1 sec = 1 billion nanos
 #define BILLION 1000000000
 #define STEP_NANOS 33333333
-// TODO I think this define is outdated, not sure what all even uses FRAMERATE anymore...
-#define micros_per_frame (1000000 / FRAMERATE)
 // How many frames of data are kept to help guess the server clock
 #define frame_time_num 90
 // How many frames have to agree that we're early (or late) before we start adjusting our clock
@@ -243,9 +241,9 @@ static void drawOverlay(list<player> *ps) {
 	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
 	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 0, 0, 0.5, 1.6, 1, overlayColor);
 
-	float f1 = (double) draw_micros / micros_per_frame;
-	float f2 = (double) flip_micros / micros_per_frame;
-	float f3 = (double) phys_micros / micros_per_frame;
+	float f1 = (double) inputs_nanos / STEP_NANOS;
+	float f2 = (double) update_nanos / STEP_NANOS;
+	float f3 = (double) follow_nanos / STEP_NANOS;
 	// Draw frame timing bars
 	drawHudRect(0, 1 - 1.0/64, f1, 1.0/64, bluColor);
 	drawHudRect(f1, 1 - 1.0/64, f2, 1.0/64, redColor);
@@ -488,7 +486,7 @@ static void mkHeroes(gamestate *gs) {
 	range(i, numPlayers) {
 		player *p = &gs->players[i];
 		if (p->entity == NULL) {
-			if (p->reviveCounter < FRAMERATE * 3) continue;
+			if (p->reviveCounter < 90) continue;
 			p->entity = mkHero(gs, i, numPlayers);
 			p->entity->color = p->color;
 			p->reviveCounter = 0;
@@ -1048,47 +1046,14 @@ static void* pacedThreadFunc(void *_arg) {
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
 		}
 
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
+
 		// Wake up and send player inputs
 		handleSharedInputs(outboundFrame);
 		outboundFrame = (outboundFrame + 1) % FRAME_ID_MAX;
 
+		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 
-		// Contract information for the renderData:
-		// TODO: the "Access" flags can be done away with if we clone phantomState
-		//       in the event that we have no further server data available for viewing.
-		//       (just need to be sure cloning a gamestate that Gfx Thread might be
-		//        looking at won't cause problems)
-		/*
-			the gamestate object - written only by Paced thread
-			`requestPacedAccess` - set by Paced, cleared by Gfx
-			`gfxAccess` - set by Paced, cleared by Gfx
-			`gfxResponsible` - set by Gfx, cleared by Paced
-			Gfx thread is responsible for disposing of the given object
-				Gfx thread will wait until it has been changed to something else
-				(or program termination)
-				to dispose of it, as paced thread may still need it
-			Gfx thread will not write to the given object
-			Upon completion of a frame, Gfx thread will lock the renderData and:
-				Determine if it has a wakeup time
-				if no wakeup time, and object is unchanged:
-					gfxDoneWithRenderData();
-				Sleep on signal (with wakeup time, as appropriate) ...
-				If program exit:
-					if object is changed:
-						free old object
-					gfxDoneWithRenderData();
-				Figure out if it's time to render
-				update `gfxResponsible` and thread-private variables as appropriate
-			void gfxDoneWithRenderData() {
-				renderData.gfxAccess = 0;
-				if(renderData.requestPacedAccess) {
-					renderData.requestPacedAccess = 0;
-					// TODO Signal other thread. Or should we do away with this and always signal?
-				}
-			}
-		*/
-
-		// TODO working on this, need to roll phantomState forward based on latest inputs and pass over to input/gfx thread.
 		{
 			char *newestData = outboundData.peek(outboundData.size() -  1).items;
 			// You could argue that we should update `latestFrameData` before we take this step,
@@ -1123,29 +1088,6 @@ static void* pacedThreadFunc(void *_arg) {
 			}
 		}
 
-
-		// TODO: Right now we're drawing,
-		//       but instead we probably want to:
-		//       - If our phantom state is the same as the renderData one:
-		//       	- lock render data
-		//       	if (renderData.gfxAccess) {
-		//       		renderData.requestPacedAccess = 1;
-		//       		do {
-		//       			// TODO sleep on cond
-		//       		} while (renderData.gfxAccess && !/*TODO exit cont*/0);
-		//       	}
-		//       - simulate phantom state forward 1 step using recently-captured inputs
-		//       - lock some mutex for talking to GFX thread - is this also the input thread?
-		//       	- If object is different
-		//         		- if not gfxResponsible
-		//         			put the item in a thread-local variable so we can clean it up
-		//         		write new object in
-		//         		clear gfxResponsible
-		//         	Set gfxAccess
-		//         	Set timing info
-		//         	Signal other thread
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
-		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
 
 		int framesProcessed = 0;
@@ -1197,12 +1139,12 @@ static void* pacedThreadFunc(void *_arg) {
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
 		{
 			// TODO All this timing stuff will have to be reconsidered since we're moving stuff about
-			draw_micros = 1000000 * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1000;
-			flip_micros = 1000000 * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec) / 1000;
-			phys_micros = 1000000 * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec) / 1000;
+			inputs_nanos = BILLION * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec);
+			update_nanos = BILLION * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec);
+			follow_nanos = BILLION * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec);
 			if (performanceFrames) {
 				performanceFrames--;
-				performanceTotal += phys_micros;
+				performanceTotal += follow_nanos;
 				if (!performanceFrames) {
 					printf("perf: %ld\n", performanceTotal);
 					performanceTotal = 0;
@@ -1439,7 +1381,7 @@ static void* renderThreadFunc(void *_arg) {
 	glfwSwapInterval(1);
 	long drawingNanos = 0;
 	long totalNanos = 0;
-	long t0 = nowNanos();
+	long time0 = nowNanos();
 	while (globalRunning) {
 		checkRenderData();
 
@@ -1449,7 +1391,7 @@ static void* renderThreadFunc(void *_arg) {
 
 		ent *root = (*players)[myPlayer].entity;
 		if (root) root = root->holdRoot;
-		float interpRatio = (float)(t0 - renderStartNanos) / STEP_NANOS;
+		float interpRatio = (float)(time0 - renderStartNanos) / STEP_NANOS;
 		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
 
@@ -1458,17 +1400,17 @@ static void* renderThreadFunc(void *_arg) {
 		if (showFps) {
 			drawFps(drawingNanos, totalNanos);
 		}
-		long t1 = nowNanos();
+		long time1 = nowNanos();
 
 		glfwSwapBuffers(display);
 		if (manualGlFinish) {
 			glFinish();
 		}
-		long t2 = nowNanos();
+		long time2 = nowNanos();
 
-		drawingNanos = t1-t0;
-		totalNanos = t2-t0;
-		t0 = t2;
+		drawingNanos = time1-time0;
+		totalNanos = time2-time0;
+		time0 = time2;
 	}
 	return NULL;
 }
