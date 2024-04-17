@@ -47,7 +47,7 @@ static void scoreboard_tick(gamestate *gs, ent *me) {
 
 	if (result != alive) {
 		uSlider(me, s_result, alive);
-		timer = 150;
+		timer = 75;
 	}
 
 	if (timer) {
