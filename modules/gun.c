@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "player.h"
 
@@ -158,4 +159,5 @@ void module_gun() {
 	tickHandlers.reg(TICK_HELD_BULLET, bullet_tick_held);
 	tickHandlers.reg(TICK_BULLET, bullet_tick);
 	pushedHandlers.reg(PUSHED_BULLET, bullet_pushed);
+	addEditHelp(&ent::tickHeld, gun_tick_held, "gun", M_GUN_HELP);
 }

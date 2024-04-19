@@ -3,6 +3,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "player.h"
 #include "eyes.h"
@@ -55,4 +56,5 @@ static void respawn_tick(gamestate *gs, ent *me) {
 
 void module_respawn() {
 	tickHandlers.reg(TICK_RESPAWN, respawn_tick);
+	addEditHelp(&ent::tickHeld, respawn_tick, "respawn", M_RESPAWN_HELP);
 }

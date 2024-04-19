@@ -3,6 +3,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "player.h"
 
@@ -43,4 +44,5 @@ static void teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 
 void module_teamselect() {
 	pushHandlers.reg(PUSH_TEAMSELECT, teamselect_push);
+	addEditHelp(&ent::push, teamselect_push, "teamselect", M_TEAMSELECT_HELP);
 }

@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "common.h"
 
@@ -161,4 +162,5 @@ static void legg_tick(gamestate *gs, ent *me) {
 void module_legg() {
 	tickHandlers.reg(TICK_LEGG, legg_tick);
 	tickHandlers.reg(TICK_LEGG_OLD, legg_tick_old);
+	addEditHelp(&ent::tickHeld, legg_tick, "legg", M_LEGG_HELP);
 }

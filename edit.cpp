@@ -25,8 +25,16 @@
 #include "modules/scoreboard.h"
 #include "modules/logic.h"
 
+struct help_entry {
+	void (*ent::*field)(void);
+	void (*value)(void);
+	char const * title;
+	char const * const * helps;
+};
+
 static list<ent*> a, b;
 static list<int32_t> args;
+static list<help_entry> helpEntries;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
 static const char* nptr = NULL;
@@ -181,26 +189,20 @@ void edit_info(ent *e) {
 		e->color
 	);
 	if (e->numSliders) {
-		puts("Sliders:");
+		char const * title = NULL;
 		char const * const * helps = &nptr;
-		char endl = 0;
-		if (e->tickHeld == tickHandlers.get(TICK_LEGG)) {
-			helps = M_LEGG_HELP;
-		} else if (e->tickHeld == tickHandlers.get(TICK_RESPAWN)) {
-			helps = M_RESPAWN_HELP;
-		} else if (e->tickHeld == tickHandlers.get(TICK_LOGIC)
-				|| e->tickHeld == tickHandlers.get(TICK_LOGIC_DEBUG)
-				|| e->tickHeld == tickHandlers.get(TICK_RAND) ) {
-			helps = M_LOGIC_HELP;
-		} else if (e->tickHeld == tickHandlers.get(TICK_TIMER)) {
-			helps = M_TIMER_HELP;
-		} else if (e->tickHeld == tickHandlers.get(TICK_HELD_GUN)) {
-			helps = M_GUN_HELP;
-		} else if (e->tickHeld == tickHandlers.get(TICK_HELD_BLINK)) {
-			helps = M_BLINK_HELP;
-		} else if (e->push == pushHandlers.get(PUSH_TEAMSELECT)) {
-			helps = M_TEAMSELECT_HELP;
+		range(i, helpEntries.num) {
+			help_entry &h = helpEntries[i];
+			if (e->*(h.field) == h.value) {
+				title = h.title;
+				helps = h.helps;
+				break;
+			}
 		}
+
+		if (title) printf("-- %s --\n", title);
+		puts("Sliders:");
+		char endl = 0;
 		range(i, e->numSliders) {
 			if (*helps) {
 				printf("%2d: %d - %s\n", i, e->sliders[i].v, *(helps++));
@@ -1248,10 +1250,15 @@ void edit_export(gamestate *gs, ent *me, const char *name) {
 	data.destroy();
 }
 
+void addEditHelpInner(void (*ent::*field)(void), void (*value)(void), char const * title, char const * const * helps) {
+	helpEntries.add({.field=field, .value=value, .title=title, .helps=helps});
+}
+
 void edit_init() {
 	a.init();
 	b.init();
 	args.init();
+	helpEntries.init();
 	regcomp(&colorRegex, "^ *(#|0x)?([0-9a-f]{6}) *$", REG_EXTENDED|REG_ICASE);
 }
 
@@ -1259,5 +1266,6 @@ void edit_destroy() {
 	a.destroy();
 	b.destroy();
 	args.destroy();
+	helpEntries.destroy();
 	regfree(&colorRegex);
 }

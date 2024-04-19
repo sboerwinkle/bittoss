@@ -6,6 +6,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "player.h"
 
@@ -54,4 +55,5 @@ static void blink_tick_held(gamestate *gs, ent *me) {
 
 void module_blink() {
 	tickHandlers.reg(TICK_HELD_BLINK, blink_tick_held);
+	addEditHelp(&ent::tickHeld, blink_tick_held, "blink", M_BLINK_HELP);
 }

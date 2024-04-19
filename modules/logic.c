@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "logic.h"
 
@@ -134,4 +135,8 @@ void module_logic() {
 	tickHandlers.reg(TICK_TIMER, timer_tick);
 	tickHandlers.reg(TICK_DEMOLISH, demolish_tick);
 	pushHandlers.reg(PUSH_LOGIC, logic_push);
+	addEditHelp(&ent::tickHeld, logic_tick, "logic", M_LOGIC_HELP);
+	addEditHelp(&ent::tickHeld, logic_tick_debug, "logic_debug", M_LOGIC_HELP);
+	addEditHelp(&ent::tickHeld, randomazzo_tick, "rand", M_LOGIC_HELP);
+	addEditHelp(&ent::tickHeld, timer_tick, "timer", M_TIMER_HELP);
 }
