@@ -697,20 +697,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/dumb", edit_t_dumb(gs, me));
 	cmd("/cursed", edit_t_cursed(gs, me));
 	cmd("/fragile", edit_t_fragile(gs, me));
-	cmd("/logic", edit_t_logic(gs, me));
-	cmd("/logic_debug", edit_t_logic_debug(gs, me));
-	cmd("/rand", edit_t_rand(gs, me));
-	cmd("/timer", edit_t_timer(gs, me));
-	cmd("/demolish", edit_t_demolish(gs, me));
-	cmd("/door", edit_t_door(gs, me));
-	cmd("/teleport", edit_t_teleport(gs, me));
-	cmd("/tp", edit_t_teleport(gs, me));
-	cmd("/legg", edit_t_legg(gs, me));
-	cmd("/respawner", edit_t_respawn(gs, me));
-	cmd("/seat", edit_t_seat(gs, me));
-	cmd("/gun", edit_t_gun(gs, me));
-	cmd("/blink", edit_t_blink(gs, me));
-	cmd("/teamselect", edit_t_teamselect(gs, me));
+	if (tryOtherCommand(gs, me, chatBuffer+1)) return 1;
 	cmd("/scoreboard", edit_m_t_scoreboard(gs, me));
 	cmd("/veheye", edit_m_t_veh_eye(gs, me)); // TODO remove?
 

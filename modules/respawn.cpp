@@ -54,7 +54,14 @@ static void respawn_tick(gamestate *gs, ent *me) {
 	}
 }
 
+static void cmdRespawn(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 5);
+	e->tick = tickHandlers.get(TICK_RESPAWN);
+	e->tickHeld = tickHandlers.get(TICK_RESPAWN);
+}
+
 void module_respawn() {
 	tickHandlers.reg(TICK_RESPAWN, respawn_tick);
 	addEditHelp(&ent::tickHeld, respawn_tick, "respawn", M_RESPAWN_HELP);
+	addEntCommand("respawn", cmdRespawn);
 }

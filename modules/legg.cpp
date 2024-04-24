@@ -159,8 +159,14 @@ static void legg_tick(gamestate *gs, ent *me) {
 	inner_legg_tick(gs, me, v1, 2);
 }
 
+static void cmdLegg(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 9);
+	e->tickHeld = tickHandlers.get(TICK_LEGG);
+}
+
 void module_legg() {
 	tickHandlers.reg(TICK_LEGG, legg_tick);
 	tickHandlers.reg(TICK_LEGG_OLD, legg_tick_old);
 	addEditHelp(&ent::tickHeld, legg_tick, "legg", M_LEGG_HELP);
+	addEntCommand("legg", cmdLegg);
 }

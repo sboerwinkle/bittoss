@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <assert.h>
 
 #include "../util.h"
 #include "../ent.h"
@@ -23,8 +22,6 @@ enum {
 	s_speed, // 14000
 	s_num
 };
-
-static_assert(s_num == M_GUN_NUM_SLIDERS);
 
 char const * const * const M_GUN_HELP = (char const * const[]) {
 	"(internal) ammo",
@@ -154,10 +151,16 @@ static void bullet_tick_held(gamestate *gs, ent *me) {
 	}
 }
 
+static void cmdGun(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, T_EQUIP, s_num);
+	e->tickHeld = tickHandlers.get(TICK_HELD_GUN);
+}
+
 void module_gun() {
 	tickHandlers.reg(TICK_HELD_GUN, gun_tick_held);
 	tickHandlers.reg(TICK_HELD_BULLET, bullet_tick_held);
 	tickHandlers.reg(TICK_BULLET, bullet_tick);
 	pushedHandlers.reg(PUSHED_BULLET, bullet_pushed);
 	addEditHelp(&ent::tickHeld, gun_tick_held, "gun", M_GUN_HELP);
+	addEntCommand("gun", cmdGun);
 }

@@ -128,6 +128,40 @@ static void demolish_tick(gamestate *gs, ent *me) {
 	if (getButton(me, 0)) uDead(gs, me);
 }
 
+static void cmdLogic(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 2);
+	e->tick = tickHandlers.get(TICK_LOGIC);
+	e->tickHeld = tickHandlers.get(TICK_LOGIC);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
+static void cmdLogicDebug(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 2);
+	e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
+	e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
+static void cmdRand(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 2);
+	e->tick = tickHandlers.get(TICK_RAND);
+	e->tickHeld = tickHandlers.get(TICK_RAND);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
+static void cmdTimer(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 3);
+	e->tick = tickHandlers.get(TICK_TIMER);
+	e->tickHeld = tickHandlers.get(TICK_TIMER);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
+static void cmdDemolish(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 0);
+	e->tick = tickHandlers.get(TICK_DEMOLISH);
+	e->tickHeld = tickHandlers.get(TICK_DEMOLISH);
+}
+
 void module_logic() {
 	tickHandlers.reg(TICK_LOGIC, logic_tick);
 	tickHandlers.reg(TICK_LOGIC_DEBUG, logic_tick_debug);
@@ -139,4 +173,9 @@ void module_logic() {
 	addEditHelp(&ent::tickHeld, logic_tick_debug, "logic_debug", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, randomazzo_tick, "rand", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, timer_tick, "timer", M_TIMER_HELP);
+	addEntCommand("logic", cmdLogic);
+	addEntCommand("logic_debug", cmdLogicDebug);
+	addEntCommand("rand", cmdRand);
+	addEntCommand("timer", cmdTimer);
+	addEntCommand("demolish", cmdDemolish);
 }

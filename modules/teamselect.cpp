@@ -7,8 +7,6 @@
 
 #include "player.h"
 
-#include "teamselect.h"
-
 char const * const * const M_TEAMSELECT_HELP = (char const * const[]){
 	"mask - player data mask",
 	"value - player data is set to this (subject to mask)",
@@ -20,8 +18,6 @@ enum {
 	s_value,
 	s_num
 };
-
-static_assert(s_num == M_TEAMSELECT_NUM_SLIDERS);
 
 static void updatePlayer(ent *me, player *p) {
 	int32_t mask = getSlider(me, s_mask);
@@ -42,7 +38,13 @@ static void teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 	}
 }
 
+static void cmdTeamselect(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, s_num);
+	e->push = pushHandlers.get(PUSH_TEAMSELECT);
+}
+
 void module_teamselect() {
 	pushHandlers.reg(PUSH_TEAMSELECT, teamselect_push);
 	addEditHelp(&ent::push, teamselect_push, "teamselect", M_TEAMSELECT_HELP);
+	addEntCommand("teamselect", cmdTeamselect);
 }

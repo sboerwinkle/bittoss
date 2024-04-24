@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 static void teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// All kinds of stuff can be pushed, some of it invisible or otherwise not "real".
@@ -34,6 +35,12 @@ static void teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, 
 	uVel(him->holdRoot, v);
 }
 
+static void cmdTeleport(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 0);
+	e->push = pushHandlers.get(PUSH_TELEPORT);
+}
+
 void module_teleport() {
 	pushHandlers.reg(PUSH_TELEPORT, teleport_push);
+	addEntCommand("teleport", cmdTeleport);
 }

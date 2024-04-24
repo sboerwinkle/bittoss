@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <assert.h>
 
 #include "../util.h"
 #include "../ent.h"
@@ -19,8 +18,6 @@ enum {
 	s_range,
 	s_num
 };
-
-static_assert(s_num == M_BLINK_NUM_SLIDERS);
 
 char const * const * const M_BLINK_HELP = (char const * const[]) {
 	"hand - internal use",
@@ -53,7 +50,13 @@ static void blink_tick_held(gamestate *gs, ent *me) {
 	uCenter(me->holdRoot, dir);
 }
 
+static void cmdBlink(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, T_EQUIP_SM, s_num);
+	e->tickHeld = tickHandlers.get(TICK_HELD_BLINK);
+}
+
 void module_blink() {
 	tickHandlers.reg(TICK_HELD_BLINK, blink_tick_held);
 	addEditHelp(&ent::tickHeld, blink_tick_held, "blink", M_BLINK_HELP);
+	addEntCommand("blink", cmdBlink);
 }

@@ -32,9 +32,15 @@ struct help_entry {
 	char const * const * helps;
 };
 
+struct ent_command {
+	char const * text;
+	void (*fn)(gamestate*, ent*);
+};
+
 static list<ent*> a, b;
 static list<int32_t> args;
 static list<help_entry> helpEntries;
+static list<ent_command> entCommands;
 static regex_t colorRegex;
 static regmatch_t regexMatches[3];
 static const char* nptr = NULL;
@@ -526,214 +532,6 @@ void edit_t_fragile(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_t_logic(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_LOGIC);
-		e->tickHeld = tickHandlers.get(TICK_LOGIC);
-		e->push = pushHandlers.get(PUSH_LOGIC);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 2);
-	}
-}
-
-void edit_t_logic_debug(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_LOGIC_DEBUG);
-		e->tickHeld = tickHandlers.get(TICK_LOGIC_DEBUG);
-		e->push = pushHandlers.get(PUSH_LOGIC);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 2);
-	}
-}
-
-void edit_t_rand(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_RAND);
-		e->tickHeld = tickHandlers.get(TICK_RAND);
-		e->push = pushHandlers.get(PUSH_LOGIC);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 2);
-	}
-}
-
-void edit_t_timer(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_TIMER);
-		e->tickHeld = tickHandlers.get(TICK_TIMER);
-		e->push = pushHandlers.get(PUSH_LOGIC);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 3);
-	}
-}
-
-void edit_t_demolish(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_DEMOLISH);
-		e->tickHeld = tickHandlers.get(TICK_DEMOLISH);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 0);
-	}
-}
-
-void edit_t_door(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_DOOR);
-		e->tickHeld = tickHandlers.get(TICK_DOOR);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 2);
-	}
-}
-
-void edit_t_teleport(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_NIL);
-		e->tickHeld = tickHandlers.get(TICK_NIL);
-		e->push = pushHandlers.get(PUSH_TELEPORT);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 0);
-	}
-}
-
-void edit_t_legg(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_NIL); //Leggs don't do anything if not held
-		e->tickHeld = tickHandlers.get(TICK_LEGG);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, M_LEGG_NUM_SLIDERS);
-	}
-}
-
-void edit_t_respawn(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_RESPAWN);
-		e->tickHeld = tickHandlers.get(TICK_RESPAWN);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, 5);
-	}
-}
-
-void edit_t_seat(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_SEAT);
-		e->tickHeld = tickHandlers.get(TICK_SEAT);
-		e->push = pushHandlers.get(PUSH_SEAT);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
-		e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
-		typemask_t(e, T_INPUTS);
-		setNumSliders(gs, e, M_SEAT_NUM_SLIDERS);
-	}
-}
-
-void edit_t_gun(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_NIL);
-		e->tickHeld = tickHandlers.get(TICK_HELD_GUN);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, T_EQUIP);
-		setNumSliders(gs, e, M_GUN_NUM_SLIDERS);
-	}
-}
-
-void edit_t_blink(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_NIL);
-		e->tickHeld = tickHandlers.get(TICK_HELD_BLINK);
-		e->push = pushHandlers.get(PUSH_NIL);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, T_EQUIP_SM);
-		setNumSliders(gs, e, M_BLINK_NUM_SLIDERS);
-	}
-}
-
-void edit_t_teamselect(gamestate *gs, ent *me) {
-	if (!me) return;
-	getLists(me);
-	range(i, a.num) {
-		ent *e = a[i];
-		e->tick = tickHandlers.get(TICK_NIL);
-		e->tickHeld = tickHandlers.get(TICK_NIL);
-		e->push = pushHandlers.get(PUSH_TEAMSELECT);
-		e->pushed = pushedHandlers.get(PUSHED_NIL);
-		e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
-		e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
-		typemask_t(e, 0);
-		setNumSliders(gs, e, M_TEAMSELECT_NUM_SLIDERS);
-	}
-}
-
 void edit_m_t_scoreboard(gamestate *gs, ent *me) {
 	if (!me) return;
 	getLists(me);
@@ -777,6 +575,37 @@ void edit_m_t_veh_eye(gamestate *gs, ent *me) {
 
 		uMyTypeMask(e, T_DECOR);
 	}
+}
+
+void basicTypeCommand(gamestate *gs, ent *e, int32_t typeflags, int numSliders) {
+	e->tick = tickHandlers.get(TICK_NIL);
+	e->tickHeld = tickHandlers.get(TICK_NIL);
+	e->push = pushHandlers.get(PUSH_NIL);
+	e->pushed = pushedHandlers.get(PUSHED_NIL);
+	e->onPickUp = entPairHandlers.get(ENTPAIR_NIL);
+	e->onFumble = entPairHandlers.get(ENTPAIR_NIL);
+	typemask_t(e, typeflags);
+	setNumSliders(gs, e, numSliders);
+}
+
+static void applyCommand(gamestate *gs, ent *me, void (*fn)(gamestate*, ent*)) {
+	if (!me) return;
+	getLists(me);
+	range(i, a.num) {
+		ent *e = a[i];
+		(*fn)(gs, e);
+	}
+}
+
+char tryOtherCommand(gamestate *gs, ent *me, const char *text) {
+	range(i, entCommands.num) {
+		ent_command &c = entCommands[i];
+		if (!strcmp(c.text, text)) {
+			applyCommand(gs, me, c.fn);
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
@@ -1254,11 +1083,16 @@ void addEditHelpInner(void (*ent::*field)(void), void (*value)(void), char const
 	helpEntries.add({.field=field, .value=value, .title=title, .helps=helps});
 }
 
+void addEntCommand(char const * text, void (*fn)(gamestate*, ent*)) {
+	entCommands.add({.text=text, .fn=fn});
+}
+
 void edit_init() {
 	a.init();
 	b.init();
 	args.init();
 	helpEntries.init();
+	entCommands.init();
 	regcomp(&colorRegex, "^ *(#|0x)?([0-9a-f]{6}) *$", REG_EXTENDED|REG_ICASE);
 }
 
@@ -1267,5 +1101,6 @@ void edit_destroy() {
 	b.destroy();
 	args.destroy();
 	helpEntries.destroy();
+	entCommands.destroy();
 	regfree(&colorRegex);
 }

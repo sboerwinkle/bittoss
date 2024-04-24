@@ -7,6 +7,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 #include "common.h"
 
@@ -55,6 +56,13 @@ static void door_tick(gamestate *gs, ent *me) {
 	uVel(me, vel);
 }
 
+static void cmdDoor(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 2);
+	e->tick = tickHandlers.get(TICK_DOOR);
+	e->tickHeld = tickHandlers.get(TICK_DOOR);
+}
+
 void module_door() {
 	tickHandlers.reg(TICK_DOOR, door_tick);
+	addEntCommand("door", cmdDoor);
 }

@@ -5,6 +5,7 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
 static void seat_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	if (me->wires.num) return;
@@ -53,6 +54,17 @@ static void seat_tick(gamestate *gs, ent *me) {
 	}
 }
 
+static void cmdSeat(gamestate *gs, ent *e) {
+	// The final 2 sliders are used for view offset
+	// (only used in main.cpp for setting up the frame)
+	basicTypeCommand(gs, e, T_INPUTS, 7);
+	e->tick = tickHandlers.get(TICK_SEAT);
+	e->tickHeld = tickHandlers.get(TICK_SEAT);
+	e->push = pushHandlers.get(PUSH_SEAT);
+	e->onPickUp = entPairHandlers.get(PICKUP_SEAT);
+	e->onFumble = entPairHandlers.get(FUMBLE_SEAT);
+}
+
 void module_seat() {
 	pushHandlers.reg(PUSH_SEAT, seat_push);
 	tickHandlers.reg(TICK_SEAT, seat_tick);
@@ -60,4 +72,5 @@ void module_seat() {
 	entPairHandlers.reg(FUMBLE_SEAT, seat_fumble);
 	entPairHandlers.reg(FUMBLE_SEAT_OLD, seat_fumble_old);
 	entPairHandlers.reg(PICKUP_SEAT, seat_pickUp);
+	addEntCommand("seat", cmdSeat);
 }
