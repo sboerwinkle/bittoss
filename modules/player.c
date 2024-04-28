@@ -30,6 +30,7 @@ enum {
 	s_cooldown,
 	s_equip_processed,
 	s_editmode,
+	s_buttons,
 	s_num
 };
 
@@ -50,19 +51,27 @@ void getLook(int32_t *dest, ent *e) {
 
 // We write these guys directly into the sliders,
 // because we want these inputs to be visible to the tick function on this frame.
-void setAxis(ent *e, int32_t *x) {
+void player_setAxis(ent *e, int32_t *x) {
 	if (e->numSliders > s_axis1) {
 		e->sliders[s_axis ].v = x[0];
 		e->sliders[s_axis1].v = x[1];
 	}
 }
 
-void setLook(ent *e, int32_t *x) {
+void player_setLook(ent *e, int32_t *x) {
 	if (e->numSliders > s_look2) {
 		e->sliders[s_look ].v = x[0];
 		e->sliders[s_look1].v = x[1];
 		e->sliders[s_look2].v = x[2];
 	}
+}
+
+// Some buttons are properties on every ent (used e.g. for logic),
+// but I need more buttons. Adding them to every ent seems silly
+// (and maybe they never should have gone there in the first place),
+// so further buttons will be communicated to the player entity as a slider/bitfield.
+void player_setButtons(ent *e, int32_t x) {
+	e->sliders[s_buttons].v = x;
 }
 
 static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
@@ -94,26 +103,59 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (
 		getButton(me, 1)
-		&& !getSlider(me, s_equip_processed)
+		&& !(1 & getSlider(me, s_equip_processed))
 		&& (type(him) & EQUIP_MASK)
 		&& !getSlider(me, s_editmode)
 		&& !him->holder
 	) {
-		// Skip if already holding any equipment
+		int32_t tEquip = him->typeMask & T_EQUIP;
+		int32_t tEquipSm = him->typeMask & T_EQUIP_SM;
+		char primaryEquipment = 0;
+		ent *offhandEquipment = NULL;
+
 		holdeesAnyOrder(h, me) {
-			if (h->typeMask & EQUIP_MASK) return;
+			int32_t heldEquip = h->typeMask & T_EQUIP;
+			int32_t heldEquipSm = h->typeMask & T_EQUIP_SM;
+
+			if (heldEquip) {
+				// If held equip is 2-handed,
+				// or both require the primary hand,
+				// or we're also holding an offhand item,
+				// we can't pickup.
+				if (heldEquipSm || tEquip || offhandEquipment) return;
+				// Otherwise, we're 1-handed and they're offhand, so no issue yet
+				primaryEquipment = 1;
+			} else if (heldEquipSm) {
+				// If this is our second piece of equipment,
+				// we can't pickup.
+				if (primaryEquipment || offhandEquipment) return;
+				// If the new equip is 2-handed,
+				// we can't pickup.
+				if (tEquip && tEquipSm) return;
+				// Otherwise, no issue yet
+				offhandEquipment = h;
+			}
+			// else, some non-equipment holdee, we don't care.
+		}
+
+		// By this point, we know we can pick it up, the only question is
+		// which hand, and do we have to swap an existing offhand item...
+		if (tEquip) {
+			if (offhandEquipment) uSlider(offhandEquipment, 0, 1);
+		} else {
+			// Else we know incoming item is offhand, need to know
+			// which hand it goes in
+			char hand = primaryEquipment || (offhandEquipment && !getSlider(offhandEquipment, 0));
+			uSlider(him, 0, hand);
 		}
 
 		uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
+		// Direct slider update. We absolutely don't want to examine another equipment before
+		// this pickup processes, and we don't really care which equipment gets handled if two
+		// are touched in the same frame.
+		// (it's not a desync risk, just "arbitrary" from the player's view)
+		me->sliders[s_equip_processed].v |= 1;
 
-		// A lot of the infrastructure I wrote was about making sure interactions were "symmetric",
-		// and which ent was "first" wouldn't matter. I still think this is a noble goal, but there
-		// are cracks. When picking up things we bump into, I started to wire up all this logic for
-		// HOLD_SINGLE so the pickup would fail if we requested it for multiple items in one frame.
-		// However, I honestly don't think it's worth it. We only care that one item is picked up,
-		// and we don't really care which one. Therefore, we do directly slider manipulation (which
-		// is usually taboo) so we only grab one even if they collide in the same frame.
-		me->sliders[s_equip_processed].v = 1;
 	}
 }
 
@@ -163,6 +205,25 @@ void player_flipBaubles(ent *me) {
 	}
 }
 
+// Which hand(s) the given equipment uses (1, 2, or 1+2)
+// 2-handed item =>           T_EQUIP + T_EQUIP_SM
+// 1-handed (primary) item => T_EQUIP
+// ambidextrous item =>       T_EQUIP_SM, slider 0 indicates hand
+static char getEquipHands(ent *e) {
+	// EQUIP_MASK == T_EQUIP + T_EQUIP_SM
+	if (!(e->typeMask & EQUIP_MASK)) return 0;
+	char hands = 0;
+
+	int32_t tEquip = e->typeMask & T_EQUIP;
+	if (tEquip || !getSlider(e, 0)) {
+		hands = 1;
+	}
+	if ((e->typeMask & T_EQUIP_SM) && (tEquip || getSlider(e, 0))) {
+		hands |= 2;
+	}
+	return hands;
+}
+
 static void player_tick(gamestate *gs, ent *me) {
 	// Jumping and movement
 
@@ -193,76 +254,110 @@ static void player_tick(gamestate *gs, ent *me) {
 	int charge = getSlider(me, s_charge);
 	int cooldown = getSlider(me, s_cooldown);
 	char fire = getTrigger(me, 0);
-	char altFire = getTrigger(me, 1);
+	char fire2 = getTrigger(me, 1);
 	char utility = getButton(me, 1);
+	int32_t otherBtns = getSlider(me, s_buttons);
+	char altfire = !!(otherBtns & PLAYER_BTN_ALTFIRE1);
+	char altfire2 = !!(otherBtns & PLAYER_BTN_ALTFIRE2);
 
 	// Controls edittool on/off, only manipulated externally by game commands
 	if (getSlider(me, s_editmode)) {
-		if (utility) { // Shift pressed - clear or flip baubles
-			if (fire) player_clearBaubles(gs, me, 0);
-			if (altFire) player_clearBaubles(gs, me, 1);
-			if (cooldown >= 5 && getButton(me, 0)) {
+		if (altfire) {
+			player_clearBaubles(gs, me, 0);
+		}
+		if (altfire2) {
+			player_clearBaubles(gs, me, 1);
+		}
+		if (cooldown >= 3) {
+			if (utility && getButton(me, 0)) { // Shift+Space
 				player_flipBaubles(me);
 				cooldown = 0;
-			}
-		} else { // Shift not pressed - click to select
-			if (cooldown >= 5 && fire) {
-				cooldown = 0;
+			} else if (fire) {
 				edittool_select(gs, me, 0);
-			} else if (cooldown >= 5 && altFire) {
 				cooldown = 0;
+			} else if (fire2) {
 				edittool_select(gs, me, 1);
+				cooldown = 0;
 			}
 		}
 	} else {
 		// This is fun block making stuff, i.e. not edittool
-		int numHoldees = 0;
+
+		// Count held equipment. If somehow we have a violation of the hand rules
+		// (e.g. some other thing has attached an equipment???), for now we force a
+		// drop on the relevant hand.
+		char hands = 0;
+		char drops = 0;
 		holdeesAnyOrder(h, me) {
-			if (!(h->typeMask & EQUIP_MASK)) continue;
-			if (++numHoldees > 1) break; // Don't care about counting any higher than 2
+			int32_t eHands = getEquipHands(h);
+			// Any already taken hands get put in the drop list
+			drops |= (hands & eHands);
+			hands |= eHands;
 		}
-		if (!utility) uSlider(me, s_equip_processed, 0);
+
+		// Update s_equip_processed
+		int32_t equipProcessed = getSlider(me, s_equip_processed);
+		// equipProcessed tracks equipment actions, namely Shift, Shift+LMB, Shift+RMB.
+		if (altfire) {
+			if (!(equipProcessed & 2)) {
+				equipProcessed |= 3;
+				drops |= 1;
+			}
+		} else {
+			equipProcessed &= ~2;
+		}
+		if (altfire2) {
+			if (!(equipProcessed & 4)) {
+				equipProcessed |= 5;
+				drops |= 2;
+			}
+		} else {
+			equipProcessed &= ~4;
+		}
+		// altfire/altfire2 also mark utility (Shift) as processed, since the purpose of
+		// pressing Shift might have been to get at altfire/altfire2.
+		// It's also possible Shift is released by the time the frame processes, though,
+		// so we do this check last:
+		if (!utility) equipProcessed &= ~1;
+		// (if `utility` is true, we don't act on that here, it's for pickups in the "push" handler)
+		uSlider(me, s_equip_processed, equipProcessed);
+
 		// We don't always need this but sometimes we do
 		int32_t look[3];
-		if (numHoldees) {
-			getLook(look, me);
-			if (numHoldees > 1 || (utility && !getSlider(me, s_equip_processed))) {
+		getLook(look, me);
+
+		if (drops) {
+			if (drops & hands) {
 				int32_t vel[3];
 				range(i, 3) vel[i] = 200 * look[i] / axisMaxis;
 				holdeesAnyOrder(h, me) {
-					if (!(h->typeMask & EQUIP_MASK)) continue;
-					uVel(h, vel);
-					uCenter(h, vel);
-					uDrop(gs, h);
-				}
-				uSlider(me, s_equip_processed, 1);
-				cooldown = 0;
-			} else {
-				/* Logic here for hovering the item where you're looking.
-				 * Might be useful later.
-				int32_t pos[3], vel[3], r[3], a[3];
-				holdeesAnyOrder(h, me) {
-					if (h->typeMask & T_DECOR) continue;
-					getPos(pos, me, h);
-					getVel(vel, me, h);
-					getSize(r, h);
-					range(i, 3) {
-						int32_t surface = 1024 + r[i];
-						if (abs(pos[i]) > surface + 1024) {
-							uDrop(gs, h);
-							a[i] = 0;
-						} else {
-							int32_t offset = (int)(look[i] * surface / (double)axisMaxis) - pos[i];
-							int32_t goalVel = bound(offset / 5, 64);
-							a[i] = bound(goalVel - vel[i], 12);
-						}
+					if (drops & getEquipHands(h)) {
+						uVel(h, vel);
+						uCenter(h, vel);
+						uDrop(gs, h);
 					}
-					uVel(h, a);
 				}
-				*/
+			} else {
+				// Else we have a drop request, but nothing in that hand.
+				// This is how we swap offhand item hands, let's try that
+				holdeesAnyOrder(h, me) {
+					// We know it can't be 2-handed, so T_EQUIP_SM means offhand here
+					if (h->typeMask & T_EQUIP_SM) {
+						// `drops` is a bitfield, but from context we know it must be either
+						// 1 or 2 right now, so we can be a little sneaky and subtract 1 to
+						// get the index of the hand the "drop" was requested on
+						// (which should be the destination hand)
+						uSlider(h, 0, drops-1);
+					}
+				}
 			}
-		} else if (cooldown >= 5 && charge >= 60) {
-			if (fire && !(gs->gamerules & EFFECT_NO_BLOCK)) {
+		}
+
+		// Not just a shortcut, also disables recharge of "innate" ammo if both hands are full
+		if (hands == 3) return;
+
+		if (cooldown >= 5 && charge >= 60) {
+			if (fire && !(hands & 1) && !(gs->gamerules & EFFECT_NO_BLOCK)) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
@@ -270,7 +365,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				ent* stackem = mkStackem(gs, me, look);
 				range(i, 3) { look[i] *= (double)(14*32)/axisMaxis; }
 				uVel(stackem, look);
-			} else if (charge >= 180 && altFire && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
+			} else if (charge >= 180 && fire2 && !(hands & 2) && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
 				charge -= 180;
 				cooldown = 0;
 				getLook(look, me);

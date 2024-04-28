@@ -52,8 +52,8 @@ int p1Codes[numKeys] = {GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY
 struct inputs {
 	struct {
 		char p1Keys[numKeys];
-		char mouseBtnDown = 0;
-		char mouseSecondaryDown = 0;
+		char lmbMode = 0;
+		char rmbMode = 0;
 		double viewYaw = 0;
 		double viewPitch = 0;
 	} basic;
@@ -289,14 +289,18 @@ static void saveGame(const char *name) {
 }
 
 static void doInputs(ent *e, char *data) {
-	if (data[0] & 1) pushBtn(e, 0);
-	if (data[0] & 2) pushBtn(e, 1);
-	if (data[0] & 4) pushBtn(e, 2);
-	if (data[0] & 8) pushBtn(e, 3);
+	int32_t otherButtons = 0;
+	if (data[0] &  1) pushBtn(e, 0);
+	if (data[0] &  2) pushBtn(e, 1);
+	if (data[0] &  4) pushBtn(e, 2); // LMB
+	if (data[0] &  8) otherButtons |= PLAYER_BTN_ALTFIRE1; // Shift+LMB
+	if (data[0] & 16) pushBtn(e, 3); // RMB
+	if (data[0] & 32) otherButtons |= PLAYER_BTN_ALTFIRE2; // Shift+RMB
 	int32_t axis[2] = {data[1], data[2]};
-	setAxis(e, axis);
+	player_setAxis(e, axis);
 	int32_t look[3] = {data[3], data[4], data[5]};
-	setLook(e, look);
+	player_setLook(e, look);
+	player_setButtons(e, otherButtons);
 }
 
 static void doDefaultInputs(ent *e) {
@@ -338,7 +342,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 	// Size will go in 0-3, we populate it in a minute
 	*(int32_t*)(out.items + 4) = htonl(frame);
 	// Other buttons also go here, once they exist; bitfield
-	out[8] = k[4] + 2*k[5] + 4*sharedInputs.basic.mouseBtnDown + 8*sharedInputs.basic.mouseSecondaryDown;
+	out[8] = k[4] + 2*k[5] + 4*sharedInputs.basic.lmbMode + 16*sharedInputs.basic.rmbMode;
 
 	int axis1 = k[1] - k[0];
 	int axis2 = k[3] - k[2];
@@ -1298,9 +1302,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		}
 		if (mouseDragMode && !press) mouseDragMode = -1;
 
-		activeInputs.basic.mouseBtnDown = press;
+		activeInputs.basic.lmbMode = press*(1+activeInputs.basic.p1Keys[5]);
 	} else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		activeInputs.basic.mouseSecondaryDown = press;
+		activeInputs.basic.rmbMode = press*(1+activeInputs.basic.p1Keys[5]);
 	}
 }
 
