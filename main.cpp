@@ -755,7 +755,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		list<char> fakeList;
 		fakeList.items = data+1;
 		fakeList.num = fakeList.max = chars - 1;
-		edit_import(gs, p->entity, &fakeList);
+		char addToBuffer = p->entity && getSlider(p->entity, PLAYER_EDIT_SLIDER);
+		edit_import(gs, p->entity, &fakeList, addToBuffer);
 		return;
 	}
 	if (chars >= 25 && *(unsigned char*)data == BIN_CMD_ADD) {

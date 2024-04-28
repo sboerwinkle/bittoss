@@ -1050,12 +1050,14 @@ void edit_measure(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_import(gamestate *gs, ent *me, list<char> *data) {
+void edit_import(gamestate *gs, ent *me, list<char> *data, char buffer) {
 	if (!me) return;
 
 	ent *start = gs->ents;
 
 	deserializeSelected(gs, data, me->center, me->vel);
+
+	if (!buffer) return;
 
 	for (ent *e = gs->ents; e != start; e = e->ll.n) {
 		player_toggleBauble(gs, me, e, 0);
