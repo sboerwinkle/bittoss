@@ -8,11 +8,12 @@
 
 #include "modules/player.h"
 
-static tick_t gun_tick_held, blink_tick_held;
+static tick_t gun_tick_held, blink_tick_held, jumper_tick_held;
 
 void hud_init() {
 	gun_tick_held = tickHandlers.get(TICK_HELD_GUN);
 	blink_tick_held = tickHandlers.get(TICK_HELD_BLINK);
+	jumper_tick_held = tickHandlers.get(TICK_HELD_JUMPER);
 }
 
 void hud_destroy() {}
@@ -47,6 +48,21 @@ static void drawEquipUi(ent *e) {
 			d(0.1+2*unit, 0    , unit, unit, hudColor);
 			d(0.1+3*unit, -unit, unit, unit, hudColor);
 			d(0.1+4*unit, 0    , unit, unit, hudColor);
+		} else if (e->tickHeld == jumper_tick_held) {
+			int ammo = getSlider(e, 1);
+			double reload = (double) getSlider(e, 2) / getSlider(e, 5);
+			double offset = 0.1;
+			const double unit = 1.0/128;
+			// Bars with arrow for full charges
+			range(i, ammo) {
+				d(offset, 0, 5*unit, unit, hudColor);
+				d(offset+2*unit, -3*unit, unit, 2*unit, hudColor);
+				d(offset+unit, -4.5*unit, 3*unit, unit, hudColor);
+				d(offset+2*unit, -5.5*unit, unit, unit, hudColor);
+				offset += 6*unit;
+			}
+			// Progress bar (w/out arrow) for partial charge
+			d(offset, 0, reload*5*unit, unit, hudColor);
 		}
 	} else if (e->tickHeld == gun_tick_held) {
 		int ammo = getSlider(e, 0);

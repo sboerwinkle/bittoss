@@ -31,6 +31,7 @@
 #include "modules/factory.h"
 #include "modules/gun.h"
 #include "modules/blink.h"
+#include "modules/jumper.h"
 #include "modules/teamselect.h"
 #include "modules/scoreboard.h"
 #include "modules/teleport.h"
@@ -55,6 +56,7 @@ void initMods() {
 	module_factory();
 	module_gun();
 	module_blink();
+	module_jumper();
 	module_teamselect();
 	module_scoreboard();
 	module_teleport();
