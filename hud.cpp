@@ -5,6 +5,7 @@
 #include "handlerRegistrar.h"
 #include "ent.h"
 #include "entGetters.h"
+#include "edit.h"
 
 #include "modules/player.h"
 
@@ -21,10 +22,31 @@ void hud_init() {
 void hud_destroy() {}
 
 static float hudColor[3] = {0.0, 0.5, 0.5};
+static float bluColor[3] = {0.0, 0.0, 1.0};
+static float redColor[3] = {1.0, 0.0, 0.0};
 
-static void drawEditCursor() {
+static void drawEditCount(float x, int count, float *color) {
+	const float range = 1.0/16;
+	const float slice = range/8;
+	const float y = 0.5 - range/2;
+	float step = (range - slice) / (2*count);
+	if (count >= 8) {
+		// At 8 or so, they'll touch, and we can just draw a big bar
+		drawHudRect(x, y + step, 1.0/128, range - 2*step, color);
+	} else {
+		range(i, count) {
+			drawHudRect(x, y + (1+2*i)*step, 1.0/128, slice, color);
+		}
+	}
+}
+
+static void drawEditCursor(ent *p) {
 	drawHudRect(0.5 - 2.0/128, 0.5 - 1.0/128, 1.0/128, 1.0/64, hudColor);
 	drawHudRect(0.5 + 1.0/128, 0.5 - 1.0/128, 1.0/128, 1.0/64, hudColor);
+	int blu, red;
+	countSelections(p, &blu, &red);
+	drawEditCount(0.5 - 3.5/128, blu, bluColor);
+	drawEditCount(0.5 + 2.5/128, red, redColor);
 }
 
 static void drawCursor(double x, double y, double w, double h, float *c) {
@@ -110,7 +132,7 @@ void drawHud(ent *p) {
 		drawHudRect(0.5-1.0/128, 0.5-1.0/128, 1.0/64, 1.0/64, hudColor);
 	} else {
 		if (getSlider(p, PLAYER_EDIT_SLIDER)) {
-			drawEditCursor();
+			drawEditCursor(p);
 			return;
 		}
 		ent *e;

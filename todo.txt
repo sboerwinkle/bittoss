@@ -1,4 +1,3 @@
-Gotta fix the containers not stepping!!!!! That's important.
 TODO:
 / Things that are being pushed by things that are being pushed aren't resolved first
 / Server exiting cancels input thread but doesn't exit app
@@ -108,11 +107,10 @@ TODO:
 	- left-handed mode for mouse button inputs
 	- left-handed mode for Aux tool HUD display
 	- default color, *maybe*
-- resizing things in the editor causes them to skip a frame of collision. Why? Probably to do with recent optimizations, and the fact that resizing requires a special kind of re-check
 
 - CTF scoring plz
 
-- Editing HUD shows number of items in blue/red buffer, as dots above/below crosshair
+/ Editing HUD shows number of items in blue/red buffer, as dots above/below crosshair
 - Optional max score for scoreboard
 
 - Optimizations
@@ -121,7 +119,7 @@ TODO:
 		Not sure if this should be activated dynamically on the client side,
 		or if we should make the decision server-side for "fairness"
 
-- Mario-Party-like race concept
+/ Mario-Party-like race concept
 	- Touching each checkpoint sets it as the spawn area
 		chk -> latch -> (latch, previous latch, suppressor (XNOR), knife(2) -> previous suppressor)
 		suppressor -> all spawners in this zone

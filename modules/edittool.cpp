@@ -45,7 +45,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 		1,
 		T_DECOR | T_NO_DRAW_FP, 0);
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
-	ret->color = BLUE_BUF_CLR;
+	ret->color = mode ? RED_BUF_CLR : BLUE_BUF_CLR;
 	ret->tick = tickHandlers.get(TICK_BAUBLE);
 	ret->tickHeld = tickHandlers.get(TICK_HELD_BAUBLE);
 	// TODO: This is not how wires are supposed to be updated!
@@ -54,7 +54,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 	ret->wires.add(target);
 
 	uPickup(gs, parent, ret, HOLD_DROP);
-	if (mode) pushBtn(ret, 2);
+	uSlider(ret, 0, mode);
 
 	return ret;
 }

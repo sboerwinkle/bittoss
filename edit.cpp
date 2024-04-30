@@ -179,6 +179,16 @@ static int32_t getNextOffset(int axis, int dir) {
 	return ret == INT32_MAX ? 0 : ret;
 }
 
+void countSelections(ent *e, int *blu, int *red) {
+	char ret = getLists(e);
+
+	if (ret & 1) *blu = 0;
+	else *blu = a.num;
+
+	if (ret & 2) *red = 0;
+	else *red = b.num;
+}
+
 void edit_info(ent *e) {
 	if (!e) return;
 	char defaulted = getLists(e);

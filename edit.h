@@ -1,3 +1,4 @@
+extern void countSelections(ent *e, int *blu, int *red);
 extern void edit_info(ent *e);
 extern int32_t edit_color(ent *e, const char *colorStr, char priviledged);
 extern void edit_selectInside(gamestate *gs, ent *me, const char *argsStr);
