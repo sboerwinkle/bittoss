@@ -9,11 +9,13 @@
 #include "modules/player.h"
 
 static tick_t gun_tick_held, blink_tick_held, jumper_tick_held;
+static pushed_t flag_pushed;
 
 void hud_init() {
 	gun_tick_held = tickHandlers.get(TICK_HELD_GUN);
 	blink_tick_held = tickHandlers.get(TICK_HELD_BLINK);
 	jumper_tick_held = tickHandlers.get(TICK_HELD_JUMPER);
+	flag_pushed = pushedHandlers.get(PUSHED_FLAG);
 }
 
 void hud_destroy() {}
@@ -33,13 +35,24 @@ static void drawCursorFlip(double x, double y, double w, double h, float *c) {
 	drawHudRect(0.5-x-w, 0.5+y, w, h, c);
 }
 
-static void drawEquipUi(ent *e) {
+// Returns the hands in use by this equipment.
+// We treat these hands as a bitfield in a couple places,
+// but this method also returns the "4" bit for primary + 2-handed equipments (which draw a central reticle)
+static char drawEquipUi(ent *e) {
 	if ((e->typeMask & EQUIP_MASK) == T_EQUIP_SM) {
 		// ambidexterous equipment draws on either side of the cursor
 		void (*d)(double x, double y, double w, double h, float *c);
-		d = getSlider(e, 0) ? drawCursor : drawCursorFlip;
+		char hands;
+		if (getSlider(e, 0)) {
+			hands = 2;
+			d = drawCursor;
+		} else {
+			hands = 1;
+			d = drawCursorFlip;
+		}
+
 		if (e->tickHeld == blink_tick_held) {
-			double fill = (double) getSlider(e, 1) / getSlider(e, 2);
+			double fill = 1.0 - (double) getSlider(e, 1) / getSlider(e, 2);
 			if (!isfinite(fill)) fill = 0;
 			const double unit = 1.0/128;
 			d(0.1, -unit, unit, fill*2*unit, hudColor);
@@ -64,6 +77,7 @@ static void drawEquipUi(ent *e) {
 			// Progress bar (w/out arrow) for partial charge
 			d(offset, 0, reload*5*unit, unit, hudColor);
 		}
+		return hands;
 	} else if (e->tickHeld == gun_tick_held) {
 		int ammo = getSlider(e, 0);
 		int ammoMax = getSlider(e, 3);
@@ -77,7 +91,17 @@ static void drawEquipUi(ent *e) {
 		drawHudRect(start, 0.5, width, 1.0/64, hudColor); // Ammo present
 		drawHudRect(start + width, 0.5 + 1.0/256, fullWidth - width, 1.0/128, hudColor); // Ammo absent
 		drawHudRect(start, 0.5 + 5.0/256, fullWidth*reload/reloadMax, 1.0/128, hudColor); // Reload progress
+	} else if (e->pushed == flag_pushed) {
+		double unit = 1.0/64;
+		double line = 1.0/256;
+		// Sketch a simple flag icon.
+		// Some lines overlap, that's fine
+		drawHudRect(0.5 - unit, 0.5, line, 2*unit, hudColor); // flagstaff
+		drawHudRect(0.5 - unit, 0.5, 2*unit, line, hudColor); // Top of flag
+		drawHudRect(0.5 - unit, 0.5+unit-line, 2*unit, line, hudColor); // Bottom of flag
+		drawHudRect(0.5+unit-line, 0.5, line, unit, hudColor); // Far edge of flag
 	}
+	return 4 + ((e->typeMask & T_EQUIP_SM) ? 3 : 1);
 }
 
 void drawHud(ent *p) {
@@ -90,25 +114,36 @@ void drawHud(ent *p) {
 			return;
 		}
 		ent *e;
-		char foundEquip = 0;
+		char hands = 0;
 		for (e = p->holdee; e; e = e->LL.n) {
 			if (type(e) & EQUIP_MASK) {
-				drawEquipUi(e);
-				foundEquip = 1;
+				hands |= drawEquipUi(e);
 			}
 		}
-		if (!foundEquip) {
+		if ((hands & 3) != 3) {
 			// UI for basic shooty-block player
+
 			int charge = p->sliders[8].v;
 			// Very old saves with obsolete "player" setups sometimes render this bar waaaaaay too wide; this at least keeps it playable until we fix things
 			if (charge > 600) charge = 600;
-			float x = 0.5 - 3.0/128;
+
+			float x;
+			if ((hands & 3) == 1) x = 0.6; // Draw it to the right if only our primary hand is full
+			else {
+				x = 0.5 - 3.0/128; // Otherwise (empty hands / off-hand full), draw in center
+				hands |= 4; // Also mark central reticle as filled so we don't add the dot
+			}
+
 			while (charge >= 60) {
 				drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
 				x += 1.0/64;
 				charge -= 60;
 			}
 			drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
+		}
+		// Small mark if the central reticle hasn't been filled by anything else
+		if (!(hands & 4)) {
+			drawHudRect(0.5 - 1.0/256, 0.5, 1.0/128, 1.0/256, hudColor);
 		}
 	}
 }

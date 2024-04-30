@@ -144,8 +144,8 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 			if (offhandEquipment) uSlider(offhandEquipment, 0, 1);
 		} else {
 			// Else we know incoming item is offhand, need to know
-			// which hand it goes in
-			char hand = primaryEquipment || (offhandEquipment && !getSlider(offhandEquipment, 0));
+			// which hand it goes in. Prefer off-hand if possible.
+			char hand = !(offhandEquipment && getSlider(offhandEquipment, 0));
 			uSlider(him, 0, hand);
 		}
 
