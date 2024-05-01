@@ -317,15 +317,9 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 #define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
 	// Criteria for ranking collisions:
 
-	// Prefer non-mutual collisions.
-	// Previously this was reversed, to avoid only one ent processing that collision.
-	// However, with collisions now being skipped if the pushee has a more pressing collision,
-	// it actually is generally nicer to have this reversed.
-	cb_helper(!mutuals[i]);
-
 	// Minimize time to impact.
-	// Maybe this should be the very first criterion?
-	// The one it replaced was here, so I'll leave it for now (or forever)
+	// This probably makes sense as the first check; it definitely has to be before the mutual collisions check,
+	// or else sometimes equipment inside us might process the impact instead of us.
 	// Time is of course distance/speed, but velocity is updated by previous collisions.
 	// We'll use `center-old` as a proxy for speed then, which should be identical on the
 	// first collision and less nonsense on subsequent collisions.
@@ -342,6 +336,12 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 		v64s[i] = delta * speed;
 	}
 	if (v64s[0] != v64s[1]) return v64s[0] < v64s[1];
+
+	// Prefer non-mutual collisions.
+	// Previously this was reversed, to avoid only one ent processing that collision.
+	// However, with collisions now being skipped if the pushee has a more pressing collision,
+	// it actually is generally nicer to have this reversed.
+	cb_helper(!mutuals[i]);
 
 	// Distance to lateral clearance (maximize, old)
 #define clearance(x) folks[i]->radius[x] + leafs[i]->radius[x] - abs(folks[i]->old[x] - leafs[i]->old[x])
