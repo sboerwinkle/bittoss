@@ -5,7 +5,13 @@ Note that this is just for myself and some friends at the moment, so don't expec
 
 You should be able to build the client with `build.sh`. It requires GLFW3, and some other stuff. The server resides in `server/` and uses python3. Both client and server can be run without args to see usage information.
 
-Once in-game, the controls are WASD, mouse (look/LMB/RMB), Space, Tab, and Left Shift. The default map is sort of capture-the-flag, though there's not proper scoring. There's _very_ limited text chat (T), but it's more fun if you're on an external voice call.
+Once in-game, the default map is sort of capture-the-flag, though there's not proper scoring. There's _very_ limited text chat (T), but it's more fun if you're on an external voice call. Controls are something like:
+
+- WASD: move
+- Space: jump
+- Mouse: look, primary/secondary fire
+- Left Shift: hold while bumping into equipment to pick it up. Shift + click drops equipment. The only "equipment" on the default map is the flags.
+- Tab: toggles first-person, which used to be a lot more useful
 
 Documentation for the in-game editing functionality (and other advanced commands) resides in the `docs/` folder.
 

@@ -14,11 +14,11 @@ is a walkthrough tutorial guide thing for the in-game editing. It's designed to 
 <h3>Launching Server + Client</h3>
 Since editing is done in-game, the game has to be running. For that, you need the server up, even if you're just playing locally.
 <p></p>
-The server lives in <pre>server/</pre>, and can be started with e.g. <pre>./server.py 8</pre>. If it's successful, you should see a message like <pre>Server started on port 15000</pre>, and then it should wait.
+The server lives in <pre>server/</pre>, and can be started with e.g. <pre>./server.py 4</pre>. If it's successful, you should see a message like <pre>Server started on port 15000</pre>, and then it should wait.
 <p></p>
 The client is <pre>game</pre>, and needs the server IP as an argument. You should be able to start it with <pre>./game 127.0.0.1</pre>, and then you should see a guy you can move around.
 <p></p>
-If you aren't familiar, you should practice moving around the world a bit. Controls are WASD, Space, Shift (to pickup/drop the flag), and the mouse buttons (to make different kinds of blocks, when you aren't holding the flag).
+If you aren't familiar, you should practice moving around the world a bit. Controls are WASD, Space, the mouse buttons (to make different kinds of blocks, when you aren't holding the flag), and left shift. Hold left shift while bumping the flag to pick it up, and shift + click to drop it.
 
 <h3>Save + Load</h3>
 Press <pre>Ctrl+Q</pre>, then do something stupid and irreversible, like jumping off the edge. Then press <pre>Ctrl+L</pre>.
@@ -43,7 +43,7 @@ Let's address those blue things from earlier. They represent what you have selec
 <p></p>
 Press <pre>Ctrl+Tab</pre>. The crosshairs will change, and if you have the terminal where you launched the game visible, it will say that edit mode is on. Press <pre>Shift+LeftClick</pre>, and the blue things should go away. If they didn't go away, and you spat out a block instead, try <pre>Ctrl+Tab</pre> (bound to <a href="edit_reference.html#_edit">/edit</a>) again.
 <p></p>
-The things you have selected are the "Blue Buffer", and now you know how to clear it. If you go into first-person (<pre>Tab</pre>), you can select existing blocks by "clicking on them" (<pre>LeftClick</pre> while looking at them). You can do this in third-person as well, it's just hard to aim.
+The things you have selected are the "Blue Buffer", and now you know how to clear it. You can select existing blocks by "clicking on them" (<pre>LeftClick</pre> while looking at them).
 <p></p>
 We talked about resizing things earlier (<pre>Alt+MouseWheel</pre> / <pre>Alt+Click+Drag</pre>) - you can move them around similarly, with <pre>Ctrl</pre> instead of <pre>Alt</pre>. Finally, you can delete the things you have selected with <pre>/d</pre>.
 <p></p>
