@@ -8,6 +8,7 @@
 #include "../edit.h"
 
 #include "player.h"
+#include "dust.h"
 
 enum {
 	s_hand,
@@ -33,6 +34,8 @@ static char const * const * const HELP = (char const * const[]) {
 	NULL
 };
 
+static int32_t const dustArea[3] = {500, 500, 0};
+
 static void jumper_tick_held(gamestate *gs, ent *me) {
 	// Doesn't do anything unless held by a person (or similar)
 	ent *h = me->holder;
@@ -55,8 +58,14 @@ static void jumper_tick_held(gamestate *gs, ent *me) {
 		int32_t hand = getSlider(me, s_hand);
 		if (getTrigger(h, hand)) {
 			ammo--;
-			int32_t vel[3] = {0, 0, -getSlider(me, s_speed)};
-			uVel(me->holdRoot, vel);
+			int32_t vec[3] = {0, 0, -getSlider(me, s_speed)};
+			ent *holdRoot = me->holdRoot;
+			uVel(holdRoot, vec);
+
+			memcpy(vec, holdRoot->center, sizeof(vec));
+			vec[2] += holdRoot->radius[2];
+			mkDustCloud(gs, holdRoot, vec, holdRoot->vel, dustArea, 15, 200, 0x808080, 6);
+
 			uSlider(me, s_cooldown, getSlider(me, s_cooldown_max) - 1);
 		}
 	}

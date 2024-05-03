@@ -23,6 +23,7 @@
 #include "modules/stackem.h"
 #include "modules/logic.h"
 #include "modules/door.h"
+#include "modules/dust.h"
 #include "modules/legg.h"
 #include "modules/wood.h"
 #include "modules/metal.h"
@@ -48,6 +49,7 @@ void initMods() {
 	module_stackem();
 	module_logic();
 	module_door();
+	module_dust();
 	module_legg();
 	module_wood();
 	module_metal();
