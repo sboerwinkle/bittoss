@@ -30,7 +30,7 @@
 #endif
 
 #ifndef VALID_MAX
-#define VALID_MAX 5
+#define VALID_MAX 15
 #endif
 
 struct box;
