@@ -994,19 +994,21 @@ static box* cloneBox(box *b) {
 	box *ret = velbox_alloc();
 
 #ifdef DEBUG
+	if (!b->intersects.num) { fputs("Cloned box should have intersects\n", stderr); exit(1); }
+	if (b->intersects[0].b != b) { fputs("Cloned box's first intersect should be self\n", stderr); exit(1); }
 	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
 #endif
-	// We don't actually need the intersects to be accurate -
-	// those are really only advisory outside of when actual collision resolution is happening.
-	// However, there is some logic that relies on a box being its own first intersect
-	// (or at least, requires it to be among its intersects, e.g. finding a home for a new box).
+	// Since we're using the first intersect to track clones temporarily,
+	// we can't use the regular logic to copy it over. Add it manually.
 	ret->intersects.add({.b=ret, .i=0});
+	b->intersects[0].b = ret;
 
 	range(d, 3) {
 		ret->p1[d] = b->p1[d];
 		ret->p2[d] = b->p2[d];
 		ret->r[d] = b->r[d];
 	}
+	ret->validity = b->validity;
 
 	if (b->data) {
 		ent *e = ((ent*)b->data)->clone.ref;
@@ -1019,12 +1021,35 @@ static box* cloneBox(box *b) {
 			box *clone = cloneBox(oldKids[i]);
 			newKids.add(clone);
 			clone->parent = ret;
-			// This means it will be invalid w/ the next step, which is the soonest possible.
-			clone->validity = 1;
 		}
 	}
 
 	return ret;
+}
+
+static void copyIntersects(box *b) {
+	list<sect> &intersects = b->intersects;
+	list<sect> &i2 = b->intersects[0].b->intersects;
+#ifdef DEBUG
+	if (i2.num != 1) { fputs("`i2` should have length exactly 1 here\n", stderr); exit(1); }
+#endif
+	// Skip the first intersect, as it always points to the cloned box here.
+	// Copy the other intersects over, translating the references to the cloned boxes.
+	for (int i = 1; i < intersects.num; i++) {
+		const sect old = intersects[i];
+		i2.add({.b = old.b->intersects[0].b, .i=old.i});
+	}
+	// Rinse and repeat for children. This could maybe be optimized
+	// if we made a flat list of all boxes, since we iterate them
+	// a few times in the course of the "clone" operation.
+	list<box*> &kids = b->kids;
+	range(i, kids.num) copyIntersects(kids[i]);
+}
+
+static void resetSelf(box *b) {
+	b->intersects[0].b = b;
+	list<box*> &kids = b->kids;
+	range(i, kids.num) resetSelf(kids[i]);
 }
 
 gamestate* dup(gamestate *in) {
@@ -1088,8 +1113,8 @@ gamestate* dup(gamestate *in) {
 
 	ret->rootBox = cloneBox(in->rootBox);
 	ret->rootBox->parent = NULL;
-	// Root box `validity` never changes, and is the max for the tree
-	ret->rootBox->validity = in->rootBox->validity;
+	copyIntersects(in->rootBox);
+	resetSelf(in->rootBox);
 
 	return ret;
 }
