@@ -447,8 +447,9 @@ static char doIteration(gamestate *gs) {
 			int n = intersects.num; // Small optimization (I hope)
 			// Skip i=0, first intersect is always ourselves
 			for (int i = 1; i < n; i++) {
-				ent *o = (ent*) intersects[i].b->data;
-				if (!o || o->dead) continue;
+				sect &s = intersects[i];
+				ent *o = (ent*) s.b->data;
+				if (s.t_next != s.t_end || !o || o->dead) continue;
 				ret |= checkCollision(e, o);
 			}
 		}
@@ -988,68 +989,10 @@ static ent* cloneEnt(ent *in) {
 	return ret;
 }
 
-// I guess this could maybe live in the velbox files, but we'd have to have some way of handling the `data` cloning
-// This does not set `parent` or `validity` on the returned `box*`.
-static box* cloneBox(box *b) {
-	box *ret = velbox_alloc();
-
-#ifdef DEBUG
-	if (!b->intersects.num) { fputs("Cloned box should have intersects\n", stderr); exit(1); }
-	if (b->intersects[0].b != b) { fputs("Cloned box's first intersect should be self\n", stderr); exit(1); }
-	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
-#endif
-	// Since we're using the first intersect to track clones temporarily,
-	// we can't use the regular logic to copy it over. Add it manually.
-	ret->intersects.add({.b=ret, .i=0});
-	b->intersects[0].b = ret;
-
-	range(d, 3) {
-		ret->p1[d] = b->p1[d];
-		ret->p2[d] = b->p2[d];
-		ret->r[d] = b->r[d];
-	}
-	ret->validity = b->validity;
-
-	if (b->data) {
-		ent *e = ((ent*)b->data)->clone.ref;
-		ret->data = e;
-		e->myBox = ret;
-	} else {
-		list<box*> &oldKids = b->kids;
-		list<box*> &newKids = ret->kids;
-		range(i, oldKids.num) {
-			box *clone = cloneBox(oldKids[i]);
-			newKids.add(clone);
-			clone->parent = ret;
-		}
-	}
-
-	return ret;
-}
-
-static void copyIntersects(box *b) {
-	list<sect> &intersects = b->intersects;
-	list<sect> &i2 = b->intersects[0].b->intersects;
-#ifdef DEBUG
-	if (i2.num != 1) { fputs("`i2` should have length exactly 1 here\n", stderr); exit(1); }
-#endif
-	// Skip the first intersect, as it always points to the cloned box here.
-	// Copy the other intersects over, translating the references to the cloned boxes.
-	for (int i = 1; i < intersects.num; i++) {
-		const sect old = intersects[i];
-		i2.add({.b = old.b->intersects[0].b, .i=old.i});
-	}
-	// Rinse and repeat for children. This could maybe be optimized
-	// if we made a flat list of all boxes, since we iterate them
-	// a few times in the course of the "clone" operation.
-	list<box*> &kids = b->kids;
-	range(i, kids.num) copyIntersects(kids[i]);
-}
-
-static void resetSelf(box *b) {
-	b->intersects[0].b = b;
-	list<box*> &kids = b->kids;
-	range(i, kids.num) resetSelf(kids[i]);
+void* copyBoxData(box *from, box *to) {
+	ent *e = ((ent*)from->data)->clone.ref;
+	e->myBox = to;
+	return e;
 }
 
 gamestate* dup(gamestate *in) {
@@ -1111,10 +1054,7 @@ gamestate* dup(gamestate *in) {
 		}
 	}
 
-	ret->rootBox = cloneBox(in->rootBox);
-	ret->rootBox->parent = NULL;
-	copyIntersects(in->rootBox);
-	resetSelf(in->rootBox);
+	ret->rootBox = velbox_clone(in->rootBox);
 
 	return ret;
 }

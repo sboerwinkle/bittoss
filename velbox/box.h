@@ -4,13 +4,22 @@
 // the "original" file. This should make it easier to target
 // the scopes on the definitions.
 
-// This file (and the .cpp file) also need `list` and `range` defined.
+// This file needs `list` defined,
+// and the .cpp file needs `list`, `range`, and `void* cloneBoxData(box *in, box *out)`.
 // Because I have no idea how "packages" are done in professional C,
 // and because I'm just doing as a personal project, it's up to
 // whoever includes this file to provide those definitions.
 
 #ifndef INT
 #define INT int32_t
+#endif
+
+#ifndef UINT
+#define UINT uint32_t
+#endif
+
+#ifndef BITS
+#define BITS 32
 #endif
 
 #ifndef MAX
@@ -29,15 +38,12 @@
 #define FIT 3
 #endif
 
-#ifndef VALID_MAX
-#define VALID_MAX 15
-#endif
-
 struct box;
 
 struct sect {
 	box *b;
 	int i;
+	UINT t_next, t_end; // If t_next==t_end, it's an active intersect. Otherwise it's scheduled for the future
 };
 
 struct box {
@@ -53,7 +59,10 @@ struct box {
 	list<sect> intersects;
 
 	void *data;
-	int validity;
+	// t_now  increments, thereby counting towards t_next / t_end.
+	// t_next is when the next `sect` needs maintenance (or when t_end is, whichever's sooner).
+	// t_end  is when this box becomes invalid (replaces `validity`).
+	UINT t_now, t_next, t_end;
 };
 
 box* velbox_alloc();
@@ -71,5 +80,6 @@ void velbox_single_refresh(box *b);
 
 box* velbox_getRoot();
 void velbox_freeRoot(box *r);
+box* velbox_clone(box *oldRoot);
 void velbox_init();
 void velbox_destroy();

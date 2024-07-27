@@ -214,6 +214,7 @@ extern gamestate* mkGamestate();
 extern void resetGamestate(gamestate *gs);
 
 extern rand_t random(gamestate *gs);
+extern void* copyBoxData(box *from, box *to); // This is needed by `velbox`
 extern gamestate* dup(gamestate *gs);
 
 extern void ent_init();

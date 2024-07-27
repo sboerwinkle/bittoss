@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "ent.h"
 #include "main.h"
+#include "util.h"
 
 void pushBtn(ent *who, int ix) {who->ctrl.btns[ix].v2 = 1;}
 

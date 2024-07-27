@@ -18,7 +18,7 @@ static void unindent(list<char> *i) {
 
 static void f(box *b, list<char> *i) {
 	fputs(i->items, stdout);
-	printf("(%d) (v=%d)", b->intersects.num, b->validity);
+	printf("(%d) (v=%d)", b->intersects.num, b->t_end - b->t_now);
 	if (b->data) {
 		ent *e = (ent*)b->data;
 

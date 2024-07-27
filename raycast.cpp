@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include "ent.h"
+#include "util.h"
 
 struct rat { int32_t n, d; };
 // Only strictly rational when `d > 0`. `d` should never be negative.

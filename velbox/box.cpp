@@ -1,7 +1,7 @@
 
 // Don't forget to include the reified header wherever you plunk this down, please!
 
-static char isWhale(box *b) {
+static char isLeaf(box *b) {
 	return !!b->data;
 }
 
@@ -23,46 +23,73 @@ static inline void swap(list<box*> *&a, list<box*> *&b) {
 	b = tmp;
 }
 
-static INT small_min(INT a, INT b) {
-#ifdef DEBUG
-	if (a < 0 || b < 0 || a+b < 0) {
-		fprintf(stderr, "bad args for min: %d, %d\n", a, b);
-	}
-#endif
-	// I have no idea if this is better than a naive `min`!
-	// I have no idea if `abs` is branchless!
-	// But I still did it, and I'll fix it later if it's a problem!!!
-	return (a+b-abs(a-b))/2;
+// Branchless `min`, assuming `a` and `b` are non-negative.
+// Is it "fast"? Idk, but it's branchless.
+static INT pmin(INT a, INT b) {
+	INT diff = b-a;
+	INT a_greater = ((UINT) diff) >> (BITS-1);
+	return a + a_greater * diff;
 }
 
-#define DELT_V_MAX (MAX/VALID_MAX)
+static INT pmax(INT a, INT b) {
+	INT diff = b-a;
+	INT a_greater = ((UINT) diff) >> (BITS-1);
+	return b - a_greater * diff;
+}
+
+// return 1 or -1, depending on if `a` is non-negative or negative.
+static INT int_sign(INT a) {
+	/*
+	0xxx -> 0001 (non-negatives give 1)
+	1xxx -> 1111 (negatives give -1)
+	So we shift the sign bit into the 1's position (to get 0 or 1, call this `x`),
+	then compute our return value as `1 - x*2`
+	*/
+	return 1 - (((UINT) a) >> (BITS-1))*2;
+}
 
 // Things that are just touching should not count as intersecting,
 // since that's the logic we've got in place for the individual `ent`s in bittoss
-static char intersects(box *o, box *n) {
+static char intersects(box *o, box *n, UINT *start_ptr, UINT *end_ptr) {
+	// So our first stab at making this *beautiful* involves getting intersect
+	// start/end times. Once we have those, we can restrict which ones
+	// children have to look at, and we can worry about propagating them
+	// down to children only as needed.
+	UINT start = 0;
+	UINT end = pmin(o->t_end - o->t_now, n->t_end - n->t_now);
 	range(d, DIMS) {
 		INT d1 = o->p1[d] - n->p1[d];
 		INT vel = o->p2[d] - n->p2[d] - d1;
-		// We're going fast enough we'd probably switch signs on the displacement,
-		// or worse, wrap around. That's probably a collision on this axis.
-		if (vel > DELT_V_MAX || vel < -DELT_V_MAX) continue;
-
-		// I could do sign math here to force d1 positive? IDK if that's worth it
-		INT d2 = d1 + vel * VALID_MAX;
+		INT sgn = int_sign(vel);
 		INT r = o->r[d] + n->r[d];
-		if ((d1 >= r && d2 >= r) || (d1 <= -r && d2 <= -r)) return 0;
-		// Technically this will also register a potential collision on this axis
-		// on the frame when their offset switches sign. This is a weird quirk,
-		// but it's fine since we're relying on the "actual" collision processing
-		// to weed out the occasional false positive
-		// (such as diagonal near-misses inside a single frame)
-		// Update:
-		// I'm very tired, but I think this handles the sign-switch case as well (though not the near-miss case).
-		// The cost is that there are some `abs` thrown in (are those expensive?),
-		// and I'm not totally sure how it handles relative velocity of INT_MIN (which is a weird case anyway).
-		// And also it makes much less sense at first glance.
-		// if (abs(d1) >= r && abs(d2) >= r && (d2-d1 > 0) == (d2-INT_MIN > d1-INT_MIN)) return 0;
+
+		d1 = -d1*sgn - r;
+		vel *= sgn;
+
+		// If distance is non-negative, we can do normal math to figure out when we'll hit it.
+		// If distance is negative, either we're inside or we've missed.
+		// If we haven't missed, we can get the exit time as a UINT without too much problem
+		if (d1 >= 0) {
+			// We're not touching (yet), but headed the right way
+			if (!vel) return 0; // We're not touching
+			INT t1 = d1 / vel;
+			start = pmin(start, t1);
+		} else if (d1 <= -2*r) {
+			// We already passed it, we know we won't intersect again
+			// without the parent intersect being re-created.
+			return 0;
+		} else {
+			// Else, we're currently inside.
+			if (!vel) continue; // We intersect forever on this axis, current start/end are fine
+		}
+		// Cases which can hit here are when vel!=0, and position is either "ahead" or "inside of".
+		UINT t2 = (UINT)(d1 + 2*r + vel - 1) / (UINT)vel;
+		if (t2 < end) end = t2;
+
+		if (start >= end) return 0;
 	}
+	*start_ptr = start;
+	*end_ptr = end;
 	return 1;
 }
 
@@ -77,61 +104,146 @@ static char contains(box *p, box *b) {
 }
 
 // This assumes that `p` does in fact contain `b`. Makes the zero-velocity case simpler.
-static INT computeValidity(box *b, box *p) {
-	int val = p->validity;
-	range(d, DIMS) {
-		INT v = b->p2[d] - b->p1[d] - p->p2[d] + p->p1[d];
-		if (!v) continue;
-		INT flip = 1-2*(v<0);
-		INT distance = flip*(p->r[d] - b->r[d]) + p->p1[d] - b->p1[d];
-		// distance and v should have the same sign, so `t` is non-negative
-		INT t = distance / v;
-		val = small_min(t, val);
+static void computeValidity(box *b, box *p) {
+	INT val = p->t_end - p->t_now;
+	if (p->parent) {
+		range(d, DIMS) {
+			INT v = b->p2[d] - b->p1[d] - p->p2[d] + p->p1[d];
+			if (!v) continue;
+			INT flip = int_sign(v);
+			INT distance = flip*(p->r[d] - b->r[d]) + p->p1[d] - b->p1[d];
+			// distance and v should have the same sign, so `t` is non-negative
+			INT t = distance / v;
+			val = pmin(t, val);
+		}
+	} else {
+		// This has to be a separate branch partly because the root's children
+		// may *not* be contained by the root (numerically at least; logically we make an exception),
+		// and this messes with the above math.
+		// The other reason we need a separate branch is because we have a concern here that lower levels
+		// do not - namely that potential intersects can wrap around and hit us *again*.
+		// Considering a single sibling, and the validity constraint it imposes:
+		//  - If we're non-overlapping on an axis, we can always take the time-to-overlap (even if this is quite large)
+		//  - The usual `intersects` check will catch the first intersect (if any) that occurs within a cube of size MAX.
+		//    As such, we can also take the time it would take to reach the edge of such cube (so basically the fastest axis).
+		list<box*> &kids = p->kids;
+		int num = kids.num;
+		range(k_ix, num) {
+			box *o = kids[k_ix];
+			// Can't start at zero due to a quirk of our usage of pmax,
+			// but doesn't matter since this would result in max validity anyway
+			INT max_v = 1;
+			INT max_clear_time = 0;
+			range(d, DIMS) {
+				INT v = b->p2[d] - b->p1[d] - o->p2[d] + o->p1[d];
+				INT s = int_sign(v);
+				v *= s;
+				// We probably know the radius for sure based on where we are in the tree,
+				// but I feel it's more future-proof than a constant expression w/ MAX.
+				// That said, we don't need to mess around with indexing into `r` or anything.
+				INT r = 2*b->r[0];
+				INT dist = s*(o->p1[d] - b->p1[d])  -  r;
+				if (!v) {
+					// If we're stationary and outside it's "lane",
+					// this box can never cause invalidity.
+					if (dist >= 0 || dist <= -r) goto next_box;
+					// If we're stationary and inside, then our clear_time and v are zero,
+					// so no need to bother checking.
+					continue;
+				}
+				if (dist > 0 || dist <= -r) {
+					// Some weirdness here, because we want to avoid a clear_time > MAX.
+					// We know v is at least 1, and if we make it at least 2 then we know
+					// that even with `dist` being a UINT we will get a quotient < MAX.
+					// This underestimates other clear times by a bit, but not *too* much.
+					// Our alternative is another branch to deal with the "negative dist" case.
+					max_clear_time = pmax(max_clear_time, ((UINT)dist) / ((UINT)v + 1));
+				}
+
+				// pmax behaves so long as its inputs are within a range of size MAX.
+				// Typically we use [0, MAX], but in this case we use
+				// [1, MAX+1] (MAX+1 == MIN). This means we succesfully treat MIN
+				// as the max velocity - it's the only number we can't make positive
+				// because of 2's complement, so treating it as big is imporatnt.
+				max_v = pmax(max_v, v);
+			}
+			{ // Scope here just placates compiler about jump to `next_box:`
+				INT min_wrap_time = ((UINT)MAX) / ((UINT)max_v);
+				INT limit = pmax(min_wrap_time, max_clear_time);
+				// As a special case, if the other box hasn't had validity re-done yet,
+				// this condition will never pass (and it's up to that box to make sure
+				// this pair doesn't have some future collision to worry about)
+				if (limit < val && (UINT)limit < o->t_end - o->t_now) val = limit;
+			}
+			next_box:;
+		}
 	}
-	return val;
+	b->t_now = 0;
+	b->t_end = val;
+	b->t_next = val;
 }
 
-static void recordIntersect(box *a, box *b) {
+static void recordIntersect(box *a, box *b, UINT start, UINT end) {
 #ifdef DEBUG
 	if (a == b) {
 		fputs("What the ASSSS\n", stderr);
 		exit(1);
 	}
 #endif
+	if (!start) {
+		// If start is 0 (the lowest possible value),
+		// intersect is active, which is indicated by `t_next == t_end` on the intersect.
+		start = end;
+	}
+	// In either case, we've got something to schedule - either an add or a remove
+	a->t_next = a->t_now + pmin(start, a->t_next - a->t_now);
+
+	// `b` doesn't get any actionable times (it's up to `a` to handle that),
+	// but it still needs to differentiate the cases for when t_next ==/!= t_end
+	UINT b_time = b->t_now + MAX;
+
 	int aNum = a->intersects.num;
-	a->intersects.add({.b=b, .i=b->intersects.num});
-	b->intersects.add({.b=a, .i=aNum});
+	a->intersects.add({.b=b, .i=b->intersects.num, .t_next=a->t_now + start, .t_end=a->t_now + end});
+	b->intersects.add({.b=a, .i=aNum, .t_next=b_time, .t_end=b_time + (start != end)});
 }
 
 static void setIntersects_refresh(box *n) {
 #ifdef DEBUG
 	if (n->intersects.num) { fputs("Intersect assertion 2 failed\n", stderr); exit(1); }
-	if (n->validity > -2) fprintf(stderr, "Bad validity %d\n", n->validity);
+	if (n->t_now != 0) { fputs("t_now was expected to be 0 here\n", stderr); exit(1); } // mostly for t_foo on the self-intersect
+	if (n->t_end-n->t_now < 0) { fputs("Bad validity\n", stderr); exit(1); }
 #endif
-	n->intersects.add({.b=n, .i=0});
+	// We sometimes check if `n->intersects.num` is non-zero to determine if something is eligible for
+	// intersect checking (mostly to avoid checking things in both directions when there's bulk updates).
+	// This effectively marks the box as eligible for intersects, and then we check it against other
+	// eligible boxes.
+	n->intersects.add({.b=n, .i=0, .t_next=MAX, .t_end=MAX});
 
 	list<sect> &aunts = n->parent->intersects;
 	range(i, aunts.num) {
+		// Skip any scheduled intersects
+		if (aunts[i].t_next != aunts[i].t_end) continue;
+
 		box *aunt = aunts[i].b;
-		// Only whales get delayed refresh during single updates, not their parents;
-		// and during bulk refresh, we refresh by layers,
-		// so we only *have to* check the aunt's validity in the whale case, but oh well.
-		// It's better to do it before the `intersects()`, I think.
-		if (aunt->validity <= 0 || !intersects(aunt, n)) continue;
-		if (isWhale(aunt)) {
-			recordIntersect(n, aunt);
+		UINT start, end;
+		// Check `aunt->intersects` here because a leaf aunt in a bulk update might actually not be refreshed yet
+		if (!aunt->intersects.num || (!intersects(aunt, n, &start, &end) && aunt->parent)) continue;
+		if (isLeaf(aunt)) {
+			// Order is important here, non-leaf box is responsible for updating this intersect.
+			// We expect the leaf to have more, on balance, so it's more efficient to look at it this way
+			recordIntersect(n, aunt, start, end);
 		} else {
 			list<box*> &cousins = aunt->kids;
 			// Todo: is reverse iteration faster here?
 			range(j, cousins.num) {
 				box *test = cousins[j];
-				if (test->validity > 0 && intersects(test, n)) {
-					recordIntersect(n, test);
+				if (test->intersects.num && intersects(test, n, &start, &end) && test != n) {
+					// It's okay if `n` or `test` is a leaf, since they're definitely on the same level
+					recordIntersect(n, test, start, end);
 				}
 			}
 		}
 	}
-	n->validity = ~n->validity;
 }
 
 #define ALLOC_SIZE 100
@@ -166,9 +278,11 @@ static box* mkContainer(box *parent, box *n, char aligned) {
 	}
 	ret->parent = parent;
 	if (aligned) {
-		ret->validity = ~parent->validity;
+		ret->t_now = parent->t_now;
+		ret->t_next = parent->t_next;
+		ret->t_end = parent->t_end;
 	} else {
-		ret->validity = ~computeValidity(ret, parent);
+		computeValidity(ret, parent);
 	}
 	setIntersects_refresh(ret);
 
@@ -176,9 +290,9 @@ static box* mkContainer(box *parent, box *n, char aligned) {
 }
 
 static box* getMergeBase(box *guess, box *n, INT minParentR) {
-	// Fish can have intersects at other levels, which makes them a bad merge base.
+	// Leafs can have intersects at other levels, which makes them a bad merge base.
 	// Plus they can't be parents anyways.
-	if (isWhale(guess)) guess = guess->parent;
+	if (isLeaf(guess)) guess = guess->parent;
 
 	// Go up only until we can confidently say
 	// we can list all potential parents (as intersects)
@@ -195,26 +309,65 @@ static box* getMergeBase(box *guess, box *n, INT minParentR) {
 		}
 #endif
 	}
+	UINT start, end;
 	for (; ; guess = guess->parent) {
 		// The "no more parents" case is a bit weird, but other funcs handle it appropriately I'm told.
 		// Note also we could probably be a little lazier that doing the full thorough intersect check,
 		//   but it's easier to write this way!
-		if (intersects(guess, n) || !guess->parent) return guess;
+		if (intersects(guess, n, &start, &end) || !guess->parent) return guess;
 	}
 }
 
-static void addWhale(box *w, const list<box*> *opts) {
+static void addLeaf(box *w, const list<box*> *opts) {
+	UINT start, end;
 	while (opts->num) {
 		lookDownDest->num = 0;
 		range(i, opts->num) {
 			box *b = (*opts)[i];
-			if (b->validity <= 0 || !intersects(b, w)) continue;
-			recordIntersect(b, w);
-			lookDownDest->addAll(b->kids);
+			if (!b->intersects.num || !intersects(b, w, &start, &end)) continue;
+			recordIntersect(b, w, start, end);
+			if (!start) lookDownDest->addAll(b->kids);
 		}
 		swap(lookDownSrc, lookDownDest);
 		opts = lookDownSrc;
 	}
+}
+
+// Intersects are recorded in pairs; this removes one half of a pair.
+// This requires moving some other intersect usually, so that pair gets
+// updated so they are still correctly linked.
+static void removeIntersectHalf(box *b, int ix) {
+#ifdef DEBUG
+	if (!ix) {
+		fputs("Shouldn't be removing first intersect\n", stderr);
+		exit(1);
+	}
+	if (b->intersects.num ==1 ) {
+		fputs("Shouldn't be removing last intersect?\n", stderr);
+		exit(1);
+	}
+	if (ix >= b->intersects.num) {
+		fputs("Invalid index to `removeIntersectHalf`\n", stderr);
+		exit(1);
+	}
+#endif
+	b->intersects.num--;
+	if (b->intersects.num == ix) return; // "lucky" case where it was at the end.
+
+	b->intersects[ix] = b->intersects[b->intersects.num];
+	sect &moved = b->intersects[ix];
+#ifdef DEBUG
+	if (moved.b->intersects[moved.i].b != b) {
+		fputs("well dang\n", stderr);
+	}
+#endif
+	moved.b->intersects[moved.i].i = ix;
+}
+
+static void removeIntersect(box *b, int ix) {
+	sect &s = b->intersects[ix];
+	removeIntersectHalf(s.b, s.i);
+	removeIntersectHalf(b, ix);
 }
 
 static void clearIntersects(box *b) {
@@ -232,23 +385,15 @@ static void clearIntersects(box *b) {
 		box *o = s.b;
 		int ix = s.i;
 
+#ifdef DEBUG
 		if (ix >= o->intersects.num) {
 			fputs("Blam!\n", stderr);
 		}
 		if (o->intersects[ix].b != b) {
 			fputs("well shit\n", stderr);
 		}
-		// Remove the corresponding intersect (o->intersects[ix]).
-		// This reads a little funny at first; remember the `if` will usually be true.
-		o->intersects.num--;
-		if (o->intersects.num > ix) {
-			o->intersects[ix] = o->intersects[o->intersects.num];
-			sect &moved = o->intersects[ix];
-			if (moved.b->intersects[moved.i].b != o) {
-				fputs("well dang\n", stderr);
-			}
-			moved.b->intersects[moved.i].i = ix;
-		}
+#endif
+		removeIntersectHalf(o, ix);
 	}
 	intersects.num = 0;
 }
@@ -270,9 +415,11 @@ static void addToAncestor(box *level, box *n, INT minParentR) {
 		while (level->r[0] >= minGrandparentR) {
 			level = mkContainer(level, n, 1);
 		}
-		n->validity = ~level->validity;
+		n->t_now = level->t_now;
+		n->t_next = level->t_next;
+		n->t_end = level->t_end;
 	} else {
-		n->validity = ~computeValidity(n, level);
+		computeValidity(n, level);
 	}
 	level->kids.add(n);
 	n->parent = level;
@@ -284,14 +431,16 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 	if (mergeBase->parent) {
 		lookDownSrc->num = 0;
 		list<sect> &sects = mergeBase->intersects;
-		for (int i = sects.num - 1; i >= 0; i--) {
-			lookDownSrc->add(sects[i].b);
+		range (i, sects.num) {
+			if (sects[i].t_next == sects[i].t_end) {
+				lookDownSrc->add(sects[i].b);
+			}
 		}
 		optionsSrc = lookDownSrc;
 		optionsR = mergeBase->r[0];
 	} else if (mergeBase->kids.num) {
 		optionsSrc = &mergeBase->kids;
-		// We are once again assuming no titanically large whales
+		// We are once again assuming no titanically large leaves
 		optionsR = (*optionsSrc)[0]->r[0];
 	} else {
 		// This will (should) only happen for the first non-root box added
@@ -310,7 +459,7 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 		INT fosterR = optionsR - nextR;
 		range(i, optionsSrc->num) {
 			box *test = (*optionsSrc)[i];
-			if (isWhale(test)) continue;
+			if (isLeaf(test)) continue;
 
 			char foster = 1;
 			range(d, DIMS) {
@@ -346,8 +495,9 @@ static void lookUp(box *level, box *n, INT minParentR) {
 		r = r - r / SCALE;
 		list<sect> &intersects = level->intersects;
 		range(i, intersects.num) {
-			box *test = intersects[i].b;
-			if (isWhale(test)) continue;
+			sect &s = intersects[i];
+			box *test = s.b;
+			if (s.t_next != s.t_end || isLeaf(test)) continue;
 
 			range(d, DIMS) {
 				INT d1 = abs(test->p1[d] - n->p1[d]);
@@ -376,18 +526,16 @@ static void insert(box *guess, box *n) {
 
 	// Todo Maybe provide a faster path in the case where it fits fine in `guess->parent`,
 	//      i.e. when it hasn't changed much from last time?
-	INT minParentR;
-	{
-		INT max = 0;
-		range(d, DIMS) {
-			if (n->r[d] > max) max = n->r[d];
-		}
-		minParentR = max * FIT;
+	INT max = 0;
+	range(d, DIMS) {
+		max = pmax(max, n->r[d]);
 	}
-	// `n->validity` will be set better later, as we always wind up in addToAncestor at some point from here.
-	// However, we need it set here so `getMergeBase` can check for basic intersections sanely.
+	INT minParentR = max * FIT;
+	// `t_end` / `t_next` will be set better later, as we always wind up in addToAncestor at some point from here.
+	// However, we need them set here so `getMergeBase` can check for basic intersections sanely.
 	// We could also have getMergeBase call a special `intersects()` which is optimized for that case...
-	n->validity = 1;
+	n->t_now = 0;
+	n->t_end = 1;
 	box *mergeBase = getMergeBase(guess, n, minParentR);
 	if (!tryLookDown(mergeBase, n, minParentR)) {
 		// Please, mergeBase->parent was my father
@@ -403,21 +551,18 @@ void velbox_insert(box *guess, box *n) {
 		exit(1);
 	}
 #endif
-	// This is valid state, though it's not an accurate list of intersections.
-	// Having validity==1 means it'll be refreshed before we report intersects, however.
-	//
-	// The alternative, I think, is velbox_single_refresh - that avoids re-checking
-	// parentage and validity immediately, but I think this way is slightly better
-	// if we could be adding many things at once, since setIntersects_refresh
-	// can avoid checking intersections both ways if it's batched (not one-by-one).
-	n->validity = 1;
-	n->intersects.add({.b=n, .i=0});
+	// Todo would `velbox_single_refresh` be better here?
+	// As-is, we basically give it the minimal valid state and
+	// force it to expire on the next step.
+	n->t_now = 0;
+	n->t_next = n->t_end = 1;
+	n->intersects.add({.b=n, .i=0, .t_next=1, .t_end=1});
 }
 
 static void reposition(box *b) {
 	box *p = b->parent;
 	if (contains(p, b)) {
-		b->validity = ~computeValidity(b, p);
+		computeValidity(b, p);
 		return;
 	}
 	p->kids.rm(b);
@@ -425,6 +570,9 @@ static void reposition(box *b) {
 	if (!p->kids.num) velbox_remove(p);
 }
 
+// The "bulk update" is done by performing velbox_update on multiple boxes,
+// followed by velbox_single_refresh on those same boxes. Avoids checking
+// collisions between old+new versions in this manner.
 void velbox_update(box *b) {
 	reposition(b);
 	clearIntersects(b);
@@ -434,12 +582,74 @@ void velbox_single_refresh(box *b) {
 	setIntersects_refresh(b);
 	int x = b->intersects.num;
 	for (int i = 1; i < x; i++) {
-		addWhale(b, &b->intersects[i].b->kids);
+		sect &s = b->intersects[i];
+		if (s.t_next == s.t_end) {
+			addLeaf(b, &s.b->kids);
+		}
 	}
 }
 
+static void handleIntersectStart(box *b, box *other) {
+#ifdef DEBUG
+	if (b->intersects.num || other->intersects.num) {
+		fputs("`handleIntersectStart` args shouldn't be expired\n", stderr);
+		exit(1);
+	}
+#endif
+	if (isLeaf(other)) {
+		addLeaf(other, &b->kids);
+	} else if (isLeaf(b)) {
+		addLeaf(b, &other->kids);
+	} else {
+		UINT start, end;
+		range(k1_ix, b->kids.num) {
+			box *k1 = b->kids[k1_ix];
+			if (!k1->intersects.num || !intersects(k1, other, &start, &end)) continue;
+			range(k2_ix, other->kids.num) {
+				box *k2 = b->kids[k2_ix];
+				if (!k2->intersects.num) continue;
+				if (intersects(k1, k2, &start, &end)) {
+					// Either of these could be a leaf,
+					// doesn't matter since they're at the same level
+					recordIntersect(k1, k2, start, end);
+					if (!start) handleIntersectStart(k1, k2);
+				}
+			}
+		}
+	}
+}
+
+static void handleScheduledIntersects(box * const b) {
+	UINT now = b->t_now;
+	INT next_next = b->t_end - now;
+
+	for (int i = 1; i < b->intersects.num; i++) {
+		sect &s = b->intersects[i];
+		if (s.t_next == now) {
+			if (s.t_end == now) {
+				removeIntersect(b, i);
+				// Only one half of each intersect pair actually gets scheduled,
+				// so since we're scheduled our partner shouldn't need a t_next update
+				// (and we are already doing a t_next update).
+				i--;
+				continue;
+			}
+
+			// Else, intersect window is starting.
+			s.t_next = s.t_end;
+			sect &s2 = s.b->intersects[s.i];
+			s2.t_next = s2.t_end; // This will be a time so far in the future as to be unreachable.
+			handleIntersectStart(b, s.b);
+		}
+		// In the event that the intersect was started, or isn't ready yet:
+		next_next = pmin(next_next, s.t_next - now);
+	}
+
+	b->t_next = now + next_next;
+}
+
 void velbox_step(box *b, INT *p1, INT *p2) {
-	b->validity--;
+	b->t_now++;
 	range(i, DIMS) {
 		// This check is a little clumbsy.
 		// We could exit this loop and resume in a version w/out this check after the first time it triggers;
@@ -448,13 +658,13 @@ void velbox_step(box *b, INT *p1, INT *p2) {
 		INT d1 = b->p1[i];
 		INT d2 = b->p2[i];
 		if (p1[i] != d2 || p2[i] != d2*2-d1) {
-			b->validity = 0;
+			b->t_next = b->t_end = b->t_now;
 		}
 
 		b->p1[i] = p1[i];
 		b->p2[i] = p2[i];
 	}
-	if (!b->validity) clearIntersects(b);
+	if (b->t_end == b->t_now) clearIntersects(b);
 }
 
 static void stepContainers(box *root) {
@@ -465,9 +675,8 @@ static void stepContainers(box *root) {
 		globalOptionsDest->num = 0;
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
-			if (isWhale(b)) continue;
-
-			b->validity--;
+			// For leaves, this stuff is already handled in `velbox_step`
+			if (isLeaf(b)) continue;
 
 			range(i, DIMS) {
 				INT tmp = b->p1[i];
@@ -476,7 +685,8 @@ static void stepContainers(box *root) {
 				b->p2[i] = b->p2[i]*2 - tmp;
 			}
 
-			if (!b->validity) clearIntersects(b);
+			b->t_now++;
+			if (b->t_now == b->t_end) clearIntersects(b);
 
 			globalOptionsDest->addAll(b->kids);
 		}
@@ -501,19 +711,26 @@ void velbox_refresh(box *root) {
 		range(i, globalOptionsSrc->num) {
 			box *b = (*globalOptionsSrc)[i];
 			globalOptionsDest->addAll(b->kids);
-			if (b->validity) continue;
+			if (b->t_now != b->t_next) continue;
+
+			if (b->t_now == b->t_end) {
 #ifdef DEBUG
-			if (b->intersects.num) {
-				fputs("It should not have had intersects at this point\n", stderr);
-			}
-#endif
-			reposition(b);
-			setIntersects_refresh(b);
-			if (isWhale(b)) {
-				int x = b->intersects.num;
-				for (int i = 1; i < x; i++) {
-					addWhale(b, &b->intersects[i].b->kids);
+				if (b->intersects.num) {
+					fputs("It should not have had intersects at this point\n", stderr);
 				}
+#endif
+				reposition(b);
+				setIntersects_refresh(b);
+				if (isLeaf(b)) {
+					int x = b->intersects.num;
+					for (int i = 1; i < x; i++) {
+						addLeaf(b, &b->intersects[i].b->kids);
+					}
+				}
+			} else {
+				// Otherwise, t_now is t_next (but not t_end),
+				// meaning we have one or more scheduled intersects to "activate"
+				handleScheduledIntersects(b);
 			}
 		}
 
@@ -524,16 +741,18 @@ void velbox_refresh(box *root) {
 box* velbox_getRoot() {
 	box *ret = velbox_alloc();
 	// This serves as the max validity anything can have, since a box never exceeds its parent.
-	// Since most of the effort is put into transient gamestates that only last 5-8 frames depending
-	// on the configured server latency, extending the max validity past that is just going to add
-	// more potential intersects that are never going to come to pass.
-	ret->validity = VALID_MAX;
+	ret->t_now = 0;
+	ret->t_next = ret->t_end = MAX;
 	// `kids` can just stay empty for now
-	ret->intersects.add({.b=ret, .i=0});
+	ret->intersects.add({.b=ret, .i=0, .t_next=MAX, .t_end=MAX});
 	ret->parent = NULL;
 	range(d, DIMS) {
-		ret->r[d] = MAX/SCALE + 1;
-		// This *shouldn't* matter, but uninitialized data is never a *good* thing.
+		// This used to be MAX/SCALE, but I think that was a transcription error from when
+		// SCALE was 2. I think this should be MAX/2 regardless of SCALE.
+		ret->r[d] = MAX/2 + 1;
+		// This probably affects something given that we try to avoid special "root" checks wherever possible -
+		// it should still make a valid state for any values here, but we really need it to be valid _and_
+		// consistent across instances.
 		ret->p1[d] = ret->p2[d] = 0;
 	}
 	return ret;
@@ -545,6 +764,78 @@ void velbox_freeRoot(box *r) {
 		exit(1);
 	}
 	freeBoxes.add(r);
+}
+
+// This does not set `parent` or `validity` on the returned `box*`.
+static box* cloneBox(box *b) {
+	box *ret = velbox_alloc();
+
+#ifdef DEBUG
+	if (!b->intersects.num) { fputs("Cloned box should have intersects\n", stderr); exit(1); }
+	if (b->intersects[0].b != b) { fputs("Cloned box's first intersect should be self\n", stderr); exit(1); }
+	if (ret->intersects.num) { fputs("Fail 0\n", stderr); exit(1); }
+#endif
+	UINT t = b->intersects[0].t_next;
+	// Since we're using the first intersect to track clones temporarily,
+	// we can't use the regular logic to copy it over. Add it manually.
+	ret->intersects.add({.b=ret, .i=0, .t_next=t, .t_end=t});
+	b->intersects[0].b = ret;
+
+	range(d, 3) {
+		ret->p1[d] = b->p1[d];
+		ret->p2[d] = b->p2[d];
+		ret->r[d] = b->r[d];
+	}
+	ret->t_now = b->t_now;
+	ret->t_next = b->t_next;
+	ret->t_end = b->t_end;
+
+	if (b->data) {
+		ret->data = copyBoxData(b, ret);
+	} else {
+		list<box*> &oldKids = b->kids;
+		list<box*> &newKids = ret->kids;
+		range(i, oldKids.num) {
+			box *clone = cloneBox(oldKids[i]);
+			newKids.add(clone);
+			clone->parent = ret;
+		}
+	}
+
+	return ret;
+}
+
+static void copyIntersects(box *b) {
+	list<sect> &intersects = b->intersects;
+	list<sect> &i2 = b->intersects[0].b->intersects;
+#ifdef DEBUG
+	if (i2.num != 1) { fputs("`i2` should have length exactly 1 here\n", stderr); exit(1); }
+#endif
+	// Skip the first intersect, as it always points to the cloned box here.
+	// Copy the other intersects over, translating the references to the cloned boxes.
+	for (int i = 1; i < intersects.num; i++) {
+		const sect old = intersects[i];
+		i2.add({.b = old.b->intersects[0].b, .i=old.i, .t_next=old.t_next, .t_end=old.t_end});
+	}
+	// Rinse and repeat for children. This could maybe be optimized
+	// if we made a flat list of all boxes, since we iterate them
+	// a few times in the course of the "clone" operation.
+	list<box*> &kids = b->kids;
+	range(i, kids.num) copyIntersects(kids[i]);
+}
+
+static void resetSelf(box *b) {
+	b->intersects[0].b = b;
+	list<box*> &kids = b->kids;
+	range(i, kids.num) resetSelf(kids[i]);
+}
+
+box* velbox_clone(box *oldRoot) {
+	box *ret = cloneBox(oldRoot);
+	ret->parent = NULL;
+	copyIntersects(oldRoot);
+	resetSelf(oldRoot);
+	return ret;
 }
 
 void velbox_init() {

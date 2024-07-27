@@ -40,6 +40,7 @@ TODO:
 	/ Should also refund player resources if they have to abort
 - Automatic state sync on join
 	Close enough, there's a message for new players at least
+	- Should revisit this now that /loader exists. Can have any /loader players automatically send, in addition to showing the banner
 / Some way to use tools
 / State serizalization
 	/ Save to file
@@ -78,7 +79,7 @@ TODO:
 	This would also require a complete rework of how weapons were going to function... hm
 		Unless they also only read A/B signals?
 		With decor for targeting?
-- Better tools
+/ Better tools
 	I'm thinking tools come in 3 sizes:
 		2-H (two handed) tools are like the tools we have now. You can hold one, and it can read either mouse button.
 		Pri (primary) tools can only read LMB. You can only hold one, and never with a 2-handed tool.
@@ -120,17 +121,6 @@ TODO:
 		or if we should make the decision server-side for "fairness"
 
 / Mario-Party-like race concept
-	- Touching each checkpoint sets it as the spawn area
-		chk -> latch -> (latch, previous latch, suppressor (XNOR), knife(2) -> previous suppressor)
-		suppressor -> all spawners in this zone
-	- Each stage has 4x6(?) grid of boxes, which *may* contain a platform
-	- Difficult narrow path is always available, so there's less constraints on the random gen
-	- Checkpoints raise the upcoming platforms, on a timer
-		chk -> chk -> inv -> (timer -> raise, timer2(3) -> chk)
-	- Exit TP is lower, so you can't be swept into it
-	- Victory zone has clear floor, so you can watch their misfortune
-	- Accel Wall of Doom reaches to the bottom of the Victory floor, so there's no escape for mortals
-	- Successive stages might be lowered slightly (starting with the checkpoint), so it's easier to see from behind
 
 . Modular procedural levels!
 - Move proc gen to C, so it's less awful
@@ -138,27 +128,42 @@ TODO:
 - Big Crane
 	- Doors (crane hand base) go limp when signaled
 
-Okay, we're well on our way!
-We've got
-a probably-working physics engine
-some basic Allegro thrown in
+- libvelbox revamp:
+	- Have to come back and think about whales later, they always require special consideration...
+	Intersects can be:
+		Active, in which case they must be listed and must have an expiration date
+			(though this expiry date can be the same as the parent)
+		Explicitly Scheduled, which is when they're listed (with an arrival date)
+		Implicitly Scheduled, which is when they aren't listed
+			(and the parents are Scheduled in some form)
+	What to do about "overflow" re-intersects?
+		One thought was to just expire the box,
+			but cutting a bona-fide edifice short because of one (1) fast-moving box is dumb, it probably won't survive to wrap anyway
+		This means that if we're handling these boxes coming back around, we need to calculate a re-entry time (either on entry or on exit)
+			Fortunately, the parent should (probably) always see the aunt exiting first, except near the tippy-top
+			Tippy-top is a weird-ass case that'll need special considerin
+			(maybe even in dedicated logic so we don't check if every case is the tippy-top case)
+			as it's the only time an intersect might need to be added without a box being created somewhere
+	When a box passes out of alignment...
+		its children will already be out of alignment, because of how children work. No need to explicitly clean that up.
+		(who cares about the parent, not our concern)
+		it may be added again as another alignment. So long as:
+			we don't get weird and early-exit when we see an expired alignment,
+			and we don't have any search (etc) logic that requires alignments to be unique by other,
+		then we should be fine to leave it around until we clean it up at our convenience.
+			(when exactly is that?)
+	Intersects have something like...
+		ref
+		index
+		mode (coming, going, eternal)
+		timer (for relevant mode event)
+	Part of the "whole deal" here is not having to recalculate intersects every time a box changes parentage.
+	However, what with all the edge cases it turns out to be a grande headache to avoid duplicates.
 
 
--Mess around / basic level design
--Enemies, which entail the following objects:
-	optons
-	bullets
-	guns?
-	A slightly different build function for enemies, so they release optons and respond appropriately
--More level design
--Menu level, which entails another object:
-	level warp blocks
--What's this, more level design?
+Some of my original "wish list" from years ago:
 
-
-
-At this point things have gotten extremely vague, and it's really just a wishlist that can be implemented in any order:
-
+Enemies
 Crafting stations
 Cabinets (for storage!)
 / Proper collision detection with libVelbox (Or maybe just a nice B-tree?)
@@ -195,7 +200,7 @@ Clams
 Missile Clams
 Sound fx
 controller support
-multiplayer support
+/ multiplayer support
 Planets (freefall launch system)
 Swarming, muliplying insects
 Modular Maimbots
@@ -209,7 +214,7 @@ Earthworms
 Jetpack
 Tentacle beasts (Dwell in caverns?)
 Tentacle eggs
-Level editor
+/ Level editor
 Portals
 Boosters
 Building materials (break on heavy impact)
