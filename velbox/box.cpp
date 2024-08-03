@@ -183,6 +183,22 @@ static void computeValidity(box *b, box *p) {
 	b->t_next = val;
 }
 
+static void moveIntersectHalf(box *b, int ix, int dest) {
+	// For some cases this is actually required
+	// (e.g. item at `dest` is invalid, but we read item at `ix`, and dest==ix).
+	// It may represent an optimization anyway, so we always check for this early exit.
+	if (ix == dest) return;
+	sect &s = b->intersects[ix];
+	b->intersects[dest] = s;
+#ifdef DEBUG
+	if (s.b->intersects[s.i].i != ix) {
+		fputs("Intersect halves not aligned\n", stderr);
+		exit(1);
+	}
+#endif
+	s.b->intersects[s.i].i = dest;
+}
+
 static void recordIntersect(box *a, box *b, UINT start, UINT end) {
 #ifdef DEBUG
 	if (a == b) {
@@ -190,21 +206,45 @@ static void recordIntersect(box *a, box *b, UINT start, UINT end) {
 		exit(1);
 	}
 #endif
+	char active = 0;
 	if (!start) {
 		// If start is 0 (the lowest possible value),
 		// intersect is active, which is indicated by `t_next == t_end` on the intersect.
+		active = 1;
 		start = end;
 	}
 	// In either case, we've got something to schedule - either an add or a remove
 	a->t_next = a->t_now + pmin(start, a->t_next - a->t_now);
 
 	// `b` doesn't get any actionable times (it's up to `a` to handle that),
-	// but it still needs to differentiate the cases for when t_next ==/!= t_end
+	// but it still needs to not cause overflow when computing remaining time to update
 	UINT b_time = b->t_now + MAX;
 
-	int aNum = a->intersects.num;
-	a->intersects.add({.b=b, .i=b->intersects.num, .t_next=a->t_now + start, .t_end=a->t_now + end});
-	b->intersects.add({.b=a, .i=aNum, .t_next=b_time, .t_end=b_time + (start != end)});
+	if (active) {
+		int aActive = a->activeIntersects;
+		int aNum = a->intersects.num;
+		int bActive = b->activeIntersects;
+		int bNum = b->intersects.num;
+		a->intersects.add();
+		b->intersects.add();
+		if (aActive != aNum) {
+			moveIntersectHalf(a, aActive, aNum);
+		}
+		if (bActive != bNum) {
+			moveIntersectHalf(b, bActive, bNum);
+		}
+
+		UINT a_time = a->t_now + end;
+		a->intersects[aActive] = {.b=b, .i=bActive, .t_next=a_time, .t_end=a_time};
+		b->intersects[bActive] = {.b=a, .i=aActive, .t_next=b_time, .t_end=b_time};
+
+		a->activeIntersects++;
+		b->activeIntersects++;
+	} else {
+		int aNum = a->intersects.num;
+		a->intersects.add({.b=b, .i=b->intersects.num, .t_next=a->t_now + start, .t_end=a->t_now + end});
+		b->intersects.add({.b=a, .i=aNum, .t_next=b_time, .t_end=b_time + 1});
+	}
 }
 
 static void setIntersects_refresh(box *n) {
@@ -218,16 +258,21 @@ static void setIntersects_refresh(box *n) {
 	// This effectively marks the box as eligible for intersects, and then we check it against other
 	// eligible boxes.
 	n->intersects.add({.b=n, .i=0, .t_next=MAX, .t_end=MAX});
+	n->activeIntersects = 1;
 
 	list<sect> &aunts = n->parent->intersects;
-	range(i, aunts.num) {
-		// Skip any scheduled intersects
-		if (aunts[i].t_next != aunts[i].t_end) continue;
+	int num = n->parent->activeIntersects;
+	range(i, num) {
+#ifdef DEBUG
+		if (!aunt->intersects.num) {
+			fputs("Aunt should be in a valid state\n", stderr);
+			exit(1);
+		}
+#endif
 
 		box *aunt = aunts[i].b;
 		UINT start, end;
-		// Check `aunt->intersects` here because a leaf aunt in a bulk update might actually not be refreshed yet
-		if (!aunt->intersects.num || (!intersects(aunt, n, &start, &end) && aunt->parent)) continue;
+		if (!intersects(aunt, n, &start, &end) && aunt->parent) continue;
 		if (isLeaf(aunt)) {
 			// Order is important here, non-leaf box is responsible for updating this intersect.
 			// We expect the leaf to have more, on balance, so it's more efficient to look at it this way
@@ -262,6 +307,7 @@ box* velbox_alloc() {
 	}
 	box *ret = freeBoxes[--freeBoxes.num];
 	ret->intersects.num = 0;
+	ret->activeIntersects = 0;
 	ret->kids.num = 0;
 	ret->data = NULL;
 	return ret;
@@ -318,14 +364,17 @@ static box* getMergeBase(box *guess, box *n, INT minParentR) {
 	}
 }
 
-static void addLeaf(box *w, const list<box*> *opts) {
+static void addLeaf(box *l, const list<box*> *opts) {
 	UINT start, end;
 	while (opts->num) {
 		lookDownDest->num = 0;
 		range(i, opts->num) {
 			box *b = (*opts)[i];
-			if (!b->intersects.num || !intersects(b, w, &start, &end)) continue;
-			recordIntersect(b, w, start, end);
+			if (!b->intersects.num || !intersects(b, l, &start, &end)) continue;
+			// Leaf *must* be second. `handledScheduledIntersects` may be above us in the stack operating on `l`,
+			// so anything we schedule on `l` here might not properly affect its `t_next`.
+			// Intersects are only scheduled on the first `box*` provided, which is why `l` must be second.
+			recordIntersect(b, l, start, end);
 			if (!start) lookDownDest->addAll(b->kids);
 		}
 		swap(lookDownSrc, lookDownDest);
@@ -336,13 +385,13 @@ static void addLeaf(box *w, const list<box*> *opts) {
 // Intersects are recorded in pairs; this removes one half of a pair.
 // This requires moving some other intersect usually, so that pair gets
 // updated so they are still correctly linked.
-static void removeIntersectHalf(box *b, int ix) {
+static void removeIntersectHalf(box *b, int ix, char active) {
 #ifdef DEBUG
 	if (!ix) {
 		fputs("Shouldn't be removing first intersect\n", stderr);
 		exit(1);
 	}
-	if (b->intersects.num ==1 ) {
+	if (b->intersects.num == 1) {
 		fputs("Shouldn't be removing last intersect?\n", stderr);
 		exit(1);
 	}
@@ -351,40 +400,93 @@ static void removeIntersectHalf(box *b, int ix) {
 		exit(1);
 	}
 #endif
-	b->intersects.num--;
-	if (b->intersects.num == ix) return; // "lucky" case where it was at the end.
-
-	b->intersects[ix] = b->intersects[b->intersects.num];
-	sect &moved = b->intersects[ix];
-#ifdef DEBUG
-	if (moved.b->intersects[moved.i].b != b) {
-		fputs("well dang\n", stderr);
+	if (active) {
+		b->activeIntersects--;
+		int numActive = b->activeIntersects;
+		moveIntersectHalf(b, numActive, ix);
+		ix = numActive;
 	}
-#endif
-	moved.b->intersects[moved.i].i = ix;
+	b->intersects.num--;
+	moveIntersectHalf(b, b->intersects.num, ix);
 }
 
-static void removeIntersect(box *b, int ix) {
+static void removeExpiredIntersect(box *b, int ix) {
 	sect &s = b->intersects[ix];
-	removeIntersectHalf(s.b, s.i);
-	removeIntersectHalf(b, ix);
+	removeIntersectHalf(s.b, s.i, 1);
+	removeIntersectHalf(b, ix, 1);
+}
+
+static void handleIntersectStart(box *b, box *other) {
+#ifdef DEBUG
+	if (b->intersects.num || other->intersects.num) {
+		fputs("`handleIntersectStart` args shouldn't be expired\n", stderr);
+		exit(1);
+	}
+#endif
+	if (isLeaf(other)) {
+		addLeaf(other, &b->kids);
+	} else if (isLeaf(b)) {
+		addLeaf(b, &other->kids);
+	} else {
+		UINT start, end;
+		range(k1_ix, b->kids.num) {
+			box *k1 = b->kids[k1_ix];
+			if (!k1->intersects.num || !intersects(k1, other, &start, &end)) continue;
+			range(k2_ix, other->kids.num) {
+				box *k2 = b->kids[k2_ix];
+				if (!k2->intersects.num) continue;
+				if (intersects(k1, k2, &start, &end)) {
+					// Either of these could be a leaf,
+					// doesn't matter since they're at the same level
+					recordIntersect(k1, k2, start, end);
+					if (!start) handleIntersectStart(k1, k2);
+				}
+			}
+		}
+	}
+}
+
+static UINT promoteIntersect(box *b, int ix) {
+	// Not a reference like we do elsewhere, an actual local copy
+	sect s = b->intersects[ix];
+
+	box *o = s.b;
+
+	int otherIx = o->activeIntersects;
+	o->activeIntersects++;
+	moveIntersectHalf(o, otherIx, s.i);
+
+	int myIx = b->activeIntersects;
+	b->activeIntersects++;
+	moveIntersectHalf(b, myIx, ix);
+
+	UINT otherTime = o->t_now + MAX;
+	b->intersects[myIx] = {.b=o, .i=otherIx, .t_next=s.t_end, .t_end=s.t_end};
+	o->intersects[otherIx] = {.b=b, .i=myIx, .t_next=otherTime, .t_end=otherTime};
+
+	handleIntersectStart(b, s.b);
+	return s.t_end;
 }
 
 static void clearIntersects(box *b) {
 	list<sect> &intersects = b->intersects;
+	int total = intersects.num;
 #ifndef NODEBUG
-	if (!intersects.num) {
+	if (!total) {
 		fputs("Intersect assertion 0 failed\n", stderr);
 		exit(1);
 	}
 	if (intersects[0].b != b) { fputs("Intersect assertion 1 failed\n", stderr); exit(1); }
 #endif
-	// We skip the first one because it's going to be ourselves
-	for (int i = 1; i < intersects.num; i++) {
+	// Not sure if this matters, but we're removing these in reverse order in the hope that we
+	// slightly increase the ratio of other boxes that can take a faster path in `removeIntersectHalf`
+	// (since inactive intersects will be at the end of their lists as well).
+	int activeNum = b->activeIntersects;
+	int i = total-1;
+	for (; i >= activeNum; i--) {
 		sect &s = intersects[i];
 		box *o = s.b;
 		int ix = s.i;
-
 #ifdef DEBUG
 		if (ix >= o->intersects.num) {
 			fputs("Blam!\n", stderr);
@@ -393,9 +495,25 @@ static void clearIntersects(box *b) {
 			fputs("well shit\n", stderr);
 		}
 #endif
-		removeIntersectHalf(o, ix);
+		removeIntersectHalf(o, ix, 0);
+	}
+	// We skip the first one because it's going to be ourselves
+	for (; i >= 1; i--) {
+		sect &s = intersects[i];
+		box *o = s.b;
+		int ix = s.i;
+#ifdef DEBUG
+		if (ix >= o->intersects.num) {
+			fputs("Blam!\n", stderr);
+		}
+		if (o->intersects[ix].b != b) {
+			fputs("well shit\n", stderr);
+		}
+#endif
+		removeIntersectHalf(o, ix, 1);
 	}
 	intersects.num = 0;
+	b->activeIntersects = 0;
 }
 
 void velbox_remove(box *o) {
@@ -431,7 +549,7 @@ static char tryLookDown(box *mergeBase, box *n, INT minParentR) {
 	if (mergeBase->parent) {
 		lookDownSrc->num = 0;
 		list<sect> &sects = mergeBase->intersects;
-		range (i, sects.num) {
+		range (i, mergeBase->activeIntersects) {
 			if (sects[i].t_next == sects[i].t_end) {
 				lookDownSrc->add(sects[i].b);
 			}
@@ -494,7 +612,7 @@ static void lookUp(box *level, box *n, INT minParentR) {
 		INT r = level->r[0];
 		r = r - r / SCALE;
 		list<sect> &intersects = level->intersects;
-		range(i, intersects.num) {
+		range(i, level->activeIntersects) {
 			sect &s = intersects[i];
 			box *test = s.b;
 			if (s.t_next != s.t_end || isLeaf(test)) continue;
@@ -557,6 +675,7 @@ void velbox_insert(box *guess, box *n) {
 	n->t_now = 0;
 	n->t_next = n->t_end = 1;
 	n->intersects.add({.b=n, .i=0, .t_next=1, .t_end=1});
+	n->activeIntersects = 1;
 }
 
 static void reposition(box *b) {
@@ -580,42 +699,10 @@ void velbox_update(box *b) {
 
 void velbox_single_refresh(box *b) {
 	setIntersects_refresh(b);
-	int x = b->intersects.num;
+	int x = b->activeIntersects;
 	for (int i = 1; i < x; i++) {
 		sect &s = b->intersects[i];
-		if (s.t_next == s.t_end) {
-			addLeaf(b, &s.b->kids);
-		}
-	}
-}
-
-static void handleIntersectStart(box *b, box *other) {
-#ifdef DEBUG
-	if (b->intersects.num || other->intersects.num) {
-		fputs("`handleIntersectStart` args shouldn't be expired\n", stderr);
-		exit(1);
-	}
-#endif
-	if (isLeaf(other)) {
-		addLeaf(other, &b->kids);
-	} else if (isLeaf(b)) {
-		addLeaf(b, &other->kids);
-	} else {
-		UINT start, end;
-		range(k1_ix, b->kids.num) {
-			box *k1 = b->kids[k1_ix];
-			if (!k1->intersects.num || !intersects(k1, other, &start, &end)) continue;
-			range(k2_ix, other->kids.num) {
-				box *k2 = b->kids[k2_ix];
-				if (!k2->intersects.num) continue;
-				if (intersects(k1, k2, &start, &end)) {
-					// Either of these could be a leaf,
-					// doesn't matter since they're at the same level
-					recordIntersect(k1, k2, start, end);
-					if (!start) handleIntersectStart(k1, k2);
-				}
-			}
-		}
+		addLeaf(b, &s.b->kids);
 	}
 }
 
@@ -625,9 +712,15 @@ static void handleScheduledIntersects(box * const b) {
 
 	for (int i = 1; i < b->intersects.num; i++) {
 		sect &s = b->intersects[i];
+#ifdef DEBUG
+		if ((s.t_end == s.t_next) != (i < b->activeIntersects)) {
+			fputs("Mismatch between intersect \"active\" metrics\n", stderr);
+			exit(1);
+		}
+#endif
 		if (s.t_next == now) {
 			if (s.t_end == now) {
-				removeIntersect(b, i);
+				removeExpiredIntersect(b, i);
 				// Only one half of each intersect pair actually gets scheduled,
 				// so since we're scheduled our partner shouldn't need a t_next update
 				// (and we are already doing a t_next update).
@@ -636,13 +729,17 @@ static void handleScheduledIntersects(box * const b) {
 			}
 
 			// Else, intersect window is starting.
-			s.t_next = s.t_end;
-			sect &s2 = s.b->intersects[s.i];
-			s2.t_next = s2.t_end; // This will be a time so far in the future as to be unreachable.
-			handleIntersectStart(b, s.b);
+			UINT t_end = promoteIntersect(b, i);
+			// Any number of active/inactive intersects may be added by the above (if we're a leaf),
+			// not to mention that `s` had to be moved into the "active" segment.
+			// We should be fine though; any added intersects aren't ones we have to schedule
+			// (because we were careful about that), and any intersects that got moved to make
+			// space for other intersects are (at worst) just going to be harmlessly re-processed here.
+			next_next = pmin(next_next, t_end - now);
+		} else {
+			// Intersect isn't ready yet, but could always be next
+			next_next = pmin(next_next, s.t_next - now);
 		}
-		// In the event that the intersect was started, or isn't ready yet:
-		next_next = pmin(next_next, s.t_next - now);
 	}
 
 	b->t_next = now + next_next;
@@ -722,7 +819,7 @@ void velbox_refresh(box *root) {
 				reposition(b);
 				setIntersects_refresh(b);
 				if (isLeaf(b)) {
-					int x = b->intersects.num;
+					int x = b->activeIntersects;
 					for (int i = 1; i < x; i++) {
 						addLeaf(b, &b->intersects[i].b->kids);
 					}
@@ -745,6 +842,7 @@ box* velbox_getRoot() {
 	ret->t_next = ret->t_end = MAX;
 	// `kids` can just stay empty for now
 	ret->intersects.add({.b=ret, .i=0, .t_next=MAX, .t_end=MAX});
+	ret->activeIntersects = 1;
 	ret->parent = NULL;
 	range(d, DIMS) {
 		// This used to be MAX/SCALE, but I think that was a transcription error from when
@@ -781,6 +879,7 @@ static box* cloneBox(box *b) {
 	ret->intersects.add({.b=ret, .i=0, .t_next=t, .t_end=t});
 	b->intersects[0].b = ret;
 
+	ret->activeIntersects = b->activeIntersects;
 	range(d, 3) {
 		ret->p1[d] = b->p1[d];
 		ret->p2[d] = b->p2[d];

@@ -444,7 +444,7 @@ static char doIteration(gamestate *gs) {
 			//       Could repurpose `needsPhysUpdate` (or make it a `union`)
 			//       to fix this, but IDK if it's worth the complexity.
 			list<sect> &intersects = e->myBox->intersects;
-			int n = intersects.num; // Small optimization (I hope)
+			int n = e->myBox->activeIntersects; // Small optimization (I hope)
 			// Skip i=0, first intersect is always ourselves
 			for (int i = 1; i < n; i++) {
 				sect &s = intersects[i];

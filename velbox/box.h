@@ -56,6 +56,7 @@ struct box {
 
 	box *parent;
 	list<box*> kids;
+	int activeIntersects;
 	list<sect> intersects;
 
 	void *data;
