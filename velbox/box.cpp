@@ -48,6 +48,7 @@ static INT int_sign(INT a) {
 	return 1 - (((UINT) a) >> (BITS-1))*2;
 }
 
+
 // Things that are just touching should not count as intersecting,
 // since that's the logic we've got in place for the individual `ent`s in bittoss
 static char intersects(box *o, box *n, UINT *start_ptr, UINT *end_ptr) {
@@ -64,23 +65,25 @@ static char intersects(box *o, box *n, UINT *start_ptr, UINT *end_ptr) {
 		INT r = o->r[d] + n->r[d];
 
 		d1 = -d1*sgn - r;
-		vel *= sgn;
 
-		// If distance is non-negative, we can do normal math to figure out when we'll hit it.
-		// If distance is negative, either we're inside or we've missed.
-		// If we haven't missed, we can get the exit time as a UINT without too much problem
-		if (d1 >= 0) {
-			// We're not touching (yet), but headed the right way
-			if (!vel) return 0; // We're not touching
-			INT t1 = d1 / vel;
-			start = pmin(start, t1);
-		} else if (d1 <= -2*r) {
+		if (!vel) {
+			if (d1 >= 0 || d1 <= -2*r) return 0;
+			continue;
+		}
+
+		if (d1 <= -2*r) {
 			// We already passed it, we know we won't intersect again
 			// without the parent intersect being re-created.
 			return 0;
-		} else {
-			// Else, we're currently inside.
-			if (!vel) continue; // We intersect forever on this axis, current start/end are fine
+		}
+
+		vel *= sgn;
+
+		// We have positive velocity, and are either inside of or in front of the target.
+		if (d1 >= 0) {
+			// We're not touching (yet), but headed the right way
+			INT t1 = d1 / vel;
+			start = pmax(start, t1);
 		}
 		// Cases which can hit here are when vel!=0, and position is either "ahead" or "inside of".
 		UINT t2 = (UINT)(d1 + 2*r + vel - 1) / (UINT)vel;
@@ -263,6 +266,7 @@ static void setIntersects_refresh(box *n) {
 	list<sect> &aunts = n->parent->intersects;
 	int num = n->parent->activeIntersects;
 	range(i, num) {
+		box *aunt = aunts[i].b;
 #ifdef DEBUG
 		if (!aunt->intersects.num) {
 			fputs("Aunt should be in a valid state\n", stderr);
@@ -270,7 +274,6 @@ static void setIntersects_refresh(box *n) {
 		}
 #endif
 
-		box *aunt = aunts[i].b;
 		UINT start, end;
 		if (!intersects(aunt, n, &start, &end) && aunt->parent) continue;
 		if (isLeaf(aunt)) {
@@ -418,7 +421,7 @@ static void removeExpiredIntersect(box *b, int ix) {
 
 static void handleIntersectStart(box *b, box *other) {
 #ifdef DEBUG
-	if (b->intersects.num || other->intersects.num) {
+	if (!b->intersects.num || !other->intersects.num) {
 		fputs("`handleIntersectStart` args shouldn't be expired\n", stderr);
 		exit(1);
 	}
@@ -433,7 +436,7 @@ static void handleIntersectStart(box *b, box *other) {
 			box *k1 = b->kids[k1_ix];
 			if (!k1->intersects.num || !intersects(k1, other, &start, &end)) continue;
 			range(k2_ix, other->kids.num) {
-				box *k2 = b->kids[k2_ix];
+				box *k2 = other->kids[k2_ix];
 				if (!k2->intersects.num) continue;
 				if (intersects(k1, k2, &start, &end)) {
 					// Either of these could be a leaf,
