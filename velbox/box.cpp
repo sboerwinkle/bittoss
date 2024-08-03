@@ -79,6 +79,7 @@ static char contains(box *p, box *b) {
 // This assumes that `p` does in fact contain `b`. Makes the zero-velocity case simpler.
 static INT computeValidity(box *b, box *p) {
 	int val = p->validity;
+	if (!p->parent) return val;
 	range(d, DIMS) {
 		INT v = b->p2[d] - b->p1[d] - p->p2[d] + p->p1[d];
 		if (!v) continue;
@@ -117,7 +118,7 @@ static void setIntersects_refresh(box *n) {
 		// and during bulk refresh, we refresh by layers,
 		// so we only *have to* check the aunt's validity in the whale case, but oh well.
 		// It's better to do it before the `intersects()`, I think.
-		if (aunt->validity <= 0 || !intersects(aunt, n)) continue;
+		if (aunt->validity <= 0 || (!intersects(aunt, n) && aunt->parent)) continue;
 		if (isWhale(aunt)) {
 			recordIntersect(n, aunt);
 		} else {
