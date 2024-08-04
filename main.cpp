@@ -77,7 +77,7 @@ static struct {
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
 gamestate *renderedState;
 long renderStartNanos = 0;
-char manualGlFinish = 0;
+char manualGlFinish = 1;
 char showFps = 0;
 
 static int typingLen = -1;
@@ -167,8 +167,8 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, in
 	// atomic on modern processors, but whatever the case:
 	// A) Nobody's complained about weirdness here
 	// B) If there was weirdness it would just manifest as weird visual frames, not a crash or desync
-	double pitchRadians = sharedInputs.basic.viewPitch;
-	double yawRadians = sharedInputs.basic.viewYaw;
+	double pitchRadians = activeInputs.basic.viewPitch;
+	double yawRadians = activeInputs.basic.viewYaw;
 	double cosine = cos(yawRadians);
 	double sine = sin(yawRadians);
 
@@ -1403,6 +1403,15 @@ static void* renderThreadFunc(void *_arg) {
 		drawingNanos = time1-time0;
 		totalNanos = time2-time0;
 		time0 = time2;
+
+		/*
+		// Usually we spend most of the frame between `time1` and `time2`.
+		// This is expected since vsync is on. However, sometimes we'll spend
+		// most of 2 frames there, for no discernable reason.
+		if (totalNanos > 20'000'000) {
+			printf("Frame nanos = %ld (drawing for %ld)\n", totalNanos, drawingNanos);
+		}
+		*/
 	}
 	return NULL;
 }
@@ -1415,8 +1424,20 @@ static void* inputThreadFunc(void *_arg) {
 	glfwSetScrollCallback(display, scroll_callback);
 	glfwSetWindowFocusCallback(display, window_focus_callback);
 	glfwSetFramebufferSizeCallback(display, framebuffer_size_callback);
+
+	timespec t;
+	t.tv_sec = 0;
+	t.tv_nsec = 10'000'000;
+
 	while (!glfwWindowShouldClose(display)) {
-		glfwWaitEvents();
+
+		// glfwWaitEvents() should be exactly what we want, but in practice it would occasionally be
+		// way too slow for unknown reasons (looks like dropped frames, but it's not a graphics issue;
+		// the mouse data just doesn't update for few frames or so).
+		// Haven't investigated further, but for now we just poll at 100 Hz,
+		// which should be fast enough for a human and slow enough for a computer.
+		glfwPollEvents();
+		nanosleep(&t, NULL);
 
 		shareInputs();
 	}

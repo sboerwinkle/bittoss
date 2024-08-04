@@ -107,6 +107,9 @@ TODO:
 	- left-handed mode for mouse button inputs
 	- left-handed mode for Aux tool HUD display
 	- default color, *maybe*
+/ Fix graphical lag, or whatever that is
+- See if a dedicated allocator besides `malloc` makes a measurable difference?
+- Nametags
 
 - CTF scoring plz
 
