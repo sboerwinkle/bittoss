@@ -28,27 +28,21 @@ static GLfloat cam_lens_ortho[16];
 static GLfloat camera_uniform_mat[16];
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
-static void printGLProgErrors(GLuint prog){
+static void printGLProgErrors(GLuint prog, const char *name){
 	GLint ret = 0;
 	glGetProgramiv(prog, GL_LINK_STATUS, &ret);
 	printf("Link status %d ", ret);
 	glGetProgramiv(prog, GL_ATTACHED_SHADERS, &ret);
-	printf("Attached Shaders: %d ", ret);
+	printf("Attached Shaders: %d\n", ret);
 
-	glMsgBuf[0] = 0;
-	int len;
-	glGetProgramInfoLog(prog, 3000, &len, glMsgBuf);
-	printf("Len: %d\n", len);
-	glMsgBuf[len] = 0;
-	printf("GL Info Log: %s\n", glMsgBuf);
+	glGetProgramInfoLog(prog, 3000, NULL, glMsgBuf);
+	// If the returned string is non-empty, print it
+	if (glMsgBuf[0]) printf("GL Info Log for program \"%s\":\n%s\n", name, glMsgBuf);
 }
-static void printGLShaderErrors(GLuint shader) {
-	glMsgBuf[0] = 0;
-	int len;
-	glGetShaderInfoLog(shader, 3000, &len, glMsgBuf);
-	printf("Len: %d\n", len);
-	glMsgBuf[len] = 0;
-	printf("GL Info Log: %s\n", glMsgBuf);
+static void printGLShaderErrors(GLuint shader, const char *path) {
+	glGetShaderInfoLog(shader, 3000, NULL, glMsgBuf);
+	// If the returned string is non-empty, print it
+	if (glMsgBuf[0]) printf("GL Info Log for shader at %s:\n%s\n", path, glMsgBuf);
 }
 static char progFailed(GLuint prog) {
 	GLint out;
@@ -95,7 +89,7 @@ static GLuint mkShader(GLenum type, const char* path) {
 	glShaderSource(shader, 1, &src, NULL);
 	free(src);
 	glCompileShader(shader);
-	printGLShaderErrors(shader);
+	printGLShaderErrors(shader, path);
 	return shader;
 }
 
@@ -106,6 +100,7 @@ void initGraphics() {
 	}
 	GLuint vertexShader = mkShader(GL_VERTEX_SHADER, "shaders/solid.vert");
 	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/hud.vert");
+	GLuint vertexShaderTags = mkShader(GL_VERTEX_SHADER, "shaders/tags.vert");
 	GLuint fragShader = mkShader(GL_FRAGMENT_SHADER, "shaders/color.frag");
 	GLuint fragShaderStipple = mkShader(GL_FRAGMENT_SHADER, "shaders/stipple.frag");
 
@@ -148,9 +143,9 @@ void initGraphics() {
 	u_flat_color_id = glGetUniformLocation(flat_prog, "u_color");
 	GLint a_flat_loc_id = glGetAttribLocation(flat_prog, "a_loc");
 
-	printGLProgErrors(main_prog);
-	printGLProgErrors(stipple_prog);
-	printGLProgErrors(flat_prog);
+	printGLProgErrors(main_prog, "main");
+	printGLProgErrors(stipple_prog, "stipple");
+	printGLProgErrors(flat_prog, "flat");
 
 	if (progFailed(main_prog) || progFailed(stipple_prog) || progFailed(flat_prog)) {
 		puts("Not proceeding further, fix your shaders. See GL Info Logs, above.");
