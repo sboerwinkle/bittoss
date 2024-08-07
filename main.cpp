@@ -234,6 +234,10 @@ static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
 static void drawOverlay(list<player> *ps) {
+	setupTags();
+	// For now we don't do anything here!
+	// But we still need setupTags() because
+	// it sets up some GL state we need.
 	setupText();
 	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
 	drawHudText(drawMe, 0, 0, 0.5, 0.5, 1, overlayColor);

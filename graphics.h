@@ -15,8 +15,15 @@ extern int32_t frameOffset[3];
 extern void initGraphics();
 
 extern void setDisplaySize(int width, int height);
+
+// These functions affect GL state,
+// and are expected to be called in the listed order.
+// (Some could be skipped, but it's moot because we don't)
+// They could be made more robust, but not worth the effort since this isn't
+// a library or anything, just a standalone application.
 extern void setupFrame(float pitch, float yaw, float up, float forward);
-extern void stipple();
+extern void setupStipple();
+extern void setupTags();
 extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);

@@ -922,7 +922,7 @@ void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *con
 		drawEnt(i, inhabit, thirdPerson, oldPos, newPos, interpRatio);
 	}
 
-	stipple();
+	setupStipple();
 	for (int i = 0; i < stippleList.num; i++) {
 		drawEnt(stippleList[i], NULL, 0, oldPos, newPos, interpRatio);
 	}

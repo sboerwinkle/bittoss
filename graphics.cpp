@@ -14,14 +14,18 @@ static int displayHeight = 0;
 // once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
 GLfloat boxData[216];
 
-static GLuint main_prog, stipple_prog, flat_prog;
+static GLuint main_prog, stipple_prog, tag_prog, flat_prog;
 static GLuint vaos[2];
 
 static GLint u_camera_id = -1;
+static GLint u_tag_camera_id = -1;
+static GLint u_tag_loc_id = -1;
+static GLint u_tag_color_id = -1;
+static GLint u_tag_scale_id = -1;
+static GLint u_tag_offset_id = -1;
 static GLint u_flat_camera_id = -1;
 static GLint u_flat_offset_id = -1;
-static GLint u_flat_scale_x_id = -1;
-static GLint u_flat_scale_y_id = -1;
+static GLint u_flat_scale_id = -1;
 static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
 static GLfloat cam_lens_ortho[16];
@@ -99,7 +103,7 @@ void initGraphics() {
 		exit(1);
 	}
 	GLuint vertexShader = mkShader(GL_VERTEX_SHADER, "shaders/solid.vert");
-	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/hud.vert");
+	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/flat.vert");
 	GLuint vertexShaderTags = mkShader(GL_VERTEX_SHADER, "shaders/tags.vert");
 	GLuint fragShader = mkShader(GL_FRAGMENT_SHADER, "shaders/color.frag");
 	GLuint fragShaderStipple = mkShader(GL_FRAGMENT_SHADER, "shaders/stipple.frag");
@@ -114,6 +118,12 @@ void initGraphics() {
 	glAttachShader(stipple_prog, vertexShader);
 	glAttachShader(stipple_prog, fragShaderStipple);
 	glLinkProgram(stipple_prog);
+	cerr("Post link");
+
+	tag_prog = glCreateProgram();
+	glAttachShader(tag_prog, vertexShaderTags);
+	glAttachShader(tag_prog, fragShader);
+	glLinkProgram(tag_prog);
 	cerr("Post link");
 
 	flat_prog = glCreateProgram();
@@ -133,22 +143,38 @@ void initGraphics() {
 	// These will be the same attrib locations as stipple_prog, since they use the same vertex shader
 	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
 	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
-	// Kind of rolling the dice here, but since we only have one uniform it's probably the same for stipple_prog
 	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
+
+	if (u_camera_id != glGetUniformLocation(stipple_prog, "u_camera")) {
+		puts("Camera uniform not co-located for 'main' / 'stipple' GLSL programs. Possibly a GLSL error?");
+		exit(1);
+	}
+
+	u_tag_camera_id = glGetUniformLocation(tag_prog, "u_camera");
+	u_tag_loc_id = glGetUniformLocation(tag_prog, "u_loc");
+	u_tag_color_id = glGetUniformLocation(tag_prog, "u_color");
+	u_tag_scale_id = glGetUniformLocation(tag_prog, "u_scale");
+	u_tag_offset_id = glGetUniformLocation(tag_prog, "u_offset");
+	GLint a_tag_offset_id = glGetAttribLocation(tag_prog, "a_offset");
 
 	u_flat_camera_id = glGetUniformLocation(flat_prog, "u_camera");
 	u_flat_offset_id = glGetUniformLocation(flat_prog, "u_offset");
-	u_flat_scale_x_id = glGetUniformLocation(flat_prog, "u_scale_x");
-	u_flat_scale_y_id = glGetUniformLocation(flat_prog, "u_scale_y");
+	u_flat_scale_id = glGetUniformLocation(flat_prog, "u_scale");
 	u_flat_color_id = glGetUniformLocation(flat_prog, "u_color");
 	GLint a_flat_loc_id = glGetAttribLocation(flat_prog, "a_loc");
 
+	if (a_tag_offset_id != a_flat_loc_id) {
+		puts("Input attributes not co-located for 'tag' / 'flat' GLSL programs. Possibly a GLSL error?");
+		exit(1);
+	}
+
 	printGLProgErrors(main_prog, "main");
 	printGLProgErrors(stipple_prog, "stipple");
+	printGLProgErrors(tag_prog, "tag");
 	printGLProgErrors(flat_prog, "flat");
 
-	if (progFailed(main_prog) || progFailed(stipple_prog) || progFailed(flat_prog)) {
-		puts("Not proceeding further, fix your shaders. See GL Info Logs, above.");
+	if (progFailed(main_prog) || progFailed(stipple_prog) || progFailed(tag_prog) || progFailed(flat_prog)) {
+		puts("Shaders failed, not proceeding further.");
 		exit(1);
 	}
 
@@ -177,6 +203,8 @@ void initGraphics() {
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
+	// (Further note: Unlike GL_ELEMENT_ARRAY_BUFFER, the GL_ARRAY_BUFFER binding is _NOT_ part of VAO state.
+	//  Its value is written to VAO state when glVertexAttribPointer (and kin) are called, though.)
 	cerr("End of graphics setup");
 }
 
@@ -202,17 +230,23 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 	cerr("End of frame setup");
 }
 
-void stipple() {
+void setupStipple() {
 	// This assumes that you've previously called `setupFrame`,
 	// as it doesn't do all the camera math again, or re-bind the VAO
 	glUseProgram(stipple_prog);
 	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, camera_uniform_mat);
 }
 
-void setupText() {
-	glUseProgram(flat_prog);
-	//cerr("After use program (flat_prog)");
+void setupTags() {
+	// Relies on `setupFrame()` for the camera math
 	glBindVertexArray(vaos[1]);
+	glUseProgram(tag_prog);
+	glUniformMatrix4fv(u_tag_camera_id, 1, GL_FALSE, camera_uniform_mat);
+}
+
+void setupText() {
+	// Relies on `setupTags()` to have bound the correct VAO
+	glUseProgram(flat_prog);
 	glDisable(GL_DEPTH_TEST);
 
 	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
@@ -221,8 +255,7 @@ void setupText() {
 void drawHudText(const char* str, double xBase, double yBase, double x, double y, double scale, float* color){
 	float fontMultX = (float) (scale * fontSizePx / displayWidth);
 	float fontMultY = (float) (scale * myfont.invaspect * fontSizePx / displayHeight);
-	glUniform1f(u_flat_scale_y_id, (float)fontMultY);
-	glUniform1f(u_flat_scale_x_id, (float)fontMultX);
+	glUniform2f(u_flat_scale_id, fontMultX, fontMultY);
 
 	glUniform3fv(u_flat_color_id, 1, color);
 
@@ -246,8 +279,7 @@ void drawHudRect(double x, double y, double w, double h, float *color) {
 	// which is just 2 tris as a square. This is because I am lazy, and want to draw rectangles easily.
 
 	glUniform2f(u_flat_offset_id, x, y);
-	glUniform1f(u_flat_scale_x_id, w);
-	glUniform1f(u_flat_scale_y_id, h);
+	glUniform2f(u_flat_scale_id, w, h);
 	glUniform3fv(u_flat_color_id, 1, color);
 
 	glDrawElements(GL_TRIANGLES, myfont.letterLen[94], GL_UNSIGNED_SHORT, (void*)(sizeof(short)*myfont.letterStart[94]));
