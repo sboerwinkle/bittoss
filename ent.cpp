@@ -928,10 +928,6 @@ void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *con
 	}
 }
 
-void drawEnt(ent *e, float r, float g, float b) {
-	rect(e->center, e->radius, r, g, b);
-}
-
 void doCleanup(gamestate *gs) {
 	while (gs->rootEnts) killEntNoHandlers(gs, gs->rootEnts);
 	clearDeads(gs);

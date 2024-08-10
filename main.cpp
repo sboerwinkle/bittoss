@@ -233,11 +233,24 @@ static float overlayColor[3] = {0.0, 0.5, 0.5};
 static float grnColor[3] = {0.0, 1.0, 0.0};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
-static void drawOverlay(list<player> *ps) {
+
+static void drawTags(list<player> *ps, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	setupTags();
-	// For now we don't do anything here!
-	// But we still need setupTags() because
-	// it sets up some GL state we need.
+	range(i, ps->num) {
+		player &p = (*ps)[i];
+		ent *e = p.entity;
+		if (!e) continue;
+		int32_t pos[3];
+		range(dim, 3) {
+			int32_t a = e->old[dim] - oldPos[dim];
+			int32_t b = e->center[dim] - newPos[dim];
+			pos[dim] = a + (b-a)*ratio;
+		}
+		drawTag(chatBuffer, pos, 4000, redColor);
+	}
+}
+
+static void drawOverlay(list<player> *ps) {
 	setupText();
 	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
 	drawHudText(drawMe, 0, 0, 0.5, 0.5, 1, overlayColor);
@@ -256,6 +269,7 @@ static void drawOverlay(list<player> *ps) {
 	// Draw actual hud elements
 	drawHud((*ps)[myPlayer].entity);
 }
+
 static void drawFps(long drawingNanos, long totalNanos) {
 	char fps[7];
 	snprintf(fps, 7, "%c%5.1lf", manualGlFinish ? '!' : ' ', (double) BILLION / totalNanos);
@@ -1391,6 +1405,7 @@ static void* renderThreadFunc(void *_arg) {
 		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
 
+		drawTags(players, oldPos, newPos, interpRatio);
 		drawOverlay(players);
 
 		if (showFps) {

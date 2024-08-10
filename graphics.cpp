@@ -2,10 +2,12 @@
 #include <stdio.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
+#include <string.h>
 #include "ExternLinAlg.h"
 #include "Quaternion.h"
 #include "graphics.h"
 #include "font.h"
+#include "util.h"
 
 static int displayWidth = 0;
 static int displayHeight = 0;
@@ -250,6 +252,33 @@ void setupText() {
 	glDisable(GL_DEPTH_TEST);
 
 	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
+}
+
+void drawTag(const char* str, int32_t *pos, double scale, float *color) {
+	// Not sure what this makes the units on the incoming `scale`,
+	// but it would feel wrong to ignore `fontSizePx` altogether.
+	scale *= fontSizePx;
+	float fontMultX = scale / displayWidth;
+	float fontMultY = scale * myfont.invaspect / displayHeight;
+	glUniform2f(u_tag_scale_id, fontMultX, -fontMultY);
+
+	float fpos[3] = {(float)pos[0], (float)pos[1], (float)pos[2]};
+	glUniform3fv(u_tag_loc_id, 1, fpos);
+	glUniform3fv(u_tag_color_id, 1, color);
+
+	int len = strlen(str);
+	float spacing = 1.0 + myfont.spacing;
+	float offsetX = (spacing*(len-1)+1) / -2;
+	float offsetY = -0.5;
+	// TODO Want to draw a lil box around the text for a background
+	range(idx, len) {
+		glUniform2f(u_tag_offset_id, offsetX, offsetY);
+		offsetX += spacing;
+
+		int fontIndex = str[idx]-33;
+		if (fontIndex < 0 || fontIndex >= 94) continue;
+		glDrawElements(GL_TRIANGLES, myfont.letterLen[fontIndex], GL_UNSIGNED_SHORT, (void*) (sizeof(short)*myfont.letterStart[fontIndex]));
+	}
 }
 
 void drawHudText(const char* str, double xBase, double yBase, double x, double y, double scale, float* color){

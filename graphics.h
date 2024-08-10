@@ -27,5 +27,6 @@ extern void setupTags();
 extern void setupText();
 
 extern void rect(int32_t *p, int32_t *radius, float r, float g, float b);
+extern void drawTag(const char* str, int32_t *pos, double scale, float *color);
 extern void drawHudText(const char* str, double xBase, double yBase, double x, double y, double scale, float* color);
 extern void drawHudRect(double x, double y, double w, double h, float *color);
