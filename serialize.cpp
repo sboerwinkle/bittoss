@@ -8,8 +8,9 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam4";
-#define VERSION 4
+static const char* version_string = "gam5";
+#define VERSION 5
+
 static int version; // TODO global state is bad, use a context object during deserialization
 
 static const int32_t dummyPos[3] = {0, 0, 0};
@@ -61,6 +62,16 @@ int reserve32(list<char> *data) {
 
 static void writeEntRef(list<char> *data, ent *e) {
 	write32(data, e ? e->clone.ix : -1);
+}
+
+static void writeStr(list<char> *data, const char *str) {
+	int len = strlen(str);
+	if (len > 255) len = 255;
+	data->add((unsigned char) len);
+	int end = data->num + len;
+	data->setMaxUp(end);
+	memcpy(data->items + data->num, str, len);
+	data->num = end;
 }
 
 static int enumerateAll(ent *e) {
@@ -168,6 +179,7 @@ void serialize(gamestate *gs, list<char> *data) {
 		write32(data, p->color);
 		write32(data, p->reviveCounter);
 		write32(data, p->data);
+		writeStr(data, p->name);
 		writeEntRef(data, p->entity);
 	}
 
@@ -184,9 +196,10 @@ void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset,
 
 	serializeEnts(gs->ents, data, c_offset, v_offset);
 
-	write32(data, 0);
-	write32(data, 0);
-	write32(data, 0);
+	write32(data, 0); // Number of players (0)
+	// This is ignored in normal use. However, if we load this as a level, we don't want a 0 here.
+	write32(data, gs->rand);
+	write32(data, 0); // Game rules (none)
 }
 
 static char read8(const list<char> *data, int *ix) {
@@ -201,6 +214,23 @@ static int32_t read32(const list<char> *data, int *ix) {
 	if (i + 4 > data->num) return 0;
 	*ix = i + 4;
 	return ntohl(*(int32_t*)(data->items + i));
+}
+
+static void readStr(const list<char> *data, int *ix, char *dest, int limit) {
+	int reportedLen = (unsigned char) read8(data, ix);
+	int i = *ix;
+	int avail = data->num - i;
+	if (avail < reportedLen || limit - 1 < reportedLen) {
+		// Don't mess around even trying to read this.
+		// `avail` could be negative, e.g.
+		*ix = data->num;
+		*dest = '\0';
+		return;
+	}
+
+	memcpy(dest, data->items + i, reportedLen);
+	dest[reportedLen] = '\0';
+	*ix = i + reportedLen;
 }
 
 static void checksum(const list<char> *data, int *ix, int expected) {
@@ -247,6 +277,7 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	handleButtons(data, ix, e);
 	range(i, e->numSliders) i32(e->sliders[i].v);
 	check(131);
+	// TODO unchecked access here, provided ent index could be bogus
 	range(i, numWires) wire(e->wires[i]);
 
 	check(132);
@@ -303,7 +334,7 @@ int verifyHeader(const list<char> *data, int *ix) {
 	return numEnts;
 }
 
-void deserialize(gamestate *gs, const list<char> *data) {
+void deserialize(gamestate *gs, const list<char> *data, char fullState) {
 	int _ix;
 	int *ix = &_ix;
 	int numEnts = verifyHeader(data, ix);
@@ -331,8 +362,22 @@ void deserialize(gamestate *gs, const list<char> *data) {
 		p->reviveCounter = read32(data, ix);
 		p->data = version >= 3 ? read32(data, ix) : 0;
 
+		if (fullState) {
+			if (version >= 5) {
+				readStr(data, ix, p->name, NAME_BUF_LEN);
+			} else {
+				p->name[0] = '\0';
+			}
+		} else {
+			// Leave existing names intact
+			if (version >= 5) {
+				unsigned char len = read8(data, ix);
+				*ix += len;
+			}
+		}
+
 		int e_ix = read32(data, ix);
-		if (e_ix == -1) p->entity = NULL;
+		if (e_ix == -1 || e_ix >= numEnts) p->entity = NULL;
 		else p->entity = ents[e_ix];
 	}
 

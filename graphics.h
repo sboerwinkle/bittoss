@@ -16,6 +16,8 @@ extern void initGraphics();
 
 extern void setDisplaySize(int width, int height);
 
+extern void getCameraDepthVector(float *out);
+
 // These functions affect GL state,
 // and are expected to be called in the listed order.
 // (Some could be skipped, but it's moot because we don't)

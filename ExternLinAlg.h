@@ -67,18 +67,23 @@ static void mat4x4By4x1Multf(float* res, float* m1, float* m2){
 	}
 }
 */
+
+// I went messing with this specifically to make my world coordinates and GL coordinates match
+// because they definitely did not. I think I've swapped Y and Z which is probably lazy,
+// but you're not my math boss
+
 static void mat4x4fromQuat(float* M, float *rot){
 	M[0] = 1-2*rot[2]*rot[2]-2*rot[3]*rot[3];
 	M[1] = 2*rot[1]*rot[2]+2*rot[0]*rot[3];
 	M[2] = 2*rot[1]*rot[3]-2*rot[0]*rot[2];
 	M[3] = 0;
-	M[4] = 2*rot[1]*rot[2]-2*rot[0]*rot[3];
-	M[5] = 1-2*rot[1]*rot[1]-2*rot[3]*rot[3];
-	M[6] = 2*rot[2]*rot[3]+2*rot[0]*rot[1];
+	M[4] = 2*rot[1]*rot[3]+2*rot[0]*rot[2];
+	M[5] = 2*rot[2]*rot[3]-2*rot[0]*rot[1];
+	M[6] = 1-2*rot[1]*rot[1]-2*rot[2]*rot[2];
 	M[7] = 0;
-	M[8] = 2*rot[1]*rot[3]+2*rot[0]*rot[2];
-	M[9] = 2*rot[2]*rot[3]-2*rot[0]*rot[1];
-	M[10] = 1-2*rot[1]*rot[1]-2*rot[2]*rot[2];
+	M[8] = 2*rot[1]*rot[2]-2*rot[0]*rot[3];
+	M[9] = 1-2*rot[1]*rot[1]-2*rot[3]*rot[3];
+	M[10] = 2*rot[2]*rot[3]+2*rot[0]*rot[1];
 	M[11] = 0;
 	M[12] = 0;
 	M[13] = 0;

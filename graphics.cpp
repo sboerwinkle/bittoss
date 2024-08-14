@@ -210,6 +210,12 @@ void initGraphics() {
 	cerr("End of graphics setup");
 }
 
+void getCameraDepthVector(float *out) {
+	out[0] = camera_uniform_mat[3];
+	out[1] = camera_uniform_mat[7];
+	out[2] = camera_uniform_mat[11];
+}
+
 void setupFrame(float pitch, float yaw, float up, float forward) {
 	glUseProgram(main_prog);
 	glBindVertexArray(vaos[0]);
@@ -318,10 +324,10 @@ void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	// TODO This could be improved in a number of ways, see other TODO higher in this file
 	GLfloat L = (float)(p[0] - r[0]);
 	GLfloat R = (float)(p[0] + r[0]);
-	GLfloat U = (float)(p[2] - r[2]); // World coordinate axes don't line up with GL axes, really should fix this.
-	GLfloat D = (float)(p[2] + r[2]);
 	GLfloat F = (float)(p[1] - r[1]);
 	GLfloat B = (float)(p[1] + r[1]);
+	GLfloat U = (float)(p[2] - r[2]);
+	GLfloat D = (float)(p[2] + r[2]);
 	GLfloat r1 = red;
 	GLfloat g1 = grn;
 	GLfloat b1 = blu;
@@ -348,46 +354,46 @@ void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	boxData[counter++] = g; \
 	boxData[counter++] = b;
 	// Top is full color
-	vtx(L,U,F,r1,g1,b1);
-	vtx(L,U,B,r1,g1,b1);
-	vtx(R,U,F,r1,g1,b1);
-	vtx(L,U,B,r1,g1,b1);
-	vtx(R,U,B,r1,g1,b1);
-	vtx(R,U,F,r1,g1,b1);
+	vtx(L,F,U,r1,g1,b1);
+	vtx(L,B,U,r1,g1,b1);
+	vtx(R,F,U,r1,g1,b1);
+	vtx(L,B,U,r1,g1,b1);
+	vtx(R,B,U,r1,g1,b1);
+	vtx(R,F,U,r1,g1,b1);
 	// Front is dimmer
-	vtx(L,U,F,r2,g2,b2);
-	vtx(R,U,F,r2,g2,b2);
-	vtx(L,D,F,r2,g2,b2);
-	vtx(R,U,F,r2,g2,b2);
-	vtx(R,D,F,r2,g2,b2);
-	vtx(L,D,F,r2,g2,b2);
+	vtx(L,F,U,r2,g2,b2);
+	vtx(R,F,U,r2,g2,b2);
+	vtx(L,F,D,r2,g2,b2);
+	vtx(R,F,U,r2,g2,b2);
+	vtx(R,F,D,r2,g2,b2);
+	vtx(L,F,D,r2,g2,b2);
 	// Sides are a bit dimmer
-	vtx(L,U,B,r3,g3,b3);
-	vtx(L,U,F,r3,g3,b3);
-	vtx(L,D,B,r3,g3,b3);
-	vtx(L,U,F,r3,g3,b3);
-	vtx(L,D,F,r3,g3,b3);
-	vtx(L,D,B,r3,g3,b3);
-	vtx(R,D,F,r3,g3,b3);
-	vtx(R,U,F,r3,g3,b3);
-	vtx(R,D,B,r3,g3,b3);
-	vtx(R,U,F,r3,g3,b3);
-	vtx(R,U,B,r3,g3,b3);
-	vtx(R,D,B,r3,g3,b3);
+	vtx(L,B,U,r3,g3,b3);
+	vtx(L,F,U,r3,g3,b3);
+	vtx(L,B,D,r3,g3,b3);
+	vtx(L,F,U,r3,g3,b3);
+	vtx(L,F,D,r3,g3,b3);
+	vtx(L,B,D,r3,g3,b3);
+	vtx(R,F,D,r3,g3,b3);
+	vtx(R,F,U,r3,g3,b3);
+	vtx(R,B,D,r3,g3,b3);
+	vtx(R,F,U,r3,g3,b3);
+	vtx(R,B,U,r3,g3,b3);
+	vtx(R,B,D,r3,g3,b3);
 	// Back is dimmer still
-	vtx(L,U,B,r4,g4,b4);
-	vtx(L,D,B,r4,g4,b4);
-	vtx(R,U,B,r4,g4,b4);
-	vtx(L,D,B,r4,g4,b4);
-	vtx(R,D,B,r4,g4,b4);
-	vtx(R,U,B,r4,g4,b4);
+	vtx(L,B,U,r4,g4,b4);
+	vtx(L,B,D,r4,g4,b4);
+	vtx(R,B,U,r4,g4,b4);
+	vtx(L,B,D,r4,g4,b4);
+	vtx(R,B,D,r4,g4,b4);
+	vtx(R,B,U,r4,g4,b4);
 	// Bottom is dimmest
-	vtx(L,D,F,r5,g5,b5);
-	vtx(R,D,F,r5,g5,b5);
-	vtx(L,D,B,r5,g5,b5);
-	vtx(R,D,F,r5,g5,b5);
-	vtx(R,D,B,r5,g5,b5);
-	vtx(L,D,B,r5,g5,b5);
+	vtx(L,F,D,r5,g5,b5);
+	vtx(R,F,D,r5,g5,b5);
+	vtx(L,B,D,r5,g5,b5);
+	vtx(R,F,D,r5,g5,b5);
+	vtx(R,B,D,r5,g5,b5);
+	vtx(L,B,D,r5,g5,b5);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*216, boxData, GL_STREAM_DRAW);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }

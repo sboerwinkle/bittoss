@@ -170,8 +170,12 @@ typedef struct ent {
 	} clone;
 } ent;
 
+// Maybe later we'll do something fancier with dynamic allocation.
+// For now, this gets it off the ground
+#define NAME_BUF_LEN 8
 struct player {
 	ent *entity;
+	char name[NAME_BUF_LEN];
 	int32_t color;
 	int32_t reviveCounter;
 	int32_t data;

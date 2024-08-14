@@ -48,7 +48,7 @@ char writeFile(const char *name, const list<char> *data) {
 	name = resolvePath(name);
 	if (!name) return 1;
 
-	int fd = open(name, O_WRONLY | O_CREAT, 0664); // perms: rw-rw-r--
+	int fd = open(name, O_WRONLY | O_CREAT | O_TRUNC, 0664); // perms: rw-rw-r--
 	if (fd == -1) {
 		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
 		return 1;
