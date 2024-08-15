@@ -237,26 +237,20 @@ static float whiteColor[3] = {1.0, 1.0, 1.0};
 
 static void drawTags(list<player> *ps, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	setupTags();
-	float eye[3];
-	getCameraDepthVector(eye);
 	range(i, ps->num) {
 		if (i == myPlayer) continue;
 		player &p = (*ps)[i];
 		ent *e = p.entity;
 		if (!e) continue;
 
-		float dist = 50; // Arbitrary distance in game units of extra padding behind labels
-		range(dim, 3) { // Basically a dot product
-			dist += fabs(eye[dim] * e->radius[dim]);
-		}
-		dist *= -1;
-
 		int32_t pos[3];
 		range(dim, 3) {
 			int32_t a = e->old[dim] - oldPos[dim];
 			int32_t b = e->center[dim] - newPos[dim];
-			pos[dim] = a + (b-a)*ratio + dist*eye[dim];
+			pos[dim] = a + (b-a)*ratio;
 		}
+		pos[2] += -(e->radius[2] + 50); // 50 is arbitrary here
+
 		drawTag(p.name, pos, 6000, whiteColor);
 	}
 }
@@ -764,8 +758,10 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
 	if (chars && (*(unsigned char*)data == BIN_CMD_LOAD || *(unsigned char*)data == BIN_CMD_SYNC)) {
 		if (!isReal) return;
-		if (*(unsigned char*)data == BIN_CMD_LOAD) isLoader = isMe;
-		syncNeeded = 0;
+		char isSync = *(unsigned char*)data == BIN_CMD_SYNC;
+
+		if (isSync) syncNeeded = 0;
+		else isLoader = isMe;
 
 		list<player> oldPlayers;
 		oldPlayers.init(rootState->players);
@@ -785,8 +781,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		fakeList.items = data+1;
 		fakeList.num = fakeList.max = chars - 1;
 
-		char fullState = (*(unsigned char*)data == BIN_CMD_SYNC);
-		deserialize(rootState, &fakeList, fullState);
+		deserialize(rootState, &fakeList, isSync);
 		return;
 	}
 	if (chars && *(unsigned char*)data == BIN_CMD_IMPORT) {

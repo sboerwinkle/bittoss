@@ -65,7 +65,7 @@ void doCrushtainer(gamestate *gs) {
 }
 
 void doBigCrushtainer(gamestate *gs) {
-	crush(gs, 256000);
+	crush(gs, 2560000);
 }
 
 static void bounce(gamestate *gs, int32_t radius) {

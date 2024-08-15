@@ -109,7 +109,8 @@ TODO:
 	- default color, *maybe*
 / Fix graphical lag, or whatever that is
 - See if a dedicated allocator besides `malloc` makes a measurable difference?
-- Nametags
+/ Nametags
+- Document /name command
 - Unsafe memory access when deserializing wires
 
 - CTF scoring plz

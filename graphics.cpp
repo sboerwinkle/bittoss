@@ -260,31 +260,39 @@ void setupText() {
 	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
 }
 
+#define TAG_MARGIN 0.2
 void drawTag(const char* str, int32_t *pos, double scale, float *color) {
 	// Not sure what this makes the units on the incoming `scale`,
 	// but it would feel wrong to ignore `fontSizePx` altogether.
 	scale *= fontSizePx;
 	float fontMultX = scale / displayWidth;
 	float fontMultY = scale * myfont.invaspect / displayHeight;
-	glUniform2f(u_tag_scale_id, fontMultX, -fontMultY);
 
 	float fpos[3] = {(float)pos[0], (float)pos[1], (float)pos[2]};
 	glUniform3fv(u_tag_loc_id, 1, fpos);
-	glUniform3fv(u_tag_color_id, 1, color);
 
 	int len = strlen(str);
 	float spacing = 1.0 + myfont.spacing;
-	float offsetX = (spacing*(len-1)+1) / -2;
-	float offsetY = -0.5;
-	// TODO Want to draw a lil box around the text for a background
+	float width = spacing*(len-1)+1;
+
+	// Draw actual text
+	glUniform2f(u_tag_scale_id, fontMultX, -fontMultY);
+	glUniform3fv(u_tag_color_id, 1, color);
+	float offsetX = width / -2;
 	range(idx, len) {
-		glUniform2f(u_tag_offset_id, offsetX, offsetY);
+		glUniform2f(u_tag_offset_id, offsetX, -1 - TAG_MARGIN);
 		offsetX += spacing;
 
 		int fontIndex = str[idx]-33;
 		if (fontIndex < 0 || fontIndex >= 94) continue;
 		glDrawElements(GL_TRIANGLES, myfont.letterLen[fontIndex], GL_UNSIGNED_SHORT, (void*) (sizeof(short)*myfont.letterStart[fontIndex]));
 	}
+
+	// Draw background for text
+	glUniform3f(u_tag_color_id, 0, 0, 0); // We could base this off of the provided `color`, but black is fine for now
+	glUniform2f(u_tag_scale_id, fontMultX*(width+2*TAG_MARGIN), -fontMultY*(1+2*TAG_MARGIN));
+	glUniform2f(u_tag_offset_id, -0.5, -1);
+	glDrawElements(GL_TRIANGLES, myfont.letterLen[94], GL_UNSIGNED_SHORT, (void*)(sizeof(short)*myfont.letterStart[94]));
 }
 
 void drawHudText(const char* str, double xBase, double yBase, double x, double y, double scale, float* color){
