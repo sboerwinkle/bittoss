@@ -94,6 +94,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_import">/import</a></li>
 		<li><a href="#_add">/add</a></li>
 		<li><a href="#_data">/data</a></li>
+		<li><a href="#_name">/name</a></li>
 		<li><a href="#_edit">/edit</a></li>
 		<li><a href="#_rule">/rule</a></li>
 		<li><a href="#_seed">/seed</a></li>
@@ -140,7 +141,8 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 		Player state:
 		<ul>
 			<li><a href="#_data">/data</a>, mostly used for team selection at the moment</li>
-			<li><a href="#_c">color</a></li>
+			<li><a href="#_name">/name</a></li>
+			<li><a href="#_c">color</a> (/c)</li>
 			<li>respawn counter</li>
 		</ul>
 	</li>
@@ -349,7 +351,7 @@ To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates,
 <br/><br/>
 <b id="_teleport">/teleport</b><br/>
 <b>/tp</b><br/>
-Makes the block send anything that it touches to a <a href="_wire">wired</a> destination, if the /teleport block is able to push it (as per its <a href="material">material</a>). Things that instead push the /teleport block (like, say, the ground) will not be teleported.
+Makes the block send anything that it touches to a <a href="#_wire">wired</a> destination, if the /teleport block is able to push it (as per its <a href="material">material</a>). Things that instead push the /teleport block (like, say, the ground) will not be teleported.
 <div class="para"></div>
 The block can be wired to any number of destinations, which should be <a href="#_logic">/logic</a> blocks. At most one of these /logic blocks should be active. If none are active, nothing will happen; if more than one are active, for the moment it will print a message to the console and do nothing. In the future, multiple destinations may average their offsets, add their offsets, pick a random destination, or something else.
 <div class="para"></div>
@@ -414,17 +416,19 @@ All file I/O happens in the <pre>data/</pre> directory.
 <i>Ctrl+L: /load</i><br/>
 Reads the game state from disk, broadcasting it to all players. If the file has more players than are currently in-game, the extra player data is discarded; if it has fewer, the leftover players are reset (as though they had freshly connected). As with <a href="#_save">/save</a>, the default path if none is provided is "savegame".
 <div class="para"></div>
+Player <a href="#_c">color</a> and <a href="#_name">/name</a> are not affected by this operation, to avoid having to re-set personal preferences excessively. These values can be sent with <a href="#_sync">/sync</a>.
+<div class="para"></div>
 All file I/O happens in the <pre>data/</pre> directory.
 <br/><br/>
 <b id="_loader">/loader</b> [01]?<br/>
 Shouldn't be needed normally. Reads/writes your loader status.
 <div class="para"></div>
-Whoever issued <a href="_load">/load</a> most recently is automatically set as the loader. In cases where game logic requires someone to read from disk, the loader will process this.
+Whoever issued <a href="#_load">/load</a> most recently is automatically set as the loader. In cases where game logic requires someone to read from disk, the loader will process this.
 <br/><br/>
 <b id="_file">/file</b> <span>path</span>?<br/>
 Shouldn't be needed normally. Reads/writes the loaded filename.
 <div class="para"></div>
-This is set automatically when you issue <a href="_load">/load</a> (see also <a href="_loader">/loader</a>). If the game logic wants to reload the game, and you are the loader, this path will be used.
+This is set automatically when you issue <a href="#_load">/load</a> (see also <a href="#_loader">/loader</a>). If the game logic wants to reload the game, and you are the loader, this path will be used.
 <br/><br/>
 <b id="_sync">/sync</b><br/>
 <i>Ctrl+R</i><br/>
@@ -445,6 +449,9 @@ Currently the plan is for the operation underlying this command to be used by ga
 <br/><br/>
 <b id="_data">/data</b> <span>number</span>?<br/>
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
+<br/><br/>
+<b id="_name">/name</b> <span>text</span>?<br/>
+Sets the player's name (as it appears to other players), or prints the existing name to the terminal if no argument is given.
 <br/><br/>
 <b id="_edit">/edit</b><br/>
 <i>Ctrl+Tab</i><br/>
@@ -530,6 +537,7 @@ Removes any <a href="#_wire">wires</a> on Red buffer blocks that point to Blue b
 Sets the slider specified by the first number (zero-indexed) to the value of the second number. Sliders are the numbers that blocks use for internal state, and the number and meaning of the sliders on a block is determined by its <a href="#type">type</a>.
 <br/><br/>
 <b id="_copy">/copy</b><br/>
+<i>Ctrl+C</i><br/>
 Makes a copy of the blocks in the Blue buffer. Relationships between blocks (<a href="#_wire">wires</a>, and being <a href="#_pickup">held</a>) will be copied if both of the blocks are copied.
 <div class="para"></div>
 The copied blocks will be placed adjacent to the original blocks, opposite the <a href="#look_dir">Look Direction</a> (roughly "towards you", if you're looking at it). Afterwards, the Red buffer will contain the original blocks, and the Blue buffer will contain the new blocks.
@@ -557,8 +565,12 @@ In terms of how they produce their product, factory blocks should mostly be trea
 However, so long as you don't mess with <a href="#_slider">sliders</a> or <a href="#type">types</a>, most other operations are fine. For example, you can move, <a href="#_copy">/copy</a>, <a href="#_flip">/flip</a>, and re-<a href="#_c">color</a> factories freely, or even <a href="#_pickup">attach</a> them to something. Most <a href="#material">material commands</a> are also fine, e.g. <a href="#_wall">/wall</a> for ease of manipulation, but you'll probably want it back as a <a href="#_ghost">/ghost</a> before activating it.
 <br/><br/>
 <b id="_c">/c</b> ([0-9A-F]{6}|<span>CSS4_name</span>)<br/>
-Colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.
+This command also works even with the editing <a href="#_rule">/rule</a> disabled, in which case it always just affects your player's color (both your current block, and future spawns).
 <div class="para"></div>
-This command also works even with the editing <a href="#_rule">/rule</a> disabled, in which case it always just affects your player (both your current block, and future spawns).
+With editing enabled, this colors the blocks in the Blue buffer. Colors can be in a few formats, but the most sensible ones are 6-digit hex or a CSS4 color name (like 'lightgray'). It also recognizes the color 'clear', which is transparent.
+
+<!-- Links to the last command couldn't jump far enough down to make it very obvious what was going on, so this should make it better -->
+<div style="height: 100vh"></div>
+<i>fin.</i>
 </body>
 </html>

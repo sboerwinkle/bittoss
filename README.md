@@ -13,6 +13,8 @@ Once in-game, the default map is sort of capture-the-flag, though there's not pr
 - Left Shift: hold while bumping into equipment to pick it up. Shift + click drops equipment. The only "equipment" on the default map is the flags.
 - Tab: toggles first-person, which used to be a lot more useful
 
+You can change your nametag (visible to other players) with `/name`.
+
 Documentation for the in-game editing functionality (and other advanced commands) resides in the `docs/` folder.
 
 There's some other stuff as well, but I'm not going to put effort into writing that all down when it still might change.

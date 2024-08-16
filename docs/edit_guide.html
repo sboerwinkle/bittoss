@@ -68,7 +68,7 @@ As an excuse to cover some more commands, we're going to make a house. But to ke
 <p></p>
 First, make a regular wall. This is just a thin, long, tall block, using the stuff you've learned so far. Leave it floating above the ground a little. Color it if you want.
 <p></p>
-Now we're going to copy it. Where the copy ends up depends on the direction you're looking, so look parallel to the wall (along the wall's "long" axis) and press <pre>Ctrl+C</pre>. The wall should now look twice as long; really it's two walls, and you may notice the original is in the Red buffer and the new one is Blue. Leave the buffers alone for now, we'll need them in a sec.
+Now we're going to <a href="edit_reference.html#_copy">copy</a> it. Where the copy ends up depends on the direction you're looking, so look parallel to the wall (along the wall's "long" axis) and press <pre>Ctrl+C</pre>. The wall should now look twice as long; really it's two walls, and you may notice the original is in the Red buffer and the new one is Blue. Leave the buffers alone for now, we'll need them in a sec.
 <p></p>
 Obviously this wall should be facing the other way; look straight down and type <pre><a href="edit_reference.html#_turn">/turn</a></pre> (no keybind for this one). How look direction affects the turn direction is covered in the edit reference; I'm not going to bother with right-hand-rule stuff here.
 <p></p>
@@ -88,5 +88,12 @@ You can float around with the regular move controls, but it's slow, and can't go
 Another way is the <pre>Ctrl+MouseWheel</pre> we used to move blocks earlier; with an empty Blue Buffer, it moves yourself. Actually this is just another bind for the /p command, though by default it uses a smaller <a href="edit_reference.html#_incr">increment</a> than the 2000 we used to get through the floor.
 <p></p>
 Anyway, we're under the floor, so putting a block here is just <pre>Ctrl+B</pre> as usual. This will now be the target of edit commands, of course, so if you want to keep moving around you might clear the Blue Buffer or just swap them out. In any event, get back above ground, and use <pre>/weight</pre> (or <pre>/weight 1</pre>) to restore your personal gravity.
+
+<h3>Saving stuff</h3>
+We already talked about saving / loading the game, but what if you build some stuff and just want to save the cool stuff?
+<p></p>
+Build something small - just a couple blocks is fine - and make sure your Blue Buffer contains exactly the cool stuff you want to save (don't forget <pre>Ctrl+F</pre> if you need to check more visually). Now you can <a href="edit_reference.html#_export">export</a> it by typing <pre>/export itm/tmp</pre>. Move a little bit away and <a herf="edit_reference.html#_import">import</a> it back with <pre>/import itm/tmp</pre>. This was basically like a clumsy <a href="edit_reference.html#_copy">copy</a>, but the advantage is that it's named, and you can import things into other levels later.
+<p></p>
+A note on names - you can use any name you want, but be aware that exported items and <a href="edit_reference.html#_save">saved</a> levels are both stored in the <pre>data/</pre> folder. For this reason you typically prefix exports with <pre>itm/</pre> to put them in the <pre>data/itm/</pre> folder, so things stay organized and you don't accidentally overwrite your <pre>cool</pre> level with your <pre>cool</pre> item.
 </body>
 </html>
