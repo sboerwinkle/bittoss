@@ -133,7 +133,7 @@ char sendData(char *src, int len) {
 	while (len) {
 		int ret = write(sockfd, src, len);
 		if (ret < 0) {
-			printf("Error encountered while writing to socket: %d\n", ret);
+			printf("write() to socket failed, errno is %d\n", errno);
 			return 1;
 		}
 		src += ret;

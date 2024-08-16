@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -1539,6 +1540,47 @@ static void* netThreadFunc(void *_arg) {
 	return NULL;
 }
 
+static char waitForThread(pthread_t thread) {
+	timespec t;
+	if (clock_gettime(CLOCK_REALTIME, &t) == -1) {
+		printf("clock_gettime has errno %d, so can't wait.\n", errno);
+		return 0;
+	}
+	// 1 second should be enough time here, we're not doing anything
+	// really intense in these threads. Most likely reason we'd miss
+	// this window would be if we're blocked on a socket operation,
+	// which is rare enough I'm fine just killing the thread in that
+	// case.
+	t.tv_sec += 1;
+	int ret = pthread_timedjoin_np(thread, NULL, &t);
+	if (!ret) {
+		return 1;
+	}
+	if (ret == ETIMEDOUT) {
+		puts("Waited too long.");
+	} else {
+		printf("pthread_timedjoin_np returned error %d.\n", ret);
+	}
+	return 0;
+}
+
+static void cleanupThread(pthread_t thread, char const * const descr) {
+	printf("Waiting for %s thread...\n", descr);
+	if (waitForThread(thread)) {
+		puts("Done.");
+		return;
+	}
+
+	printf("Killing %s thread instead.\n", descr);
+	pthread_cancel(thread);
+	puts("Waiting for killed thread to complete...");
+	if (waitForThread(thread)) {
+		puts("Done.");
+	} else {
+		puts("Guess we're going to just move on then.");
+	}
+}
+
 const char* usage = "Arguments: server_addr [port]\n\tport default is 15000";
 
 int main(int argc, char **argv) {
@@ -1689,32 +1731,10 @@ int main(int argc, char **argv) {
 	unlock(timingMutex);
 
 	puts("Beginning cleanup.");
-	puts("Cancelling network thread...");
-	{
-		closeSocket();
-		int ret = pthread_join(netThread, NULL);
-		if (ret) printf("Error while joining pacing thread: %d\n", ret);
-	}
-	puts("Done.");
-	puts("Cancelling paced thread...");
-	{
-		//int ret = pthread_cancel(inputThread);
-		//if (ret) printf("Error cancelling input thread: %d\n", ret);
-		int ret = pthread_join(pacedThread, NULL);
-		if (ret) printf("Error while joining paced thread: %d\n", ret);
-	}
-	puts("Done.");
-	puts("Cancelling render thread...");
-	{
-		// Todo: If there's a chance of the main thread in this loop
-		//       optimizing out the read to globalRunning
-		//       (after all, we don't make any pthread calls),
-		//       then we might have to mark it volatile or kill the
-		//       thread or something.
-		int ret = pthread_join(renderThread, NULL);
-		if (ret) printf("Error while joining render thread: %d\n", ret);
-	}
-	puts("Done.");
+	closeSocket();
+	cleanupThread(netThread, "network");
+	cleanupThread(pacedThread, "game");
+	cleanupThread(renderThread, "render");
 	puts("Cleaning up game objects...");
 	doCleanup(rootState);
 	free(rootState);
