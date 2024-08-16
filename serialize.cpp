@@ -358,22 +358,19 @@ void deserialize(gamestate *gs, const list<char> *data, char fullState) {
 		if (i < gs->players.num) p = &gs->players[i];
 		else p = &dummy;
 
-		p->color = read32(data, ix);
+		int32_t color = read32(data, ix);
 		p->reviveCounter = read32(data, ix);
 		p->data = version >= 3 ? read32(data, ix) : 0;
+		char name[NAME_BUF_LEN];
+		if (version >= 5) {
+			readStr(data, ix, name, NAME_BUF_LEN);
+		} else {
+			name[0] = '\0';
+		}
 
 		if (fullState) {
-			if (version >= 5) {
-				readStr(data, ix, p->name, NAME_BUF_LEN);
-			} else {
-				p->name[0] = '\0';
-			}
-		} else {
-			// Leave existing names intact
-			if (version >= 5) {
-				unsigned char len = read8(data, ix);
-				*ix += len;
-			}
+			p->color = color;
+			strcpy(p->name, name);
 		}
 
 		int e_ix = read32(data, ix);

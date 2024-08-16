@@ -774,7 +774,9 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		resetGamestate(rootState);
 		setupPlayers(rootState, numPlayers);
 		range(i, numPlayers) {
-			memcpy(rootState->players[i].name, oldPlayers[i].name, NAME_BUF_LEN);
+			player &newPlayer = rootState->players[i];
+			strcpy(newPlayer.name, oldPlayers[i].name);
+			newPlayer.color = oldPlayers[i].color;
 		}
 		oldPlayers.destroy();
 
