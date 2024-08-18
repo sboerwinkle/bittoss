@@ -10,10 +10,10 @@ import asyncio
 import os
 
 FRAME_ID_MAX = 1<<29
-BUF_SLOTS = 128
-if (FRAME_ID_MAX % BUF_SLOTS != 0):
-    print("Bad server configuration, please fix bugs.")
-    exit()
+
+# This should match the client's MAX_AHEAD.
+MAX_AHEAD = 15
+
 
 # max number of clients at any given time
 MAX_CLIENTS = 32
@@ -34,21 +34,24 @@ FRAMERATE = 15
 
 EMPTY_MSG = b'\0\0\0\0'
 
-usage = "Usage: frame_latency [port] [starting_players]\nlatency must be greater than 0, less than " + str(BUF_SLOTS//4) + "\nPort default is 15000\nstarting_players is probably not an option you need"
+usage = """Usage: [port] [starting_players]
+
+This program can be run without arguments (e.g. \"./server.py\") for default behavior.
+Alternatively, a port number can be provided as the single argument.
+A second argument will be interpreted as the `starting_players`, but this is only useful for debugging."""
 
 class Host:
-    def __init__(self, latency, starting_players):
-        self.buf = [[EMPTY_MSG] * starting_players for _ in range(BUF_SLOTS)]
+    def __init__(self, starting_players):
         self.frame = 0
         self.clients = [None] * starting_players
         self.clientpool = CLIENT_POOL
-        self.latency = latency
 
 class ClientNetHandler(asyncio.Protocol):
     def __init__(self, host):
         self.host = host
         self.recvd = b''
         self.inited = False
+        self.complete_messages = []
         # for client network-rate-limiting
         self.usagepool = USAGE_POOL
         self.usagesince = time.monotonic()
@@ -67,8 +70,6 @@ class ClientNetHandler(asyncio.Protocol):
         else:
             ix = len(clients)
             clients.append(None)
-            for b in self.host.buf:
-                b.append(EMPTY_MSG)
         if ix >= MAX_CLIENTS:
             print("Rejecting client because MAX_CLIENTS reached")
             self.transport.close()
@@ -92,14 +93,16 @@ class ClientNetHandler(asyncio.Protocol):
         if self.usagepool < 0:
             print(f"Closed client {ix} for using too much data")
             self.transport.close()
+            return
         try:
             while True:
                 l = len(self.recvd)
                 if l < 4:
                     break
-                end = 4 + int.from_bytes(self.recvd[:4], 'big')
+                size_bytes = self.recvd[:4]
+                end = 4 + int.from_bytes(size_bytes, 'big')
                 if end < 8:
-                    print(f"Client {ix} sent too few bytes expecting minimum 4 for the frame ID")
+                    print(f"Client {ix} sent too few bytes; expecting minimum 8 for size + frame but got {end}")
                     raise Exception("Too few bytes")
                 if end > MAX_MESSAGE_SIZE:
                     print(f"Closed client {ix} for trying to broadcast too large a message")
@@ -108,31 +111,35 @@ class ClientNetHandler(asyncio.Protocol):
                 if l < end:
                     # We don't yet have enough data for the next complete message
                     break
-                src_frame = int.from_bytes(self.recvd[4:8], 'big')
-                payload = self.recvd[:end]
+                frame_bytes = self.recvd[4:8]
+                payload_bytes = self.recvd[8:end]
                 self.recvd = self.recvd[end:]
+                frame = int.from_bytes(frame_bytes, 'big')
 
-                if src_frame >= FRAME_ID_MAX:
-                    raise Exception(f"Bad frame number {src_frame}, invalid network communication")
-                # TODO Feels like this `dest_frame` logic needs to be rearranged to express the same
-                #      checks in a less confusing way, but I'm too tired for that right now
-                delt = (host.frame + FRAME_ID_MAX//2 - src_frame) % FRAME_ID_MAX - FRAME_ID_MAX//2
-                if delt > host.latency:
-                    print(f"client {ix} delivered packet {delt-host.latency} frames late")
-                    # If they're late, then at least we want them to have as little latency as possible
-                    # There shouldn't be anything in the current frame's payload, so just assume we can overwrite it.
-                    dest_frame = host.frame
-                else:
-                    if delt <= 0:
-                        print(f"client {ix} delivered packet {1-delt} frames _early_?")
-                        # If it's too far in advance, we'd be writing it into a weird nonsense place.
-                        # We add a `- 1` to protect the previous buffer slot, which the outbound "thread"
-                        # might be reading from currently.
-                        if host.latency - delt >= BUF_SLOTS - 1:
-                            print("    (discarding)")
-                            continue
-                    dest_frame = (src_frame + host.latency) % FRAME_ID_MAX
-                host.buf[dest_frame%BUF_SLOTS][ix] = payload
+                if frame >= FRAME_ID_MAX:
+                    raise Exception(f"Bad frame number {frame}, invalid network communication")
+                # Because frame numbers wrap, we do some math to get an offset with +/- FRAME_ID_MAX//2.
+                # `delt == 0` corresponds to getting data for the frame that's about to go out.
+                delt = (frame - host.frame + FRAME_ID_MAX//2) % FRAME_ID_MAX - FRAME_ID_MAX//2
+                if delt < 0:
+                    print(f"client {ix} delivered packet {-delt} frames late")
+                    # If they're late, write it in for the upcoming frame instead.
+                    # This will be later than they intended, but at least it's not lost.
+                    frame_bytes = host.frame.to_bytes(4, 'big')
+                elif delt > MAX_AHEAD:
+                    print(f"client {ix} delivered packet {delt} frames early, when the max allowed is {MAX_AHEAD}")
+                    # Existence of this limit takes the guesswork out of how long it takes a new client to sync,
+                    # and keeps clients from having to hang on to arbitrarily many frames of data
+                    frame_bytes = ((host.frame + MAX_AHEAD) % FRAME_ID_MAX).to_bytes(4, 'big')
+
+                self.complete_messages.append(size_bytes+frame_bytes+payload_bytes)
+
+                if len(self.complete_messages) > MAX_AHEAD*3:
+                    # Haven't though this all the way through, but I feel like `MAX_AHEAD*2` might result from
+                    # the server freezing up and a client with bad ping. `*3` is just excessive though.
+                    # We could also rely on the throughput limit, but there is processing overhead per-message.
+                    print(f"Closed client {ix} for sending too many messages")
+                    self.transport.close()
         except Exception as exc:
             print("Exception while handling client data, killing client")
             traceback.print_exc()
@@ -197,6 +204,7 @@ async def loop(host, port):
         target += incr
 
         clients = host.clients.copy()
+        numClients = len(clients)
         frame = host.frame
         host.frame = (frame+1)%FRAME_ID_MAX
 
@@ -204,28 +212,34 @@ async def loop(host, port):
         if host.clientpool > CLIENT_POOL:
             host.clientpool = CLIENT_POOL
 
+        # TODO We're building this from complete_messages now
         # Considered sending the frame early if we got all the data in,
         # including a 4-byte "delay" entry in the header.
         # Haven't done that yet, not sure how much help it would be.
-        msg = frame.to_bytes(4, 'big') + len(clients).to_bytes(1, 'big')
-        pieces = host.buf[frame%BUF_SLOTS]
+        msg = frame.to_bytes(4, 'big') + numClients.to_bytes(1, 'big')
         # Add everyone's data to the message, then clear their data
-        for ix in range(len(clients)):
-            msg += pieces[ix]
-            pieces[ix] = EMPTY_MSG
+        for c in clients:
+            if c is None:
+                msg += bytes([255]) # 255 == -1 (signed char)
+                continue
+            items = c.complete_messages
+            msg += bytes([len(items)])
+            for i in items:
+                msg += i;
+            items.clear()
 
-        for ix in range(len(clients)):
+        for ix in range(numClients):
             cl = clients[ix]
             if cl is None:
                 continue
             if cl.inited: # Ugh this feels ugly but oh well
                 m = msg
             else:
-                # This is the first time we've talked to this client,
-                # they need to know which index they are and what latency
-                # we're using.
+                # This is the first time we've talked to this client;
+                # send some basic context about what's going on.
+                # This is immediately followed by this frame's data in the usual fashion.
                 cl.inited = True
-                m = bytes([0x80, ix, host.latency]) + frame.to_bytes(4, 'big') + msg
+                m = bytes([0x81, ix, numClients]) + frame.to_bytes(4, 'big') + msg
             cl.transport.write(m)
     # End of our infinite `loop()`.
     # We don't have any exit condition right now,
@@ -234,19 +248,13 @@ async def loop(host, port):
 
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) < 2 or len(args) > 4:
+    if len(args) > 3:
         print(usage)
         sys.exit(1)
 
-    try:
-        latency = int(args[1])
-    except:
-        print(usage)
-        sys.exit(1)
-
-    if len(args) > 2:
+    if len(args) > 1:
         try:
-            port = int(args[2])
+            port = int(args[1])
         except:
             print(usage)
             sys.exit(1)
@@ -254,14 +262,14 @@ if __name__ == "__main__":
         port = 15000
         print("Using default port.")
 
-    if len(args) > 3:
+    if len(args) > 2:
         try:
-            starting_players = int(args[3])
+            starting_players = int(args[2])
         except:
             print(usage)
             sys.exit(1)
     else:
         starting_players = 0
 
-    asyncio.get_event_loop().run_until_complete(loop(Host(latency, starting_players), port))
+    asyncio.get_event_loop().run_until_complete(loop(Host(starting_players), port))
     print("Goodbye!")

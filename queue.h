@@ -10,12 +10,13 @@ template <typename T> struct queue {
 	void init(int size = 1);
 	void destroy();
 	T& add();
+	void setSize(int input);
 	T& pop();
 	T& peek(int ix);
 	void multipop(int num);
 	int size() const;
 private:
-	void resize_full();
+	void resize_full(int newMax);
 };
 
 // Need to init the entries as they're created, which is a very different approach from how `list` handles things.
@@ -38,10 +39,18 @@ template <typename T>
 T& queue<T>::add() {
 	end = (end+1) % max;
 	if (end == start) {
-		resize_full();
+		resize_full(max * 2);
 	}
 	if (end == 0) return items[max-1];
 	return items[end-1];
+}
+
+template <typename T>
+void queue<T>::setSize(int input) {
+	if (input >= max) {
+		resize_full(input + max);
+	}
+	end = (start + input) % max;
 }
 
 template <typename T>
@@ -78,17 +87,16 @@ void queue<T>::multipop(int num) {
 
 template <typename T>
 int queue<T>::size() const {
-	if (start <= end) return end - start;
-	return end - start + max;
+	return (end - start + max) % max;
 }
 
 ///// Private
 
 template <typename T>
-void queue<T>::resize_full() {
-	int incr = max;
-	int newMax = max + incr;
+void queue<T>::resize_full(int newMax) {
+	int incr = newMax - max;
 	items = (T*)realloc(items, newMax*sizeof(T));
+	// TODO This could probably be a `memmove` call
 	for (int i = max-1; i >= start; i--) {
 		items[i + incr] = items[i];
 	}

@@ -1488,60 +1488,6 @@ static void* inputThreadFunc(void *_arg) {
 	return NULL;
 }
 
-static void* netThreadFunc(void *_arg) {
-	int32_t expectedFrame = startFrame;
-	while (1) {
-		int32_t frame;
-		if (readData(&frame, 4)) break;
-		frame = ntohl(frame);
-		if (frame != expectedFrame) {
-			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
-			break;
-		}
-		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
-
-		long nanos = nowNanos();
-		nanos = nanos - STEP_NANOS * serverLead;
-
-		// This is a cheap trick which I need to codify as a method.
-		// It's a threadsafe way to get what the next `add` will be, assuming we're the only
-		// thread that ever calls `add`.
-		list<char> &thisFrameData = frameData.items[frameData.end];
-		thisFrameData.num = 0;
-		unsigned char numPlayers;
-		readData(&numPlayers, 1);
-		thisFrameData.add(numPlayers);
-		for (int i = 0; i < numPlayers; i++) {
-			int32_t netSize;
-			if (readData(&netSize, 4)) goto done;
-			int32_t size = ntohl(netSize);
-			if (size && size < 10) {
-				fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
-				goto done;
-			}
-			thisFrameData.setMaxUp(thisFrameData.num + size + 4);
-			*(int32_t*)(thisFrameData.items + thisFrameData.num) = netSize;
-			thisFrameData.num += 4;
-			if (readData(thisFrameData.items + thisFrameData.num, size)) goto done;
-			thisFrameData.num += size;
-		}
-
-		lock(timingMutex);
-		frameData.add();
-		char asleep = (serverLead <= latency * missing_server_factor);
-		serverLead++;
-		frameTimes[frameTimeIx] = nanos;
-		frameTimeIx = (frameTimeIx + 1) % frame_time_num;
-		updateMedianTime();
-		if (asleep) {
-			signal(timingCond);
-		}
-		unlock(timingMutex);
-	}
-	done:;
-	return NULL;
-}
-
 static char waitForThread(pthread_t thread) {
 	timespec t;
 	if (clock_gettime(CLOCK_REALTIME, &t) == -1) {
@@ -1648,18 +1594,17 @@ int main(int argc, char **argv) {
 		puts("Error, aborting!");
 		return 1;
 	}
-	if (initNetData[0] != (char)0x80) {
+	if (initNetData[0] != (char)0x81) {
 		printf("Bad initial byte %hhd, aborting!\n", initNetData[0]);
 		return 1;
 	}
 	myPlayer = initNetData[1];
-	latency = initNetData[2];
+	int numPlayers = initNetData[2];
 	startFrame = ntohl(*(int32_t*)(initNetData+3));
-	printf("Done, I am client #%d\n", myPlayer);
+	printf("Done, I am client #%d out of %d\n", myPlayer, numPlayers);
+	setupPlayers(rootState, numPlayers);
+	isLoader = (numPlayers == 1);
 
-	// `myPlayer + 1` is the minimum number where our index makes sense,
-	// try to avoid things catching on fire
-	setupPlayers(rootState, myPlayer + 1);
 	// Map loading
 	mkMap(rootState);
 	// Loading from file is one thing, but programatically defined maps may need a `flush` so things aren't weird the first time around.
@@ -1707,7 +1652,7 @@ int main(int argc, char **argv) {
 			printf("pthread_create returned %d for pacedThread\n", ret);
 			return 1;
 		}
-		ret = pthread_create(&netThread, NULL, netThreadFunc, NULL);
+		ret = pthread_create(&netThread, NULL, netThreadFunc, &startFrame);
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
 			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway

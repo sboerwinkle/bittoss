@@ -58,7 +58,8 @@ char initSocket(const char *srvAddr, const char* port){
 				msg = "Unknown remote host or service";
 				break;
 		}
-		printf("GetAddrInfo failed: %s (%d)\n", msg, addrinfores);
+		printf("`getaddrinfo` failed: %s (%d)\n", msg, addrinfores);
+		printf("(for host \"%s\" + port \"%s\")\n", srvAddr, port);
 		return 1;
 	}
 	sockfd = socket(addrinfo->ai_addr->sa_family, SOCK_STREAM, 0);
@@ -133,7 +134,9 @@ char sendData(char *src, int len) {
 	while (len) {
 		int ret = write(sockfd, src, len);
 		if (ret < 0) {
-			printf("write() to socket failed, errno is %d\n", errno);
+			if (globalRunning) {
+				printf("write() to socket failed, errno is %d\n", errno);
+			}
 			return 1;
 		}
 		src += ret;

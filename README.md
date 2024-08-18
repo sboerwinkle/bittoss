@@ -3,7 +3,9 @@
 
 Note that this is just for myself and some friends at the moment, so don't expect things to be pretty or well documented. Also it's only written for Linux. It may never move past this stage, but I'm having fun with it, and that's what counts.
 
-You should be able to build the client with `build.sh`. It requires GLFW3, and some other stuff. The server resides in `server/` and uses python3. Both client and server can be run without args to see usage information.
+The server resides in `server/` and uses python3. It does not need any arguments.
+
+You should be able to build the client with `build.sh`. It requires GLFW3, and some other stuff. It needs one argument, the server address (e.g. `localhost`).
 
 Once in-game, the default map is sort of capture-the-flag, though there's not proper scoring. There's _very_ limited text chat (T), but it's more fun if you're on an external voice call. Controls are something like:
 
