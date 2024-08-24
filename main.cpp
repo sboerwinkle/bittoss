@@ -116,35 +116,28 @@ static int performanceFrames = 0, performanceIters = 0;
 
 // 1 sec = 1 billion nanos
 #define BILLION  1000000000
-#define STEP_NANOS 66666666
-// How many frames of data are kept to help guess the server clock
-#define frame_time_num 90
-// How many frames have to agree that we're early (or late) before we start adjusting our clock
-#define frame_time_majority 60
-// If serverLead becomes negative, the server is late with its batch of frame data.
-// It also means we'll send our data before we got the request for it, since it's probably just network lag.
-// However, if the server gets far enough behind, we'll wait until we hear from it again
-// ("far enough" = missing_server_factor * latency)
-#define missing_server_factor -1
-pthread_mutex_t timingMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t timingCond = PTHREAD_COND_INITIALIZER;
+// This should be 666.. repeating,
+// but we want to step a little slower.
+// The interplay of these constants affects
+// how patient and aggressive we are when
+// it comes to watching for and responding to
+// lag spikes. I'm not sure about these values,
+// but hopefully they're about right?
+#define STEP_NANOS   67666666
+#define FASTER_NANOS 66000000
+#define PENALTY_FRAMES 90
+
+static int fasterFrames = 0;
 static time_t startSec;
-static long frameTimes[frame_time_num];
-static int frameTimeIx = 0;
-static long medianTime;
-static int serverLead = -1; // Starts at -1 since it hasn't provided our first frame yet (and we're mad about it)
-static int latency;
-static int32_t startFrame;
 #define FRAME_ID_MAX (1<<29)
 
 #define BIN_CMD_SYNC 128
 #define BIN_CMD_IMPORT 129
 #define BIN_CMD_LOAD 130
 #define BIN_CMD_ADD 131
-queue<list<char>> frameData;
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
-static char syncNeeded = 0;
+static int syncNeeded = 0; // TODO Got to do this
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 static char isLoader = 0;
 static char doReload = 0;
@@ -501,6 +494,7 @@ static void updateResolution() {
 
 static void handleSharedInputs(int outboundFrame) {
 	list<char> *out = &outboundData.add();
+	if (out->max > 1000) out->setMax(100); // Todo maybe bring this in line with the limits in net2.cpp, just for consistency
 
 	lock(sharedInputsMutex);
 
@@ -899,7 +893,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 	}
 }
 
-static char doWholeStep(gamestate *state, char *inputData, char *data2, int32_t expectedFrame) {
+static char doWholeStep(gamestate *state, list<list<char>> *inputData) {
 	unsigned char numPlayers = *inputData++;
 	list<player> &players = state->players;
 	players.setMaxUp(numPlayers);
@@ -1019,54 +1013,25 @@ static void newPhantom(gamestate *gs) {
 	phantomState = dup(gs);
 }
 
-static void* pacedThreadFunc(void *_arg) {
-	long destNanos;
+static void* gameThreadFunc(void *startFramePtr) {
 	long performanceTotal = 0;
-	int32_t outboundFrame = startFrame;
-	
-	list<char> latestFrameData;
-	{
-		// Initialize it with valid (but "empty") data
-		int numPlayers = rootState->players.num;
-		latestFrameData.init(1 + numPlayers*4);
-		latestFrameData.add(numPlayers);
-		range(i, numPlayers*4) latestFrameData.add(0);
-	}
+	int32_t outboundFrame = *(int32_t*)startFramePtr;
+	int behindServer = 0;
 
-	range(i, latency) {
-		// Populate the initial `latency` frames with empty data,
-		// since we didn't have the chance to send anything there.
-		list<char> &tmp = outboundData.add();
-		tmp.num = 0;
-		range(j, 4) tmp.add(0); // 4 bytes size (all zero)
-	}
+	list<list<char>> playerDatas;
+	lock(netMutex);
+	// `playerDatas` holds our current guesses for each player's inputs.
+	// It is a list of "weak references" to lists, just in that it isn't
+	// reponsible for freeing any of them. We do have to be mindful that
+	// they don't go out of scope, however. As a result, there is always
+	// at least one finalized frame. The first finalized frame is set up
+	// with some dummy values for just this purpose, during net2_init().
+	playerDatas.init(frameData.peek(0));
+	unlock(netMutex);
 
-	// Lower values (> 0) are better at handling long network latency,
-	// while higher values (< 1) are better at handling inconsistencies in the latency (specifically from the server to us).
-	// This does get adjusted dynamically.
-	float padding = 0.4;
-	// This means it takes about 25 late events in the same direction to move the padding by 10%, which seems reasonable
-	static const float paddingAdj = 1.0 / 256;
-	int serverLateCount = 0;
+	long destNanos = nowNanos() - STEP_NANOS*3; // Start out a bit behind
 
-	// The first few frames, it's impossible for the server to have any data for us.
-	// Set expectations accordingly. There's probably a more elegant way to do this...
-	int clientLateCount = -latency;
-	padding += paddingAdj * latency;
-
-#define printLateStats() printf("%.4f pad; %d vs %d (server late vs client late) (%+d)\n", padding, serverLateCount, clientLateCount, serverLateCount - clientLateCount)
-	int32_t expectedFrame = (FRAME_ID_MAX + startFrame - latency) % FRAME_ID_MAX;
-
-	while (1) {
-		lock(timingMutex);
-		while (serverLead <= latency * missing_server_factor && globalRunning) {
-			puts("Server isn't responding, pausing pacing thread...");
-			wait(timingCond, timingMutex);
-		}
-		destNanos = medianTime + (long)(STEP_NANOS * latency * padding);
-		unlock(timingMutex);
-		if (!globalRunning) break;
-
+	while (globalRunning) {
 		long sleepNanos = destNanos - nowNanos();
 		if (sleepNanos > 999999999) {
 			puts("WARN - Tried to wait for more than a second???");
@@ -1074,11 +1039,14 @@ static void* pacedThreadFunc(void *_arg) {
 			// request an entire second or more in the tv_nsec field.
 			sleepNanos = 999999999;
 		}
+		char behindClock = 0;
 		if (sleepNanos > 0) {
 			timespec t;
 			t.tv_sec = 0;
 			t.tv_nsec = sleepNanos;
 			if (nanosleep(&t, NULL)) continue; // Something happened, we don't really care what, do it over again
+		} else {
+			behindClock = 1;
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t1);
@@ -1089,16 +1057,31 @@ static void* pacedThreadFunc(void *_arg) {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t2);
 
+		lock(netMutex);
+		// Do one more step of simulation on the phantom state and send to render thread.
+		// We won't have to re-simulate every frame, so if we waited until after incorporating
+		// the latest data we'd have extra variability in when frames get to the render thread.
+		// Also, this keeps the latency between the keyboard and the screen slightly lower.
 		{
-			char *newestData = outboundData.peek(outboundData.size() -  1).items;
-			// You could argue that we should update `latestFrameData` before we take this step,
-			// but I think it's better to not. If there's an event at time T, and another player
-			// presses their button on that event, currently our prediction of what happens at T
-			// looks like this (as "real" time gets closer to and then reaches T):
-			// "didn't press" -> "pressed on time"
-			// If we update latestFrameData here, then instead we add a frame in the middle:
-			// "didn't press" -> "pressed late" -> "pressed on time"
-			doWholeStep(phantomState, latestFrameData.items, newestData, 0);
+			int outboundSize = outboundData.size();
+			playerDatas[myPlayer] = outboundData.peek(outboundSize -  1);
+			// There's always one leftover finalized frame, so we adjust by one here (or rather, don't adjust by one when normally we should, for index vs size)
+			if (outboundSize < frameData.size()) {
+				// This scenario is a little unlikely, as it means we've received data from at least one other client
+				// for a frame that we just sent our data for. Clients don't like sending their data earlier than necessary
+				// (or rather, they only simulate far enough ahead to get their data in on time).
+				list<char> *netInputs = frameData.peek(outboundSize).items;
+				range(i, playerDatas.num) {
+					if (netInputs[i].num) playerDatas[i] = netInputs[i];
+					// It's also possible that the netInputs we're reading are actually from a finalized frame,
+					// in which case it would be more accurate to completely reset `playerDatas` to those values
+					// and ignore `outboundData` completely (since finalized frames are authoritative).
+					// However, that's even more unlikely - it means our client is way behind -
+					// and I don't want to bother adding complexity for that case.
+				}
+			}
+			doWholeStep(phantomState, &playerDatas);
+
 			gamestate *disposeMe = NULL;
 
 			// Doing this outside the mutex probably doesn't matter much,
@@ -1116,7 +1099,6 @@ static void* pacedThreadFunc(void *_arg) {
 			renderData.nanos = now;
 			unlock(renderMutex);
 
-			//glfwPostEmptyEvent(); // This was used when event thread might want to wake up and render
 			if (disposeMe) {
 				doCleanup(disposeMe);
 				free(disposeMe);
@@ -1125,55 +1107,66 @@ static void* pacedThreadFunc(void *_arg) {
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t3);
 
-		int framesProcessed = 0;
-		while(1) {
-			lock(timingMutex); // Should we hang onto this lock for longer??
-			list<char> *prevFrame;
-			if (framesProcessed) prevFrame = &frameData.pop();
-			// TODO Should we manually de-allocate very large frames so they don't hang around holding memory?
-			int size = frameData.size();
-			if (size == 0 || size <= serverLead) {
-				if (framesProcessed && prevFrame->num < 100) {
-					// We want to exclude large frames from being counted as the "latest",
-					// since we probably don't want to run them multiple times in the case of a delay.
-					// The way we check right now means it could actually exlude some normal frames too
-					// if they were delivered close to (and processed with) the large frame,
-					// but that's not really a concern.
-					latestFrameData.num = 0;
-					latestFrameData.addAll(*prevFrame);
-				}
-				unlock(timingMutex);
-				break;
-			}
-			char *data = frameData.items[frameData.start].items;
-			unlock(timingMutex);
-			framesProcessed++;
-			if (doWholeStep(rootState, data, NULL, expectedFrame)) {
-				clientLateCount++;
-				padding -= paddingAdj;
-				printLateStats();
-			}
-			expectedFrame = (expectedFrame+1)%FRAME_ID_MAX;
-		}
-
-		outboundData.multipop(framesProcessed);
-
-		if (framesProcessed) {
-			newPhantom(rootState);
+		// Now we can consider the prospect of re-simulating from the rootState
+		if (finalizedFrames > 1) {
+			int toAdvance = finalizedFrames - 1;
 			int outboundSize = outboundData.size();
-			for (int outboundIx = 0; outboundIx < outboundSize; outboundIx++) {
-				char *myData = outboundData.peek(outboundIx).items;
-				doWholeStep(phantomState, latestFrameData.items, myData, 0);
+			if (outboundSize < toAdvance) toAdvance = outboundSize; // Unlikely
+			range(i, toAdvance) {
+				doWholeStep(rootState, &frameData.peek(i+1));
 			}
+			frameData.multipop(toAdvance);
+			outboundData.multipop(toAdvance);
+			outboundSize -= toAdvance;
+			finalizedFrames -= toAdvance;
+
+			char clockOk = behindClock; // If we're behind the clock, then don't blame issues on the clock; we just need to catch up
+			playerDatas.num = 0;
+			playerDatas.addAll(frameData.peek(0));
+			newPhantom(rootState);
+			int frameDataSize = frameData.size();
+			range(outboundIx, outboundSize) {
+				playerDatas[myPlayer] = outboundData.peek(outboundIx);
+				if (outboundIx+1 < frameDataSize) {
+					list<char> *netInputs = frameData.peek(outboundIx+1).items;
+					range(i, playerDatas.num) {
+						if (netInputs[i].num) {
+							playerDatas[i] = netInputs[i];
+							// If the server has any input from us ahead of time, we're going fast enough.
+							if (i == myPlayer) clockOk = 1;
+						}
+					}
+				}
+				doWholeStep(phantomState, &playerDatas);
+			}
+			if (!clockOk) fasterFrames = PENALTY_FRAMES;
 		} else {
+			if (outboundData.size() >= MAX_AHEAD) {
+				puts("Game thread: Server is way behind, going to sleep until we hear something");
+				asleep = 1;
+				while (globalRunning && finalizedFrames <= 1) {
+					wait(netCond, netMutex);
+				}
+				asleep = 0;
+				puts("Game thread: Waking up");
+				destNanos = nowNanos();
+			}
 			// We still need to make a copy since the rendering stuff is probably working with
 			// the current phantomState.
 			newPhantom(phantomState);
 		}
 
+		if (fasterFrames) {
+			fasterFrames--;
+			destNanos += FASTER_NANOS;
+		} else {
+			destNanos += STEP_NANOS;
+		}
+
+		unlock(netMutex);
+
 		clock_gettime(CLOCK_MONOTONIC_RAW, &t4);
 		{
-			// TODO All this timing stuff will have to be reconsidered since we're moving stuff about
 			inputs_nanos = BILLION * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec);
 			update_nanos = BILLION * (t3.tv_sec - t2.tv_sec) + (t3.tv_nsec - t2.tv_nsec);
 			follow_nanos = BILLION * (t4.tv_sec - t3.tv_sec) + (t4.tv_nsec - t3.tv_nsec);
@@ -1189,22 +1182,9 @@ static void* pacedThreadFunc(void *_arg) {
 				}
 			}
 		}
-
-		// if `serverLead == 0` here, I *think* that means the server has sent us the packet for this frame, but nothing extra yet
-		lock(timingMutex);
-		if (serverLead < 0) {
-			serverLateCount++;
-			padding += paddingAdj;
-			printLateStats();
-		}
-		serverLead--;
-		range(i, frame_time_num) frameTimes[i] += STEP_NANOS;
-		medianTime += STEP_NANOS;
-		unlock(timingMutex);
 	}
-#undef printLateStats
+	playerDatas.destroy();
 
-	latestFrameData.destroy();
 	return NULL;
 }
 
@@ -1426,6 +1406,7 @@ static void* renderThreadFunc(void *_arg) {
 
 		ent *root = (*players)[myPlayer].entity;
 		if (root) root = root->holdRoot;
+		// Todo would this be better with STEP_NANOS, FASTER_NANOS, or something in between (like the idealized server frame nanos)?
 		float interpRatio = (float)(time0 - renderStartNanos) / STEP_NANOS;
 		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
@@ -1578,7 +1559,6 @@ int main(int argc, char **argv) {
 	initMods(); //Set up modules
 	ent_init();
 	hud_init();
-	frameData.init();
 	outboundData.init();
 	syncData.init();
 	seat_tick = tickHandlers.get(TICK_SEAT);
@@ -1600,10 +1580,12 @@ int main(int argc, char **argv) {
 	}
 	myPlayer = initNetData[1];
 	int numPlayers = initNetData[2];
-	startFrame = ntohl(*(int32_t*)(initNetData+3));
+	int32_t startFrame = ntohl(*(int32_t*)(initNetData+3));
 	printf("Done, I am client #%d out of %d\n", myPlayer, numPlayers);
 	setupPlayers(rootState, numPlayers);
 	isLoader = (numPlayers == 1);
+
+	net2_init(numPlayers);
 
 	// Map loading
 	mkMap(rootState);
@@ -1629,39 +1611,36 @@ int main(int argc, char **argv) {
 	loadedFilename[0] = loadedFilename[TEXT_BUF_LEN-1] = '\0';
 	loopbackCommandBuffer[0] = '\0';
 
-	// Pre-populate timing buffer, set `startSec`
+	// set up timing stuff
 	{
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		startSec = now.tv_sec;
 		long firstFrame = now.tv_nsec + STEP_NANOS;
-		range(i, frame_time_num) {
-			frameTimes[i] = firstFrame;
-		}
-		medianTime = firstFrame;
+		// TODO Whatever becomes of this
 	}
 
 
 	//Main loop
-	pthread_t pacedThread;
+	pthread_t gameThread;
 	pthread_t netThread;
 	pthread_t renderThread;
 	{
-		int ret = pthread_create(&pacedThread, NULL, pacedThreadFunc, NULL);
+		int ret = pthread_create(&gameThread, NULL, gameThreadFunc, &startFrame);
 		if (ret) {
-			printf("pthread_create returned %d for pacedThread\n", ret);
+			printf("pthread_create returned %d for gameThread\n", ret);
 			return 1;
 		}
 		ret = pthread_create(&netThread, NULL, netThreadFunc, &startFrame);
 		if (ret) {
 			printf("pthread_create returned %d for netThread\n", ret);
-			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway
+			pthread_cancel(gameThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
 		ret = pthread_create(&renderThread, NULL, renderThreadFunc, NULL);
 		if (ret) {
 			printf("pthread_create returned %d for renderThread\n", ret);
-			pthread_cancel(pacedThread); // No idea if this works, this is a failure case anyway
+			pthread_cancel(gameThread); // No idea if this works, this is a failure case anyway
 			pthread_cancel(netThread);
 			return 1;
 		}
@@ -1672,17 +1651,18 @@ int main(int argc, char **argv) {
 	// Generally signal that there's a shutdown in progress
 	// (if the inputThread isn't the main thread we'd want to set the GLFW "should exit" flag and push an empty event through)
 	globalRunning = 0;
-	// Somebody could potentially be waiting on this condition
-	lock(timingMutex);
-	signal(timingCond);
-	unlock(timingMutex);
+	// Game thread could potentially be waiting on this condition
+	lock(netMutex);
+	signal(netCond);
+	unlock(netMutex);
 
 	puts("Beginning cleanup.");
 	closeSocket();
 	cleanupThread(netThread, "network");
-	cleanupThread(pacedThread, "game");
+	cleanupThread(gameThread, "game");
 	cleanupThread(renderThread, "render");
 	puts("Cleaning up game objects...");
+	int32_t rand = rootState->rand;
 	doCleanup(rootState);
 	free(rootState);
 	doCleanup(phantomState);
@@ -1695,8 +1675,8 @@ int main(int argc, char **argv) {
 	puts("Done.");
 	puts("Cleaning up simple interal components...");
 	syncData.destroy();
-	frameData.destroy();
 	outboundData.destroy();
+	net2_destroy();
 	destroyFont();
 	destroy_registrar();
 	hud_destroy();
@@ -1709,6 +1689,7 @@ int main(int argc, char **argv) {
 	puts("Cleaning up GLFW...");
 	glfwTerminate();
 	puts("Done.");
-	puts("Cleanup complete, goodbye!");
+	char const * x[17] = {"goodbye", "so long", "thanks for playing", "peace", "dude", "man", "wow", "adios", "but you owe me", "heck yeah", "I think", "toodles", "and how", "all done", "hooray", "for now", "allegedly"};
+	printf("Cleanup complete, %s!\n", x[rand%13]);
 	return 0;
 }

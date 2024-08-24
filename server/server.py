@@ -212,10 +212,6 @@ async def loop(host, port):
         if host.clientpool > CLIENT_POOL:
             host.clientpool = CLIENT_POOL
 
-        # TODO We're building this from complete_messages now
-        # Considered sending the frame early if we got all the data in,
-        # including a 4-byte "delay" entry in the header.
-        # Haven't done that yet, not sure how much help it would be.
         msg = frame.to_bytes(4, 'big') + numClients.to_bytes(1, 'big')
         # Add everyone's data to the message, then clear their data
         for c in clients:

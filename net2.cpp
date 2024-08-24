@@ -1,10 +1,14 @@
 // This is "net2", which is an abstraction over "net".
 // I tried to think of a more descriptive name, but at the end of the day it's still networking stuff.
 
+#include <pthread.h>
+
 #include "list.h"
 #include "queue.h"
 #include "main.h"
 
+pthread_mutex_t netMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t netCond = PTHREAD_COND_INITIALIZER;
 
 // This is the stuff we're going to mutex lock
 // ===========================================
@@ -12,10 +16,12 @@
 // For each upcoming frame, for each player, some data
 //            queue <             list <     list<char>>>
 queue<list<list<char>>> frameData;
-int finalizedFrames = 0;
+int finalizedFrames;
+char asleep = 0;
 
 // ============= End mutex lock ==============
 
+static int numPlayers;
 static list<list<char>> availBuffers;
 static const list<char> dummyBuffer = {.items = NULL, .num = 0, .max = 1};
 
@@ -53,7 +59,7 @@ void* netThreadFunc(void *startFrame) {
 	int32_t expectedFrame = *(int32_t*)startFrame;
 	availBuffers.init();
 	pendingMessages.init();
-	int maxPlayers = 0;
+	int maxPlayers = numPlayers;
 
 	while (1) {
 		int32_t frame;
@@ -67,8 +73,11 @@ void* netThreadFunc(void *startFrame) {
 
 		int mostAhead = 0;
 
-		unsigned char numPlayers;
-		readData(&numPlayers, 1);
+		{
+			unsigned char tmp;
+			readData(&tmp, 1);
+			numPlayers = tmp;
+		}
 		if (numPlayers != maxPlayers) {
 			if (numPlayers > maxPlayers) {
 				maxPlayers = numPlayers;
@@ -90,7 +99,8 @@ void* netThreadFunc(void *startFrame) {
 				int32_t netSize;
 				if (readData(&netSize, 4)) goto done;
 				int32_t size = ntohl(netSize);
-				// This `10` is kind of arbitrary
+				// This `10` is kind of arbitrary, but we do want a positive amount of data
+				// to wind up in the buffer so it's never confused with the dummy buffer.
 				if (size && size < 10) {
 					fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
 					goto done;
@@ -161,17 +171,23 @@ void* netThreadFunc(void *startFrame) {
 		// Now that we've guaranteed enough space along both dimensions, put our stuff in.
 		range(i, pendingMessages.num) {
 			message &m = pendingMessages[i];
-			list<char> *dest = frameData.peek(finalizedFrames + m.frameOffset)[m.player];
-			if (dest->items) {
-				reclaimBuffer(dest);
+			list<char> *dest = &frameData.peek(finalizedFrames + m.frameOffset)[m.player];
+			// At present, anything in `frameData` when we unlock the mutex may be read and held onto by
+			// the game thread, until the game thread removes it from the queue. This means we can't
+			// overwrite / reclaim any of these buffers (excepting the dummy buffer, which is never invalid).
+			// Writing the same player+frame twice is rare, but may happen if the server has to overwrite
+			// a client-provided frame id to keep it inside the guaranteed bounds [0, MAX_AHEAD].
+			// We also can't base an overwrite decision on any kind of information from the game thread,
+			// since that could be ahead/behind on other clients and we don't want desync.
+			if (!dest->items) {
+				*dest = m.data;
 			}
-			*dest = m.data;
 		}
 		pendingMessages.num = 0;
 
 		finalizedFrames++;
 
-		if (asleep) { // TODO What's the `asleep` condition now?
+		if (asleep) {
 			signal(timingCond);
 		}
 		unlock(timingMutex);
@@ -193,8 +209,13 @@ void* netThreadFunc(void *startFrame) {
 
 
 
-void net2_init() {
+void net2_init(int _numPlayers) {
+	numPlayers = _numPlayers;
+	// Don't need mutex lock here since this is before multithreading happens
 	frameData.init();
+	list<list<char>> starterFrame = frameData.add();
+	range(i, numPlayers) starterFrame.add(dummyBuffer);
+	finalizedFrames = 1;
 }
 
 void net2_destroy() {
