@@ -2,10 +2,14 @@
 // I tried to think of a more descriptive name, but at the end of the day it's still networking stuff.
 
 #include <pthread.h>
+#include <arpa/inet.h>
 
 #include "list.h"
 #include "queue.h"
 #include "main.h"
+#include "net.h"
+
+#include "net2.h"
 
 pthread_mutex_t netMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t netCond = PTHREAD_COND_INITIALIZER;
@@ -82,7 +86,7 @@ void* netThreadFunc(void *startFrame) {
 			if (numPlayers > maxPlayers) {
 				maxPlayers = numPlayers;
 			} else {
-				printf("Number of players dropped (%d -> %d). This is unexpected and could cause bad memory reads, so we're aborting now.\n");
+				printf("Number of players dropped (%d -> %d). This is unexpected and could cause bad memory reads, so we're aborting now.\n", maxPlayers, numPlayers);
 				// Would be tricky to make happen, but e.g. if we're looking at a buffer group for the first time this
 				// frame and initialize it to a lower number of players, the game thread (some frames behind)
 				// might still be reading it based on a higher number of players.
@@ -99,8 +103,7 @@ void* netThreadFunc(void *startFrame) {
 				int32_t netSize;
 				if (readData(&netSize, 4)) goto done;
 				int32_t size = ntohl(netSize);
-				// This `10` is kind of arbitrary, but we do want a positive amount of data
-				// to wind up in the buffer so it's never confused with the dummy buffer.
+				// Minimum valid size is 4 bytes frame id + 6 bytes data. Maybe make this a #define somewhere?
 				if (size && size < 10) {
 					fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
 					goto done;
@@ -132,7 +135,7 @@ void* netThreadFunc(void *startFrame) {
 		}
 
 		// Now putting all that info into mutex'd vars for the game thread to make use of.
-		lock(timingMutex);
+		lock(netMutex);
 
 		int size = frameData.size();
 		int reqdSize = finalizedFrames + 1 + mostAhead;
@@ -188,9 +191,9 @@ void* netThreadFunc(void *startFrame) {
 		finalizedFrames++;
 
 		if (asleep) {
-			signal(timingCond);
+			signal(netCond);
 		}
-		unlock(timingMutex);
+		unlock(netMutex);
 	}
 	done:;
 

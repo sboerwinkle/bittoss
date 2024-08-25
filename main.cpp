@@ -14,9 +14,9 @@
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
-#include "main.h"
 #include "modules.h"
 #include "net.h"
+#include "net2.h"
 #include "handlerRegistrar.h"
 #include "effects.h"
 #include "map.h"
@@ -34,6 +34,8 @@
 #include "entGetters.h"
 
 #include "modules/player.h"
+
+#include "main.h"
 
 #define numKeys 6
 
@@ -129,7 +131,6 @@ static int performanceFrames = 0, performanceIters = 0;
 
 static int fasterFrames = 0;
 static time_t startSec;
-#define FRAME_ID_MAX (1<<29)
 
 #define BIN_CMD_SYNC 128
 #define BIN_CMD_IMPORT 129
@@ -137,15 +138,10 @@ static time_t startSec;
 #define BIN_CMD_ADD 131
 queue<list<char>> outboundData;
 list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
-static int syncNeeded = 0; // TODO Got to do this
+static int syncNeeded = 0;
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 static char isLoader = 0;
 static char doReload = 0;
-
-#define lock(mtx) if (int __ret = pthread_mutex_lock(&mtx)) printf("Mutex lock failed with code %d\n", __ret)
-#define unlock(mtx) if (int __ret = pthread_mutex_unlock(&mtx)) printf("Mutex unlock failed with code %d\n", __ret)
-#define wait(cond, mtx) if (int __ret = pthread_cond_wait(&cond, &mtx)) printf("Mutex cond wait failed with code %d\n", __ret)
-#define signal(cond) if (int __ret = pthread_cond_signal(&cond)) printf("Mutex cond signal failed with code %d\n", __ret)
 
 // Simple utility to get "time" in just a regular (long) number.
 // `startSec` exists so we're more confident we don't overflow.
@@ -251,7 +247,9 @@ static void drawTags(list<player> *ps, int32_t const *const oldPos, int32_t cons
 
 static void drawOverlay(list<player> *ps) {
 	setupText();
-	const char* drawMe = syncNeeded ? "CTRL+R TO SYNC" : chatBuffer;
+
+	const char* drawMe = chatBuffer;
+	if (syncNeeded > MAX_AHEAD*2) drawMe = "CTRL+R TO SYNC";
 	drawHudText(drawMe, 0, 0, 0.5, 0.5, 1, overlayColor);
 	// The very last char of this buffer is always and forever '\0',
 	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
@@ -456,11 +454,12 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			if (parseAddCmd(&out, text+4)) {
 				out.num = initial;
 			}
-		} else if (isCmd(text, "/save") || isCmd(text, "/export")) {
-			// These commands should only affect the local filesystem, and not game state -
-			// therefore, they don't need to be synchronized.
-			// What's more, we don't really want to trust the server about such things.
-			// So, those commands are only processed from the loopbackCommandBuffer.
+		} else if (isCmd(text, "/save") || isCmd(text, "/export") || isCmd(text, "/sync")) {
+			// Commands that don't get roundtripped to the server.
+			// Some - like /save and /export - we partly do this because they write to the filesystem
+			// and we don't want to listen to the server about what we should write and where
+			// (even if it's restricted to the `data/` directory and should be safe).
+			// Also, other clients don't care if we issue these commands, so no reason to broadcast them.
 			strcpy(loopbackCommandBuffer, text);
 			// We could probably process them right here,
 			// but it's less to worry about if the serialization out happens at the same
@@ -651,35 +650,6 @@ static void handleMouseDrag(double xpos, double ypos) {
 	typingLen = -1;
 }
 
-static void updateMedianTime() {
-	int lt = 0;
-	int gt = 0;
-	long stepDown = 0;
-	long stepUp = INT64_MAX;
-	range(ix, frame_time_num) {
-		long t = frameTimes[ix];
-		if (t < medianTime) {
-			lt++;
-			if (t > stepDown) stepDown = t;
-		} else if (t > medianTime) {
-			gt++;
-			if (t < stepUp) stepUp = t;
-		}
-	}
-	long old = medianTime;
-	if (gt >= frame_time_majority) {
-		medianTime = stepUp;
-	} else if (lt >= frame_time_majority) {
-		medianTime = stepDown;
-	} else {
-		return;
-	}
-	long delt = medianTime - old;
-	if (delt > 3000000 || delt < -3000000) { // Around 10% of frame time, definitely notable
-		printf("Delay jumped by %ld ns\n", delt);
-	}
-}
-
 static void processLoopbackCommand(gamestate *gs) {
 	const char* const c = loopbackCommandBuffer;
 	int chars = strlen(c);
@@ -695,6 +665,9 @@ static void processLoopbackCommand(gamestate *gs) {
 		}
 		ent *me = gs->players[myPlayer].entity;
 		edit_export(gs, me, c + 8);
+	} else if (isCmd(c, "/sync")) {
+		syncData.num = 0;
+		serialize(rootState, &syncData);
 	} else {
 		printf("Unknown loopback command: %s\n", c);
 	}
@@ -755,8 +728,11 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		if (!isReal) return;
 		char isSync = *(unsigned char*)data == BIN_CMD_SYNC;
 
-		if (isSync) syncNeeded = 0;
-		else isLoader = isMe;
+		if (isSync) {
+			if (syncNeeded > MAX_AHEAD) syncNeeded = 0;
+		} else {
+			isLoader = isMe;
+		}
 
 		list<player> oldPlayers;
 		oldPlayers.init(rootState->players);
@@ -807,12 +783,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		memcpy(chatBuffer, data, chars);
 		chatBuffer[chars] = '\0';
 		char wasCommand = 1;
-		if (isCmd(chatBuffer, "/sync")) {
-			if (isMe && isReal) {
-				syncData.num = 0;
-				serialize(rootState, &syncData);
-			}
-		} else if (isCmd(chatBuffer, "/data")) {
+		if (isCmd(chatBuffer, "/data")) {
 			const char* c = chatBuffer + 5;
 			int32_t data;
 			if (getNum(&c, &data)) {
@@ -893,8 +864,9 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 	}
 }
 
-static char doWholeStep(gamestate *state, list<list<char>> *inputData) {
-	unsigned char numPlayers = *inputData++;
+static void doWholeStep(gamestate *state, list<list<char>> *_inputData, char isReal) {
+	list<list<char>> &inputData = *_inputData;
+	int numPlayers = inputData.num;
 	list<player> &players = state->players;
 	players.setMaxUp(numPlayers);
 	while (players.num < numPlayers) {
@@ -909,37 +881,14 @@ static char doWholeStep(gamestate *state, list<list<char>> *inputData) {
 	if (state->gamerules & EFFECT_BLOCKS) createDebris(state);
 	if (state->gamerules & EFFECT_BOUNCE) doBouncetainer(state);
 
-	char clientLate = 0;
-
-	const char isReal = !data2;
-
 	range(i, numPlayers) {
 		char isMe = i == myPlayer;
-		char *toProcess;
-		if (data2 && isMe) {
-			toProcess = data2;
-		} else {
-			toProcess = inputData;
-		}
-		// regardless of what `toProcess` is, we need to know how much to advance `inputData`
-		int32_t size = ntohl(*(int32_t*)inputData);
-		inputData += 4 + size;
+		list<char> &data = inputData[i];
 
-		size = ntohl(*(int32_t*)toProcess);
-		if (isMe) {
-			if (size == 0) clientLate = 1;
-			else {
-				int32_t frame = ntohl(*(int32_t*)(toProcess+4));
-				if (expectedFrame != frame) {
-					//if (isReal) printf("%d, but saw %d\n", expectedFrame, frame);
-					clientLate = 1;
-				}
-			}
-		}
 		ent *e = players[i].entity;
 		if (e != NULL) {
-			if (size) {
-				doInputs(e, toProcess + 8);
+			if (data.num >= 6) { // Really we should only need a non-zero amount of data, net2.cpp also checks that the size isn't too small
+				doInputs(e, data.items);
 			} else {
 				doDefaultInputs(e);
 			}
@@ -949,8 +898,8 @@ static char doWholeStep(gamestate *state, list<list<char>> *inputData) {
 		// Some edit commands depend on the player's view direction,
 		// so especially if they missed last frame we really want to
 		// process the command *after* we process their inputs.
-		if (size > 10 && (isMe || isReal)) {
-			processCmd(state, &players[i], toProcess + 14, size - 10, isMe, isReal);
+		if (data.num > 6 && (isMe || isReal)) {
+			processCmd(state, &players[i], data.items + 6, data.num - 6, isMe, isReal);
 		}
 	}
 	if (isReal && *loopbackCommandBuffer) {
@@ -984,8 +933,6 @@ static char doWholeStep(gamestate *state, list<list<char>> *inputData) {
 	// This happens just before finishing the step so we can be 100% sure whether the player's entity is dead or not
 	cleanupDeadHeroes(state);
 	finishStep(state);
-
-	return clientLate;
 }
 
 void showMessage(gamestate const * const gs, char const * const msg) {
@@ -1013,10 +960,20 @@ static void newPhantom(gamestate *gs) {
 	phantomState = dup(gs);
 }
 
+static void insertOutbound(list<char> *dest, list<char> *src) {
+	// The trouble is that the data we sent out includes some header info,
+	// like the frame and size. By the time we have our nice list of
+	// who's doing what this frame, those two fields have been removed.
+	// We have to do the same here. Fortunately, it's assumed these
+	// lists are stricly read-only, so it's okay to make a "fake" list here!
+	dest->num = src->num - 8;
+	dest->max = src->max - 8; // Does this even matter if RO?
+	dest->items = src->items + 8;
+}
+
 static void* gameThreadFunc(void *startFramePtr) {
 	long performanceTotal = 0;
 	int32_t outboundFrame = *(int32_t*)startFramePtr;
-	int behindServer = 0;
 
 	list<list<char>> playerDatas;
 	lock(netMutex);
@@ -1064,7 +1021,7 @@ static void* gameThreadFunc(void *startFramePtr) {
 		// Also, this keeps the latency between the keyboard and the screen slightly lower.
 		{
 			int outboundSize = outboundData.size();
-			playerDatas[myPlayer] = outboundData.peek(outboundSize -  1);
+			insertOutbound(&playerDatas[myPlayer], &outboundData.peek(outboundSize - 1));
 			// There's always one leftover finalized frame, so we adjust by one here (or rather, don't adjust by one when normally we should, for index vs size)
 			if (outboundSize < frameData.size()) {
 				// This scenario is a little unlikely, as it means we've received data from at least one other client
@@ -1080,7 +1037,7 @@ static void* gameThreadFunc(void *startFramePtr) {
 					// and I don't want to bother adding complexity for that case.
 				}
 			}
-			doWholeStep(phantomState, &playerDatas);
+			doWholeStep(phantomState, &playerDatas, 0);
 
 			gamestate *disposeMe = NULL;
 
@@ -1113,7 +1070,17 @@ static void* gameThreadFunc(void *startFramePtr) {
 			int outboundSize = outboundData.size();
 			if (outboundSize < toAdvance) toAdvance = outboundSize; // Unlikely
 			range(i, toAdvance) {
-				doWholeStep(rootState, &frameData.peek(i+1));
+				// Bookkeeping for automatic sync of new clients.
+				// We have to wait a bit to make sure they're up-to-date with any early-submitted inputs.
+				// This part is rare.
+				if (syncNeeded && syncNeeded <= 2*MAX_AHEAD) {
+					syncNeeded++;
+					if (syncNeeded == MAX_AHEAD && isLoader && !*loopbackCommandBuffer) {
+						strcpy(loopbackCommandBuffer, "/sync");
+					}
+				}
+				// An "official" step, all clients expect to agree on the state here
+				doWholeStep(rootState, &frameData.peek(i+1), 1);
 			}
 			frameData.multipop(toAdvance);
 			outboundData.multipop(toAdvance);
@@ -1126,7 +1093,7 @@ static void* gameThreadFunc(void *startFramePtr) {
 			newPhantom(rootState);
 			int frameDataSize = frameData.size();
 			range(outboundIx, outboundSize) {
-				playerDatas[myPlayer] = outboundData.peek(outboundIx);
+				insertOutbound(&playerDatas[myPlayer], &outboundData.peek(outboundIx));
 				if (outboundIx+1 < frameDataSize) {
 					list<char> *netInputs = frameData.peek(outboundIx+1).items;
 					range(i, playerDatas.num) {
@@ -1137,7 +1104,7 @@ static void* gameThreadFunc(void *startFramePtr) {
 						}
 					}
 				}
-				doWholeStep(phantomState, &playerDatas);
+				doWholeStep(phantomState, &playerDatas, 0);
 			}
 			if (!clockOk) fasterFrames = PENALTY_FRAMES;
 		} else {
@@ -1616,10 +1583,7 @@ int main(int argc, char **argv) {
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 		startSec = now.tv_sec;
-		long firstFrame = now.tv_nsec + STEP_NANOS;
-		// TODO Whatever becomes of this
 	}
-
 
 	//Main loop
 	pthread_t gameThread;

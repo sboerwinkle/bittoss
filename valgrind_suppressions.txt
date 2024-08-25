@@ -1,6 +1,8 @@
+# Valgrind will read this file if you give it --suppressions=valgrind_suppressions.txt
+
 {
-	allegro_is_dumb
+	I_might_need_to_see_about_cleaning_up_my_graphics_context_more_thoroughly
 	Memcheck:Leak
 	...
-	obj:*/lib/*/liballegro.so.*
+	obj:*/lib/*/iris_dri.so
 }

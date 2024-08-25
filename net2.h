@@ -1,6 +1,7 @@
 
 // This should match server.py's `MAX_AHEAD`.
 #define MAX_AHEAD 15
+#define FRAME_ID_MAX (1<<29)
 
 extern pthread_mutex_t netMutex;
 extern pthread_cond_t netCond;
