@@ -216,7 +216,7 @@ void net2_init(int _numPlayers) {
 	numPlayers = _numPlayers;
 	// Don't need mutex lock here since this is before multithreading happens
 	frameData.init();
-	list<list<char>> starterFrame = frameData.add();
+	list<list<char>> &starterFrame = frameData.add();
 	range(i, numPlayers) starterFrame.add(dummyBuffer);
 	finalizedFrames = 1;
 }

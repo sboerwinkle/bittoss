@@ -1060,7 +1060,7 @@ void edit_measure(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_import(gamestate *gs, ent *me, list<char> *data, char buffer) {
+void edit_import(gamestate *gs, ent *me, list<char> const *data, char buffer) {
 	if (!me) return;
 
 	ent *start = gs->ents;

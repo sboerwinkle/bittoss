@@ -16,7 +16,8 @@ template <typename T> struct queue {
 	void multipop(int num);
 	int size() const;
 private:
-	void resize_full(int newMax);
+	void resize_during_wrap(int newMax);
+	void resize(int newMax);
 };
 
 // Need to init the entries as they're created, which is a very different approach from how `list` handles things.
@@ -39,7 +40,7 @@ template <typename T>
 T& queue<T>::add() {
 	end = (end+1) % max;
 	if (end == start) {
-		resize_full(max * 2);
+		resize_during_wrap(max * 2);
 	}
 	if (end == 0) return items[max-1];
 	return items[end-1];
@@ -48,7 +49,7 @@ T& queue<T>::add() {
 template <typename T>
 void queue<T>::setSize(int input) {
 	if (input >= max) {
-		resize_full(input + max);
+		resize(input + max);
 	}
 	end = (start + input) % max;
 }
@@ -92,16 +93,34 @@ int queue<T>::size() const {
 
 ///// Private
 
+// This assumes `end <= start` (and that the queue is non-empty)
 template <typename T>
-void queue<T>::resize_full(int newMax) {
+void queue<T>::resize_during_wrap(int newMax) {
 	int incr = newMax - max;
 	items = (T*)realloc(items, newMax*sizeof(T));
 	// TODO This could probably be a `memmove` call
 	for (int i = max-1; i >= start; i--) {
 		items[i + incr] = items[i];
 	}
+	int i = start;
 	start += incr;
-	for (int i = end; i < start; i++) items[i].init();
+	for (; i < start; i++) items[i].init();
+	max = newMax;
+}
+
+// This assumes the array isn't completely full. That isn't a valid state for things to be left in,
+// but may be an intermediate state. `resize_during_wrap` accepts that state (and resolves it),
+// but we do not.
+template <typename T>
+void queue<T>::resize(int newMax) {
+	if (end < start) {
+		resize_during_wrap(newMax);
+		return;
+	}
+	items = (T*)realloc(items, newMax*sizeof(T));
+	for (int i = max; i < newMax; i++) {
+		items[i].init();
+	}
 	max = newMax;
 }
 
