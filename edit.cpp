@@ -826,7 +826,10 @@ void edit_copy(gamestate *gs, ent *me) {
 	list<char> data;
 	data.init();
 	serializeSelected(gs, &data, center, zeroVec);
-	deserializeSelected(gs, &data, zeroVec, zeroVec);
+	// Have to explicitly cast to const type.
+	// C++ can't express that `deserializeSelected` shouldn't change the value,
+	// but doesn't care if somebody else does later.
+	deserializeSelected(gs, (const list<const char>*)(&data), zeroVec, zeroVec);
 	data.destroy();
 
 	for (ent *e = gs->ents; e != start; e = e->ll.n) {
@@ -1060,7 +1063,7 @@ void edit_measure(gamestate *gs, ent *me) {
 	}
 }
 
-void edit_import(gamestate *gs, ent *me, list<char> const *data, char buffer) {
+void edit_import(gamestate *gs, ent *me, list<const char> const *data, char buffer) {
 	if (!me) return;
 
 	ent *start = gs->ents;

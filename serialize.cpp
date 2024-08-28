@@ -202,21 +202,21 @@ void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset,
 	write32(data, 0); // Game rules (none)
 }
 
-static char read8(const list<char> *data, int *ix) {
+static char read8(const list<const char> *data, int *ix) {
 	int i = *ix;
 	if (i >= data->num) return 0;
 	*ix = i+1;
 	return (*data)[i];
 }
 
-static int32_t read32(const list<char> *data, int *ix) {
+static int32_t read32(const list<const char> *data, int *ix) {
 	int i = *ix;
 	if (i + 4 > data->num) return 0;
 	*ix = i + 4;
 	return ntohl(*(int32_t*)(data->items + i));
 }
 
-static void readStr(const list<char> *data, int *ix, char *dest, int limit) {
+static void readStr(const list<const char> *data, int *ix, char *dest, int limit) {
 	int reportedLen = (unsigned char) read8(data, ix);
 	int i = *ix;
 	int avail = data->num - i;
@@ -233,14 +233,14 @@ static void readStr(const list<char> *data, int *ix, char *dest, int limit) {
 	*ix = i + reportedLen;
 }
 
-static void checksum(const list<char> *data, int *ix, int expected) {
+static void checksum(const list<const char> *data, int *ix, int expected) {
 	char x = (*data)[(*ix)++];
 	if (x != (char) expected) {
 		fprintf(stderr, "Expected %d, got %hhu\n", expected, x);
 	}
 }
 
-static void handleButtons(const list<char> *data, int *ix, ent *e) {
+static void handleButtons(const list<const char> *data, int *ix, ent *e) {
 	if (version == 0) return; // We didn't encode active buttons in version 0, since logic wasn't a thing then!
 	char c = read8(data, ix);
 	range(i, 4) {
@@ -248,7 +248,7 @@ static void handleButtons(const list<char> *data, int *ix, ent *e) {
 	}
 }
 
-static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
+static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<const char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
 	int32_t c[3], v[3], r[3];
 
 #define check(x) checksum(data, ix, x)
@@ -297,7 +297,7 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<char> *
 	}
 }
 
-int verifyHeader(const list<char> *data, int *ix) {
+int verifyHeader(const list<const char> *data, int *ix) {
 	if (data->num < 4) {
 		fprintf(stderr, "Only got %d bytes of data, can't deserialize\n", data->num);
 		return -1;
@@ -334,7 +334,7 @@ int verifyHeader(const list<char> *data, int *ix) {
 	return numEnts;
 }
 
-void deserialize(gamestate *gs, const list<char> *data, char fullState) {
+void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 	int _ix;
 	int *ix = &_ix;
 	int numEnts = verifyHeader(data, ix);
@@ -384,7 +384,7 @@ void deserialize(gamestate *gs, const list<char> *data, char fullState) {
 	delete[] ents;
 }
 
-void deserializeSelected(gamestate *gs, const list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
+void deserializeSelected(gamestate *gs, const list<const char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 	int _ix;
 	int *ix = &_ix;
 	int numEnts = verifyHeader(data, ix);

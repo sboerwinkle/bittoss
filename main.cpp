@@ -305,7 +305,7 @@ static void saveGame(const char *name) {
 	data.destroy();
 }
 
-static void doInputs(ent *e, char *data) {
+static void doInputs(ent *e, char const *data) {
 	int32_t otherButtons = 0;
 	if (data[0] &  1) pushBtn(e, 0);
 	if (data[0] &  2) pushBtn(e, 1);
@@ -723,7 +723,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	return 0;
 }
 
-static void processCmd(gamestate *gs, player *p, char *data, int chars, char isMe, char isReal) {
+static void processCmd(gamestate *gs, player *p, char const *data, int chars, char isMe, char isReal) {
 	if (chars && (*(unsigned char*)data == BIN_CMD_LOAD || *(unsigned char*)data == BIN_CMD_SYNC)) {
 		if (!isReal) return;
 		char isSync = *(unsigned char*)data == BIN_CMD_SYNC;
@@ -750,9 +750,7 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 		}
 		oldPlayers.destroy();
 
-		list<char> fakeList;
-		fakeList.items = data+1;
-		fakeList.num = fakeList.max = chars - 1;
+		list<const char> const fakeList = {.items=data+1, .num = chars-1, .max = chars-1};
 
 		deserialize(rootState, &fakeList, isSync);
 		return;
@@ -763,17 +761,13 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 			return;
 		}
 
-		list<char> fakeList;
-		fakeList.items = data+1;
-		fakeList.num = fakeList.max = chars - 1;
+		list<const char> const fakeList = {.items=data+1, .num = chars-1, .max = chars-1};
 		char addToBuffer = p->entity && getSlider(p->entity, PLAYER_EDIT_SLIDER);
 		edit_import(gs, p->entity, &fakeList, addToBuffer);
 		return;
 	}
 	if (chars >= 25 && *(unsigned char*)data == BIN_CMD_ADD) {
-		list<char> fakeList;
-		fakeList.items = data+25;
-		fakeList.num = fakeList.max = chars - 25;
+		list<const char> const fakeList = {.items=data+25, .num = chars-25, .max = chars-25};
 		int32_t nums[6];
 		range(i, 6) nums[i] = ntohl(*(int32_t*)(data+1+4*i));
 		deserializeSelected(gs, &fakeList, nums, nums+3);
@@ -864,8 +858,8 @@ static void processCmd(gamestate *gs, player *p, char *data, int chars, char isM
 	}
 }
 
-static void doWholeStep(gamestate *state, list<list<char>> *_inputData, char isReal) {
-	list<list<char>> &inputData = *_inputData;
+static void doWholeStep(gamestate *state, list<list<char>> const *_inputData, char isReal) {
+	list<list<char>> const &inputData = *_inputData;
 	int numPlayers = inputData.num;
 	list<player> &players = state->players;
 	players.setMaxUp(numPlayers);
@@ -883,7 +877,7 @@ static void doWholeStep(gamestate *state, list<list<char>> *_inputData, char isR
 
 	range(i, numPlayers) {
 		char isMe = i == myPlayer;
-		list<char> &data = inputData[i];
+		list<char> const &data = inputData[i];
 
 		ent *e = players[i].entity;
 		if (e != NULL) {

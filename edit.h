@@ -39,7 +39,7 @@ extern void edit_unwire(gamestate *gs, ent *me);
 extern void edit_factory(gamestate *gs, ent *me);
 extern void edit_highlight(gamestate *gs, ent *me);
 extern void edit_measure(gamestate *gs, ent *me);
-extern void edit_import(gamestate *gs, ent *me, list<char> const *data, char buffer);
+extern void edit_import(gamestate *gs, ent *me, list<const char> const *data, char buffer);
 extern void edit_export(gamestate *gs, ent *me, const char *name);
 #define addEditHelp(f, v, t, h) addEditHelpInner((void (*ent::*)(void))(f), (void (*)(void))(v), (t), (h))
 extern void addEditHelpInner(void (*ent::*field)(void), void (*value)(void), char const * title, char const * const * helps);
