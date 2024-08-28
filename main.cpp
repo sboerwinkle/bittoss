@@ -747,6 +747,7 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 			player &newPlayer = rootState->players[i];
 			strcpy(newPlayer.name, oldPlayers[i].name);
 			newPlayer.color = oldPlayers[i].color;
+			newPlayer.data = oldPlayers[i].data;
 		}
 		oldPlayers.destroy();
 

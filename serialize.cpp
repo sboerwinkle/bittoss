@@ -360,7 +360,7 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 
 		int32_t color = read32(data, ix);
 		p->reviveCounter = read32(data, ix);
-		p->data = version >= 3 ? read32(data, ix) : 0;
+		int32_t playerData = version >= 3 ? read32(data, ix) : 0;
 		char name[NAME_BUF_LEN];
 		if (version >= 5) {
 			readStr(data, ix, name, NAME_BUF_LEN);
@@ -370,6 +370,7 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 
 		if (fullState) {
 			p->color = color;
+			p->data = playerData;
 			strcpy(p->name, name);
 		}
 
