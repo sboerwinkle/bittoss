@@ -17,6 +17,7 @@
 #include "modules/flag.h"
 #include "modules/ground.h"
 #include "modules/platform.h"
+#include "modules/spider.h"
 #include "modules/edittool.h"
 #include "modules/player.h"
 #include "modules/eyes.h"
@@ -43,6 +44,7 @@ void initMods() {
 	module_flag();
 	module_ground();
 	module_platform();
+	module_spider();
 	module_edittool();
 	module_player();
 	module_eyes();

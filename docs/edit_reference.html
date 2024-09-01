@@ -74,6 +74,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_jumper">/jumper</a></li>
 		<li><a href="#_door">/door</a></li>
 		<li><a href="#_teleport">/teleport</a></li>
+		<li><a href="#_spider">/spider</a></li>
 		<li><a href="#_legg">/legg</a></li>
 		<li><a href="#_seat">/seat</a></li>
 		<li><a href="#_respawner">/respawner</a></li>
@@ -153,8 +154,7 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 			<li><a href="#_seed">random seed</a></li>
 		</ul>
 	</li>
-</ul>
-<br/><br/>
+</ul><br/>
 For the block state, it's worth noting that "type" and "material" are abstractions. Internally, these are some event handlers and flags.
 While it's useful to mentally divide that information into "type" and "material", you'll see some commands that don't follow that distinction exactly.
 
@@ -230,8 +230,12 @@ Finally, it prints the number of items in the Blue and Red buffers.
 <b id="_m">/m</b><br/>
 Measures the contents of the Blue buffer along the current <a href="#look_dir">Look Direction</a>, printing the measurements to the terminal. The reported "Outside" distance is the size of the Blue buffer's bounding box.
 <div class="para"></div>
-If there are exactly 2 items in the Blue buffer, this will also report a "Centers" distance (the distance between their centers) and an "Inside" distance (the empty space between the blocks, which will be negative if they are overlapping along that axis).
-<br/><br/>
+If there are exactly 2 items in the Blue buffer, this will also report:
+<ul>
+	<li>a "Centers" distance (the distance between their centers)</li>
+	<li>an "Inside" distance (the empty space between the blocks, which will be negative if they are overlapping along that axis)</li>
+	<li>two "Faces" distances (the distances between the corresponding faces), which are always reported as positive</li>
+</ul><br/>
 <b id="_hl">/hl</b><br/>
 <i>Ctrl+F</i><br/>
 Flips the colors of blocks in the Blue buffer. Intended as a visual aid to see what's selected. Issuing this command again will always restore the original color.
@@ -278,7 +282,7 @@ This is intended for use on blocks that are currently <a href="#_pickup">held</a
 This is intended to add decorative elements on vehicles or other complex objects, which will then turn into debris if the object is destroyed.
 <br/><br/>
 <b id="_friction">/friction</b> <span>number</span>?<br/>
-Sets the friction on the blocks to the given number (or the default, 16, if no number is given). This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">Leggs</a>, to give them more "grip".
+Sets the friction on the blocks to the given number, or prints the friction if no number is given. This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">/legg</a> or <a href="#_spider">/spider</a> blocks, to give them more "grip".
 <br/><br/>
 <b id="_fpdraw">/fpdraw</b> [01]?<br/>
 Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.
@@ -356,6 +360,13 @@ Makes the block send anything that it touches to a <a href="#_wire">wired</a> de
 The block can be wired to any number of destinations, which should be <a href="#_logic">/logic</a> blocks. At most one of these /logic blocks should be active. If none are active, nothing will happen; if more than one are active, for the moment it will print a message to the console and do nothing. In the future, multiple destinations may average their offsets, add their offsets, pick a random destination, or something else.
 <div class="para"></div>
 The position and velocity difference between the /teleport block and its chosen destination will be applied to the teleportee block. Note that the sizes of the blocks involved are not taken into consideration, only their centers.
+<br/><br/>
+<b id="_spider">/spider</b><br/>
+Another iteration of legs for walkers (see also <a href="#_legg">/legg</a>). The block should be <a href="#_pickup">held</a> (in mode 2) by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.
+<div class="para"></div>
+These legs move forward at one height, and then backwards at a lower height. Legs move somewhat independently from the body (<a href="#_pickup">/pickup</a> mode 2), but apply a fraction of their impulse to the main body, allowing them to cooperate to a degree.
+<div class="para"></div>
+Finally, consider setting a custom <a href="#_friction">/friction</a> if they're slipping around too much.
 <br/><br/>
 <b id="_legg">/legg</b><br/>
 Makes the block act as a leg, suitable for building walkers. The block should be <a href="#_pickup">held</a> by something, and should be <a href="#_wire">/wire</a>d to a <a href="#_seat">/seat</a>. There are several sliders which control the walk cycle; get more info on these by selecting one in-game and issueing <a href="#_i">/i</a>.
@@ -506,8 +517,7 @@ For "size", or "stretch". Adjusts the size of the blocks in the Blue buffer, tho
 	<li>
 		For 1 argument, stretches the face opposite the <a href="#look_dir">Look Direction</a> (i.e. the face you're "looking at") by the given amount (positive numbers will increase the size).
 	</li>
-</ul>
-<br/><br/>
+</ul><br/>
 <b id="_incr">/incr</b> <span>number</span>?<br/>
 For commands that have mouse keybinds (<a href="#_p">/p</a> and <a href="#_s">/s</a>), sets (for 1 argument) or displays (for 0 arguments) the number used for those keybinds. Default is 200.
 <br/><br/>
@@ -517,8 +527,7 @@ Causes the blocks in the Blue buffer to be held by the block in the Red buffer (
 	<li>0 - The impulse is passed up to the parent block, which may face the same choice if it is also held. If this mode is used all the way up the tree, then the whole tree will be moved as one unit when the child block is pushed.</li>
 	<li>1 - The child block will detach if it is pushed.</li>
 	<li>2 - The child block will process the impulse without forwarding it to the parent block. Under "normal" conditions this will be strange behavior, as a gentle tap will send the child block drifting further and further from its parent (blocks can be held without touching, or even being close). However, it may be desired e.g. if the child is a <a href="#_door">/door</a>.
-</ul>
-<br/><br/>
+</ul><br/>
 <b id="_drop">/drop</b><br/>
 Blocks in the Blue buffer will be dropped if they are currently <a href="#_pickup">held</a>.
 <br/><br/>

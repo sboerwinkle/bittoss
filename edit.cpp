@@ -408,13 +408,16 @@ static void typemask_t(ent *e, int32_t type) {
 	uMyTypeMask(e, (e->typeMask & ~(T_EQUIP | T_INPUTS)) | type);
 }
 
-void edit_m_friction(gamestate *gs, ent *me, const char* argsStr) {
+void edit_m_friction(gamestate *gs, ent *me, const char* argsStr, char verbose) {
 	if (!me) return;
 	getLists(me);
 	parseArgs(argsStr);
-	int32_t f = args.num ? args[0] : DEFAULT_FRICTION;
-	range(i, a.num) {
-		a[i]->friction = f;
+	if (args.num) {
+		range(i, a.num) {
+			a[i]->friction = args[0];
+		}
+	} else if (verbose) {
+		printf("Friction %d (default %d)\n", a[0]->friction, DEFAULT_FRICTION);
 	}
 }
 
@@ -1060,6 +1063,10 @@ void edit_measure(gamestate *gs, ent *me) {
 
 		d -= a[0]->radius[axis] + a[1]->radius[axis];
 		printf("Inner: %d\n", d);
+
+		d = a[0]->center[axis] - a[1]->center[axis];
+		int32_t dr = a[0]->radius[axis] - a[1]->radius[axis];
+		printf("Faces: %d, %d\n", abs(d+dr), abs(d-dr));
 	}
 }
 

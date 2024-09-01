@@ -682,7 +682,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 
 	cmd("/weight", edit_m_weight(gs, me, chatBuffer + 7));
 	cmd("/fpdraw", edit_m_fpdraw(gs, me, chatBuffer + 7));
-	cmd("/friction", edit_m_friction(gs, me, chatBuffer + 9));
+	cmd("/friction", edit_m_friction(gs, me, chatBuffer + 9, verbose));
 	cmd("/decor", edit_m_decor(gs, me));
 	cmd("/paper", edit_m_paper(gs, me));
 	cmd("/wood", edit_m_wood(gs, me));
@@ -719,6 +719,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/sl", edit_slider(gs, me, chatBuffer + 3, verbose));
 	cmd("/hl", edit_highlight(gs, me));
 	cmd("/m", if (verbose) edit_measure(gs, me));
+	cmd("/i", if (verbose) edit_info(me));
 #undef cmd
 	return 0;
 }
@@ -818,8 +819,6 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 					}
 				}
 			}
-		} else if (isCmd(chatBuffer, "/i")) {
-			if (isMe && isReal) edit_info(p->entity);
 		} else if (isCmd(chatBuffer, "/rule")) {
 			if (chars >= 7) {
 				int rule = atoi(chatBuffer+6);
