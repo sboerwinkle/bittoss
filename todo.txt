@@ -38,8 +38,7 @@ TODO:
 / User platforms less prone to jank
 	! Magic expanding pellet magic
 	/ Should also refund player resources if they have to abort
-- Automatic state sync on join
-	Close enough, there's a message for new players at least
+/ Automatic state sync on join
 / Some way to use tools
 / State serizalization
 	/ Save to file
@@ -112,7 +111,8 @@ TODO:
 / Nametags
 / Document /name command
 - Unsafe memory access when deserializing wires
-- Stop being so stingy with frame data (don't enforce equal lag, so everybody gets less lag on average)
+/ Stop being so stingy with frame data (don't enforce equal lag, so everybody gets less lag on average)
+- Document /adjust
 
 - CTF scoring plz
 

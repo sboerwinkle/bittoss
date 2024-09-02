@@ -109,7 +109,7 @@ enum {
 	TICK_LEGG_OLD,
 	TICK_SEAT_OLD,
 	TICK_HELD_VEH_EYE,
-	TICK_reuse2, // Was for thumbtacks, probably not in any save file
+	TICK_ADJUST,
 	TICK_FACTORY,
 	TICK_FACTORY_WIRES,
 	TICK_LEGG,

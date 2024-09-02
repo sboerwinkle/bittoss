@@ -24,6 +24,12 @@ char const * const * const M_TIMER_HELP = (char const * const[]) {
 	NULL
 };
 
+char const * const * const M_ADJUST_HELP = (char const * const[]) {
+	"slider",
+	"value",
+	NULL
+};
+
 static void logic_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// All kinds of stuff can be pushed, some of it invisible or otherwise not "real".
 	// This should be good enough to not have phantom activations
@@ -77,6 +83,16 @@ static void timer_tick(gamestate *gs, ent *me) {
 
 	// Otherwise, output.
 	logic_common_output(me);
+}
+
+static void adjust_tick(gamestate *gs, ent *me) {
+	if (getButton(me, 0) ^ getButton(me, 1)) {
+		int32_t slider = getSlider(me, 0);
+		int32_t value = getSlider(me, 1);
+		wiresAnyOrder(w, me) {
+			uSlider(w, slider, value);
+		}
+	}
 }
 
 static void logic_inner(ent *me, int32_t mode) {
@@ -156,6 +172,13 @@ static void cmdTimer(gamestate *gs, ent *e) {
 	e->push = pushHandlers.get(PUSH_LOGIC);
 }
 
+static void cmdAdjust(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 2);
+	e->tick = tickHandlers.get(TICK_ADJUST);
+	e->tickHeld = tickHandlers.get(TICK_ADJUST);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
 static void cmdDemolish(gamestate *gs, ent *e) {
 	basicTypeCommand(gs, e, 0, 0);
 	e->tick = tickHandlers.get(TICK_DEMOLISH);
@@ -167,15 +190,18 @@ void module_logic() {
 	tickHandlers.reg(TICK_LOGIC_DEBUG, logic_tick_debug);
 	tickHandlers.reg(TICK_RAND, randomazzo_tick);
 	tickHandlers.reg(TICK_TIMER, timer_tick);
+	tickHandlers.reg(TICK_ADJUST, adjust_tick);
 	tickHandlers.reg(TICK_DEMOLISH, demolish_tick);
 	pushHandlers.reg(PUSH_LOGIC, logic_push);
 	addEditHelp(&ent::tickHeld, logic_tick, "logic", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, logic_tick_debug, "logic_debug", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, randomazzo_tick, "rand", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, timer_tick, "timer", M_TIMER_HELP);
+	addEditHelp(&ent::tickHeld, adjust_tick, "adjust", M_ADJUST_HELP);
 	addEntCommand("logic", cmdLogic);
 	addEntCommand("logic_debug", cmdLogicDebug);
 	addEntCommand("rand", cmdRand);
 	addEntCommand("timer", cmdTimer);
+	addEntCommand("adjust", cmdAdjust);
 	addEntCommand("demolish", cmdDemolish);
 }
