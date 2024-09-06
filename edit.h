@@ -26,6 +26,7 @@ extern char tryOtherCommand(gamestate *gs, ent *me, const char *text);
 extern void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);
+extern void edit_center(gamestate *gs, ent *me);
 extern void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_scale(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_scale_force(gamestate *gs, ent *me, const char *argsStr, char verbose);

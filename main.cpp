@@ -713,6 +713,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 
 	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
 	cmd("/p", edit_push(gs, me, chatBuffer + 2));
+	cmd("/center", edit_center(gs, me));
 	cmd("/s", edit_stretch(gs, me, chatBuffer + 2, verbose));
 	cmd("/d", edit_rm(gs, me));
 	cmd("/slider", edit_slider(gs, me, chatBuffer + 7, verbose));
@@ -738,6 +739,7 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 		list<player> oldPlayers;
 		oldPlayers.init(rootState->players);
 		int numPlayers = rootState->players.num;
+		int32_t seed = rootState->rand;
 		doCleanup(rootState);
 		// Can't make a new gamestate here (as we might be tempted to),
 		// since stuff further up the call stack (like `doUpdate`) has a reference
@@ -751,6 +753,7 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 			newPlayer.data = oldPlayers[i].data;
 		}
 		oldPlayers.destroy();
+		rootState->rand = seed;
 
 		list<const char> const fakeList = {.items=data+1, .num = chars-1, .max = chars-1};
 

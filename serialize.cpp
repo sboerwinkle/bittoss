@@ -379,7 +379,10 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 		else p->entity = ents[e_ix];
 	}
 
-	gs->rand = read32(data, ix);
+	int32_t rand = read32(data, ix);
+	if (fullState) {
+		gs->rand = rand;
+	}
 	gs->gamerules = read32(data, ix);
 
 	delete[] ents;

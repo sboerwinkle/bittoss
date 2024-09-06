@@ -677,6 +677,20 @@ void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	fixNewBaubles(gs);
 }
 
+static void move_all_a(int32_t *offset) {
+	range(i, a.num) {
+		// Since offsets are passed onto children,
+		// if any of our ancestors is also selected
+		// we probably don't want to explicitly also move this ent.
+		for (ent *x = a[i]->holder; x; x = x->holder) {
+			if (a.has(x)) goto next;
+		}
+
+		uCenter(a[i], offset);
+		next:;
+	}
+}
+
 void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 	if (!me) return;
 	getLists(me);
@@ -708,17 +722,31 @@ void edit_push(gamestate *gs, ent *me, const char *argsStr) {
 		range(i, 3) offset[i] = 0;
 		offset[axis] = dir * amt;
 	}
-	range(i, a.num) {
-		// Since offsets are passed onto children,
-		// if any of our ancestors is also selected
-		// we probably don't want to explicitly also move this ent.
-		for (ent *x = a[i]->holder; x; x = x->holder) {
-			if (a.has(x)) goto next;
-		}
 
-		uCenter(a[i], offset);
-		next:;
-	}
+	move_all_a(offset);
+}
+
+void edit_center(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+	int axis, dir;
+	getEditAxis(me, &axis, &dir);
+
+	int32_t p1, p2;
+	int32_t max, min;
+
+	getExtents(&a, axis, &min, &max);
+	// Wacky average formula, handles extreme positions better
+	p1 = min + (max - min)/2;
+
+	getExtents(&b, axis, &min, &max);
+	// Wacky average formula, handles extreme positions better
+	p2 = min + (max - min)/2;
+
+	int32_t offset[3] = {0, 0, 0};
+	offset[axis] = p2-p1;
+
+	move_all_a(offset);
 }
 
 void edit_stretch(gamestate *gs, ent *me, const char *argsStr, char verbose) {
