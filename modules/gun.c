@@ -100,7 +100,7 @@ static char bullet_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 		int32_t ratio = dx*scale / dv;
 		range(i, 2) {
 			int dim = (axis+1+i)%3;
-			me->center[dim] -= me->vel[dim]*ratio/scale;
+			me->center[dim] -= (me->vel[dim] - him->vel[dim])*ratio/scale;
 		}
 	}
 
