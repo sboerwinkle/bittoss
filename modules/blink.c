@@ -8,6 +8,7 @@
 #include "../edit.h"
 
 #include "player.h"
+#include "dust.h"
 
 #include "blink.h"
 
@@ -27,6 +28,8 @@ char const * const * const M_BLINK_HELP = (char const * const[]) {
 	NULL
 };
 
+static const int32_t dust_r = 400;
+
 static void blink_tick_held(gamestate *gs, ent *me) {
 	// Doesn't do anything unless held by a person (or similar)
 	ent *h = me->holder;
@@ -43,10 +46,16 @@ static void blink_tick_held(gamestate *gs, ent *me) {
 	uSlider(me, s_cooldown, getSlider(me, s_cooldown_max) - 1);
 
 	int32_t dir[3];
+	int32_t dustArea[3];
 	getLook(dir, h);
 	int32_t range = getSlider(me, s_range);
-	range(i, 3) dir[i] = range*dir[i]/axisMaxis;
+	range(i, 3) {
+		dir[i] = range*dir[i]/axisMaxis;
+		dustArea[i] = h->radius[i] - dust_r;
+		if (dustArea[i] < 0) dustArea[i] = 0;
+	}
 
+	mkDustCloud(gs, h, h->center, h->vel, dustArea, 5, dust_r, h->color, 4);
 	uCenter(me->holdRoot, dir);
 }
 

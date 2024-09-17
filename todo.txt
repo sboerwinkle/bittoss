@@ -21,10 +21,9 @@ TODO:
 	/ Jokes on me, turns out you can count without using enums lol
 	/ Joke's on me again, at some point I did change to enums lol
 / Velbox (R-trees to handle collisions)
-- Tweak platform spawning
 / Flags explode on contact <3
-- User platforms expire?
-	- fade to grey near end of life
+! User platforms expire?
+	! fade to grey near end of life
 - Particles on death
 	This would be nice for user platforms, but it's actually kinda weird.
 	We can't really make them "next tick" since the parent object won't exist
@@ -77,7 +76,7 @@ TODO:
 	This would also require a complete rework of how weapons were going to function... hm
 		Unless they also only read A/B signals?
 		With decor for targeting?
-- Better tools
+/ Better tools
 	I'm thinking tools come in 3 sizes:
 		2-H (two handed) tools are like the tools we have now. You can hold one, and it can read either mouse button.
 		Pri (primary) tools can only read LMB. You can only hold one, and never with a 2-handed tool.
@@ -153,6 +152,8 @@ some basic Allegro thrown in
 -Mess around / basic level design
 -Enemies, which entail the following objects:
 	optons
+		This was a dumb earlier idea, shooting out blocks to see stuff is pointlessly expensive.
+		Better just to raytrace to potential targets every so often, since we have raytracing stuff now
 	bullets
 	guns?
 	A slightly different build function for enemies, so they release optons and respond appropriately
@@ -177,7 +178,7 @@ Battle platform walker
 Powered exoskeleton
 Plasma turret
 explosives
-buttons
+/ buttons
 missiles
 Nicer particles: blood, guts, gears, dirt, shrapnel
 Laz gun
