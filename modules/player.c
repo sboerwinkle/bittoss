@@ -371,7 +371,7 @@ static void player_tick(gamestate *gs, ent *me) {
 				getLook(look, me);
 				int32_t color = (random(gs) % 2) ? CLR_WHITE : CLR_BLUE;
 				range(i, 3) {
-					look[i] *= 1.25/axisMaxis * (512 + platformSize[i]);
+					look[i] *= 1.25/axisMaxis * (500 + platformSize[i]);
 				}
 				mkPlatform(gs, me, look, color);
 			}
@@ -382,7 +382,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	if (cooldown < 5) uSlider(me, s_cooldown, cooldown + 1);
 }
 
-int32_t playerSize[3] = {512, 512, 512};
+int32_t playerSize[3] = {500, 500, 500};
 
 ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
 	int32_t vel[3] = {0, 0, 0};

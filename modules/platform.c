@@ -10,7 +10,7 @@
 
 #include "platform.h"
 
-const int32_t platformSize[3] = {3200, 3200, 512};
+const int32_t platformSize[3] = {3200, 3200, 500};
 
 static void platform_tick(gamestate *gs, ent *me) {
 	// Clear all special behavior if it survives to its first tick

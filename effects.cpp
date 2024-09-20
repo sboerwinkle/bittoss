@@ -109,8 +109,8 @@ void createDebris(gamestate *gs) {
 
 	const rand_t limit = randomMax / 100; // Odds of appearing each frame
 	const int max_v = 192;
-	// 1.5x wider than manmade platforms, same height
-	const int32_t size[3] = {6400, 6400, 512};
+	// 2x wider than manmade platforms, same height
+	const int32_t size[3] = {6400, 6400, 500};
 	const int32_t bounds[3] = {128000, 64000, 64000};
 
 	range(d, 3) {

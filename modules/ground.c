@@ -7,7 +7,7 @@
 
 #include "ground.h"
 
-const int32_t groundSize[3] = {3200, 3200, 512};
+const int32_t groundSize[3] = {3200, 3200, 500};
 
 ent* mkGround(gamestate *gs, int32_t *pos, int32_t color) {
 	int32_t vel[3] = {0, 0, 0};
