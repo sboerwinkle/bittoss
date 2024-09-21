@@ -361,9 +361,14 @@ static void player_tick(gamestate *gs, ent *me) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
-				// Hack - not scaling `look` here, but that's fine for a "small" offset
-				ent* stackem = mkStackem(gs, me, look);
-				range(i, 3) { look[i] *= (double)(14*32)/axisMaxis; }
+				int32_t offset[3];
+				range(i, 3) {
+					// 1000 - 900 = 100; 100/2 = 50, so 50 units we can use for the offset.
+					// `look` maxes out as 64, so we /2.
+					offset[i] = look[i]/2;
+					look[i] *= (double)(14*32)/axisMaxis;
+				}
+				ent* stackem = mkStackem(gs, me, offset);
 				uVel(stackem, look);
 			} else if (charge >= 180 && fire2 && !(hands & 2) && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
 				charge -= 180;
