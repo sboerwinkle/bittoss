@@ -267,5 +267,5 @@ if __name__ == "__main__":
     else:
         starting_players = 0
 
-    asyncio.get_event_loop().run_until_complete(loop(Host(starting_players), port))
+    asyncio.run(loop(Host(starting_players), port))
     print("Goodbye!")
