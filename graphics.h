@@ -10,6 +10,9 @@
 // Pretty arbitrary; remember that increasing the ratio of far/near decreases z-buffer accuracy
 #define farPlane (1500000*PTS_PER_PX)
 
+extern int displayWidth;
+extern int displayHeight;
+
 extern int32_t frameOffset[3];
 
 extern void initGraphics();

@@ -20,7 +20,7 @@ void hud_init() {
 }
 
 void hud_destroy() {}
-
+static float hudColorDark[3] = {0.0, 0.3, 0.3};
 static float hudColor[3] = {0.0, 0.5, 0.5};
 static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
@@ -126,6 +126,41 @@ static char drawEquipUi(ent *e) {
 	return 4 + ((e->typeMask & T_EQUIP_SM) ? 3 : 1);
 }
 
+static void drawToolsCursor(ent *p) {
+	ent *e;
+	char hands = 0;
+	for (e = p->holdee; e; e = e->LL.n) {
+		if (type(e) & EQUIP_MASK) {
+			hands |= drawEquipUi(e);
+		}
+	}
+	if ((hands & 3) != 3) {
+		// UI for basic shooty-block player
+
+		int charge = getSlider(p, 8);
+		// Very old saves with obsolete "player" setups sometimes render this bar waaaaaay too wide; this at least keeps it playable until we fix things
+		if (charge > 600) charge = 600;
+
+		float x;
+		if ((hands & 3) == 1) x = 0.6; // Draw it to the right if only our primary hand is full
+		else {
+			x = 0.5 - 3.0/128; // Otherwise (empty hands / off-hand full), draw in center
+			hands |= 4; // Also mark central reticle as filled so we don't add the dot
+		}
+
+		while (charge >= 60) {
+			drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
+			x += 1.0/64;
+			charge -= 60;
+		}
+		drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
+	}
+	// Small mark if the central reticle hasn't been filled by anything else
+	if (!(hands & 4)) {
+		drawHudRect(0.5 - 1.0/256, 0.5, 1.0/128, 1.0/256, hudColor);
+	}
+}
+
 void drawHud(ent *p) {
 	if (!p) return;
 	if (p->holder) {
@@ -133,39 +168,11 @@ void drawHud(ent *p) {
 	} else {
 		if (getSlider(p, PLAYER_EDIT_SLIDER)) {
 			drawEditCursor(p);
-			return;
+		} else {
+			drawToolsCursor(p);
 		}
-		ent *e;
-		char hands = 0;
-		for (e = p->holdee; e; e = e->LL.n) {
-			if (type(e) & EQUIP_MASK) {
-				hands |= drawEquipUi(e);
-			}
-		}
-		if ((hands & 3) != 3) {
-			// UI for basic shooty-block player
-
-			int charge = p->sliders[8].v;
-			// Very old saves with obsolete "player" setups sometimes render this bar waaaaaay too wide; this at least keeps it playable until we fix things
-			if (charge > 600) charge = 600;
-
-			float x;
-			if ((hands & 3) == 1) x = 0.6; // Draw it to the right if only our primary hand is full
-			else {
-				x = 0.5 - 3.0/128; // Otherwise (empty hands / off-hand full), draw in center
-				hands |= 4; // Also mark central reticle as filled so we don't add the dot
-			}
-
-			while (charge >= 60) {
-				drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
-				x += 1.0/64;
-				charge -= 60;
-			}
-			drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
-		}
-		// Small mark if the central reticle hasn't been filled by anything else
-		if (!(hands & 4)) {
-			drawHudRect(0.5 - 1.0/256, 0.5, 1.0/128, 1.0/256, hudColor);
-		}
+		// 2px line for grounded / not grounded indicator
+		float *c = getSlider(p, 7) ? hudColor : hudColorDark;
+		drawHudRect(0.5 - 1.0/64, 0.6, 1.0/32, 2.0/displayHeight, c);
 	}
 }

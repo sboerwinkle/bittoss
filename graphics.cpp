@@ -9,12 +9,12 @@
 #include "font.h"
 #include "util.h"
 
-static int displayWidth = 0;
-static int displayHeight = 0;
+int displayWidth = 0;
+int displayHeight = 0;
 
 // Might improve this later, for now we just send the updated coords to the graphics card
 // once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
-GLfloat boxData[216];
+static GLfloat boxData[216];
 
 static GLuint main_prog, stipple_prog, tag_prog, flat_prog;
 static GLuint vaos[2];
