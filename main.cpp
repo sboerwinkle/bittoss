@@ -28,6 +28,7 @@
 #include "file.h"
 #include "hud.h"
 #include "raycast.h"
+#include "controlBuffer.h"
 
 #include "entFuncs.h"
 #include "entUpdaters.h"
@@ -55,11 +56,15 @@ int p1Codes[numKeys] = {GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY
 struct inputs {
 	struct {
 		char p1Keys[numKeys];
-		char lmbMode = 0;
-		char rmbMode = 0;
 		double viewYaw = 0;
 		double viewPitch = 0;
 	} basic;
+	// Don't really need to bother with capturing fractional-frame events for things like
+	// the movement keys or shift.
+	controlBuffer spaceBuf;
+	controlBuffer lmbBuf;
+	controlBuffer rmbBuf;
+
 	char textBuffer[TEXT_BUF_LEN];
 	char sendInd;
 
@@ -359,7 +364,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 	// Size will go in 0-3, we populate it in a minute
 	*(int32_t*)(out.items + 4) = htonl(frame);
 	// Other buttons also go here, once they exist; bitfield
-	out[8] = k[4] + 2*k[5] + 4*sharedInputs.basic.lmbMode + 16*sharedInputs.basic.rmbMode;
+	out[8] = sharedInputs.spaceBuf.pop() + 2*k[5] + 4*sharedInputs.lmbBuf.pop() + 16*sharedInputs.rmbBuf.pop();
 
 	int axis1 = k[1] - k[0];
 	int axis2 = k[3] - k[2];
@@ -538,6 +543,9 @@ static int yawToAxis(int offset) {
 void shareInputs() {
 	lock(sharedInputsMutex);
 	sharedInputs.basic = activeInputs.basic;
+	sharedInputs.spaceBuf.consume(&activeInputs.spaceBuf);
+	sharedInputs.lmbBuf.consume(&activeInputs.lmbBuf);
+	sharedInputs.rmbBuf.consume(&activeInputs.rmbBuf);
 	if (!sharedInputs.sendInd && activeInputs.sendInd) {
 		activeInputs.sendInd = 0;
 		sharedInputs.sendInd = 1;
@@ -550,7 +558,11 @@ char handleKey(int code, char pressed) {
 	int i;
 	for (i = numKeys-1; i >= 0; i--) {
 		if (p1Codes[i] == code) {
-			activeInputs.basic.p1Keys[i] = pressed;
+			if (i == 4) {
+				activeInputs.spaceBuf.push(pressed);
+			} else {
+				activeInputs.basic.p1Keys[i] = pressed;
+			}
 			return true;
 		}
 	}
@@ -1289,9 +1301,9 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		}
 		if (mouseDragMode && !press) mouseDragMode = -1;
 
-		activeInputs.basic.lmbMode = press*(1+activeInputs.basic.p1Keys[5]);
+		activeInputs.lmbBuf.push(press*(1+activeInputs.basic.p1Keys[5]));
 	} else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		activeInputs.basic.rmbMode = press*(1+activeInputs.basic.p1Keys[5]);
+		activeInputs.rmbBuf.push(press*(1+activeInputs.basic.p1Keys[5]));
 	}
 }
 
