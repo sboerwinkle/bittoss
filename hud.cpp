@@ -161,6 +161,25 @@ static void drawToolsCursor(ent *p) {
 	}
 }
 
+static void drawVeloceter(ent *p) {
+	// Integer truncation is maybe helpful here.
+	// If we were to allow fractional number of pixels, it could come out different
+	// along the X axis than the Y axis after aspect ratio scaling (when they both get truncated independently).
+	int displayPx = displayHeight / 64;
+	float height = (float)displayPx / displayHeight;
+	float width  = (float)displayPx / displayWidth;
+	float x = width*2;
+	float y = 1 - 1.0/64 - height*2;
+
+	float o_x = (float)getSlider(p, 5)/PLAYER_SPD;
+	float o_y = (float)getSlider(p, 6)/PLAYER_SPD;
+
+	flatCamRotated(displayPx, x, y);
+	drawHudRect(o_x - 0.5, o_y - 0.5, 1, 1, hudColor);
+	drawHudRect(-0.5, -0.5, 1, 1, hudColorDark);
+	flatCamDefault();
+}
+
 void drawHud(ent *p) {
 	if (!p) return;
 	if (p->holder) {
@@ -174,5 +193,6 @@ void drawHud(ent *p) {
 		// 2px line for grounded / not grounded indicator
 		float *c = getSlider(p, 7) ? hudColor : hudColorDark;
 		drawHudRect(0.5 - 1.0/64, 0.6, 1.0/32, 2.0/displayHeight, c);
+		drawVeloceter(p);
 	}
 }

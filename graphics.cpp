@@ -3,7 +3,9 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <string.h>
+
 #include "ExternLinAlg.h"
+#include "mat3.h"
 #include "Quaternion.h"
 #include "graphics.h"
 #include "font.h"
@@ -30,7 +32,6 @@ static GLint u_flat_offset_id = -1;
 static GLint u_flat_scale_id = -1;
 static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
-static GLfloat cam_lens_ortho[16];
 static GLfloat camera_uniform_mat[16];
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
@@ -200,8 +201,6 @@ void initGraphics() {
 	initFont();
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
 
-	glOrthoEquiv(cam_lens_ortho, 0, 1, 1, 0, -1, 1);
-
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
@@ -257,7 +256,18 @@ void setupText() {
 	glUseProgram(flat_prog);
 	glDisable(GL_DEPTH_TEST);
 
-	glUniformMatrix4fv(u_flat_camera_id, 1, GL_FALSE, cam_lens_ortho);
+	flatCamDefault();
+}
+
+void flatCamDefault() {
+	glUniformMatrix3fv(u_flat_camera_id, 1, GL_FALSE, mat3_default);
+}
+
+void flatCamRotated(float scale, float x, float y) {
+	float mat[9];
+	// Conveniently, camera X unit vector (horizontal screen space) will be flat and that's great for us I guess
+	mat3_squared(mat, scale, x, y, camera_uniform_mat[0], camera_uniform_mat[4]);
+	glUniformMatrix3fv(u_flat_camera_id, 1, GL_FALSE, mat);
 }
 
 #define TAG_MARGIN 0.2

@@ -82,8 +82,8 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 	int32_t vel[3];
 	getVel(vel, him, me);
 	// Reset what "stationary" is, according to ground speed
-	vel[0] = bound(vel[0], 256);
-	vel[1] = bound(vel[1], 256);
+	vel[0] = bound(vel[0], PLAYER_SPD);
+	vel[1] = bound(vel[1], PLAYER_SPD);
 	if (axis == 2) {
 		if (dir < 0) {
 			// Indicate that we can jump
@@ -240,7 +240,7 @@ static void player_tick(gamestate *gs, ent *me) {
 	int vel[3];
 	vel[2] = getButton(me, 0) && grounded ? -384 : 0;
 	range(i, 2) {
-		vel[i] = (256/axisMaxis)*axis[i] - sliders[i];
+		vel[i] = (PLAYER_SPD/axisMaxis)*axis[i] - sliders[i];
 	}
 	// Can't push as hard in the air
 	boundVec(vel, grounded ? 56 : 16, 2);

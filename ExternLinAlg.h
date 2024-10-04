@@ -131,6 +131,7 @@ static void perspective(float* m, float invSlopeX, float invSlopeY, float zNear,
 	m[14] = (2.0*zFar*zNear)/(zNear-zFar);
 	m[15] = 0;
 }
+/* Unused for now
 //https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glOrtho.xml
 static void glOrthoEquiv(float* m, float left, float right, float bottom, float top, float nearval, float farval){
 	m[0] = 2.0/(right-left);
@@ -150,6 +151,7 @@ static void glOrthoEquiv(float* m, float left, float right, float bottom, float 
 	m[14] = -((farval+nearval)/(farval-nearval));
 	m[15] = 1;
 }
+*/
 /* Unused for now
 //https://www.khronos.org/opengl/wiki/GluLookAt_code
 static void glhLookAtf2( float *matrix, float *eyePosition3D, float *center3D, float *upVector3D ){
