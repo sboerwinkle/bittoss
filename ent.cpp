@@ -693,6 +693,16 @@ static void flushPosVel(gamestate *gs, ent *e, const int32_t *parent_d_center, c
 		e->d_center[i] += parent_d_center[i];
 		e->center[i] += e->d_center[i];
 
+		// This line runs 2x per simulation frame, all to have proper
+		// visual interpolation between frames with a teleport.
+		// I'd kind of like something less wasteful, but this is fine for now.
+		//
+		// Other option might be to shuffle around where `d_center` is reset
+		// so that once a frame is complete the value is still set, but never consulted again.
+		// This means save/load can ignore it, but the graphics logic can use it
+		// to handle teleportation correctly.
+		e->old[i] += e->d_center[i];
+
 		e->d_vel[i] += parent_d_vel[i];
 		e->vel[i] += e->d_vel[i];
 	}
