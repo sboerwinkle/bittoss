@@ -84,8 +84,11 @@ double cameraCast(gamestate *gs, int32_t *pos, double *look, ent *ignoreRoot) {
 		range(d, 3) {
 			int32_t x = flip[d]*(e->center[d] - pos[d]);
 
-			double f1 = (x - e->radius[d]) / look[d];
-			double f2 = (x + e->radius[d]) / look[d];
+			// Padding of 300 units makes it harder for walls to wind up
+			// inside the GL near clipping plane.
+			// Can always experiment with this value.
+			double f1 = (x - e->radius[d] - 300) / look[d];
+			double f2 = (x + e->radius[d] + 300) / look[d];
 			// f1 and f2 might not be strictly Real, so be careful with phrasing here...
 			if (lower < f1) lower = f1;
 			if (f2 < upper) upper = f2;
