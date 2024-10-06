@@ -43,7 +43,7 @@ ent* mkBauble(gamestate *gs, ent *parent, ent *target, int mode) {
 		gs, parent,
 		parent->center, parent->vel, baubleSize,
 		1,
-		T_DECOR | T_NO_DRAW_FP, 0);
+		T_DECOR, 0);
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = mode ? RED_BUF_CLR : BLUE_BUF_CLR;
 	ret->tick = tickHandlers.get(TICK_BAUBLE);

@@ -23,13 +23,8 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 		gs, owner,
 		owner->center, owner->vel, flagSize,
 		2,
-		T_FLAG + T_EQUIP + T_OBSTACLE + (TEAM_BIT*team), T_TERRAIN + T_OBSTACLE
+		T_FLAG + T_EQUIP + T_OBSTACLE + (TEAM_BIT*team) + T_NO_DRAW_SELF, T_TERRAIN + T_OBSTACLE
 	);
-	// TODO Unsatisfied with how "modules" share stuff at the moment,
-	//      need some better way to do this. We do want to be sure that
-	//      all our handlers are registered, however.
-	//      What about several giant enums of stuff pasted together at compile time,
-	//      so we know every handler's index before they're even assigned?
 	e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	e->color = (e->typeMask & TEAM_BIT) ? 0xFF8080 : 0x80FF80;
 	e->pushed = pushedHandlers.get(PUSHED_FLAG);

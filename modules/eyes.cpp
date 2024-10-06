@@ -23,16 +23,18 @@ static void eye_tick(gamestate *gs, ent *me) {
 
 static void eye_tick_held(gamestate *gs, ent *me) {
 	ent *parent = me->holder;
-	int32_t vec[3];
-	getLook(vec, parent);
 	// This kinda assumes the parent is a cube/sphere, and ofc yeah it should be
 	int32_t r = parent->radius[2] - eyeInset;
+	int32_t vec[3], pos[3], vel[3];
+	getLook(vec, parent);
+	getPos(pos, parent, me);
+	getVel(vel, parent, me);
 	range(i, 3) {
 		// Another multiplication where we don't upgrade to int64_t,
-		// it should probably be in bounds given that axisMaxis is like 32
-		vec[i] = r * vec[i] / axisMaxis + parent->center[i] - me->center[i];
+		// it should probably be in bounds given that axisMaxis is 64
+		vec[i] = r * vec[i] / axisMaxis - pos[i] - vel[i];
 	}
-	uCenter(me, vec);
+	uVel(me, vec);
 }
 
 static void vehicle_eye_tick_held(gamestate *gs, ent *me) {
@@ -60,7 +62,7 @@ ent* mkEye(gamestate *gs, ent *parent) {
 		gs, parent,
 		parent->center, parent->vel, eyeSize,
 		0,
-		T_DECOR | T_NO_DRAW_FP, 0);
+		T_DECOR | T_NO_DRAW_SELF, 0);
 	ret->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
 	ret->color = 0xFFFFFF;
 	ret->tickHeld = tickHandlers.get(TICK_HELD_EYE);

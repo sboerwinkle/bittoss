@@ -156,7 +156,7 @@ static long nowNanos() {
 	return BILLION * (now.tv_sec - startSec) + now.tv_nsec;
 }
 
-static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, int32_t *newPos) {
+static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, int32_t *newPos, float interpRatio) {
 	// It's a different thread that writes the pitch/yaw values, and I just realized access
 	// has been unsynchronized for a while. It's possible that `double` writes are effectively
 	// atomic on modern processors, but whatever the case:
@@ -186,7 +186,7 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, in
 		// TODO: Move speed when dead is currently dependent on framerate, which is goofy leftover behavior
 		ghostCenter[0] += r_x * 500;
 		ghostCenter[1] += r_y * 500;
-		ghostCenter[2] += 500 * (k[5]-k[4]);
+		ghostCenter[2] += 500 * (k[5] - sharedInputs.spaceBuf.latest);
 		// So long as we're calling this method every frame (not every update),
 		// there's no need to have `oldPos` different from `newPos` in the case where
 		// we're dead, because we update ghostCenter continuously anyway.
@@ -202,7 +202,7 @@ static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, in
 		ray[0] = -sine * pitchCos;
 		ray[1] = cosine * pitchCos;
 		ray[2] = -sin(pitchRadians);
-		forward = -cameraCast(gs, ghostCenter, ray, e);
+		forward = -cameraCast(gs, ray, e, oldPos, newPos, interpRatio);
 		if (forward < -80*PTS_PER_PX) forward = -80*PTS_PER_PX;
 	}
 	if (e) {
@@ -692,8 +692,8 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/tree", edit_selectHeldRecursive(gs, me));
 	cmd("/wires", edit_selectWires(gs, me));
 
-	cmd("/weight", edit_m_weight(gs, me, chatBuffer + 7));
-	cmd("/fpdraw", edit_m_fpdraw(gs, me, chatBuffer + 7));
+	cmd("/weight", edit_m_weight(gs, me, chatBuffer + 7, verbose));
+	cmd("/drawself", edit_m_drawself(gs, me, chatBuffer + 9, verbose));
 	cmd("/friction", edit_m_friction(gs, me, chatBuffer + 9, verbose));
 	cmd("/decor", edit_m_decor(gs, me));
 	cmd("/paper", edit_m_paper(gs, me));
@@ -1376,15 +1376,16 @@ static void* renderThreadFunc(void *_arg) {
 	while (globalRunning) {
 		checkRenderData();
 
-		int32_t oldPos[3], newPos[3];
-		list<player> *players = &renderedState->players;
-		outerSetupFrame(players, renderedState, oldPos, newPos);
-
-		ent *root = (*players)[myPlayer].entity;
-		if (root) root = root->holdRoot;
 		// Todo would this be better with STEP_NANOS, FASTER_NANOS, or something in between (like the idealized server frame nanos)?
 		float interpRatio = (float)(time0 - renderStartNanos) / STEP_NANOS;
 		if (interpRatio > 1.1) interpRatio = 1.1; // Ideally it would be somewhere in (0, 1]
+
+		int32_t oldPos[3], newPos[3];
+		list<player> *players = &renderedState->players;
+		outerSetupFrame(players, renderedState, oldPos, newPos, interpRatio);
+
+		ent *root = (*players)[myPlayer].entity;
+		if (root) root = root->holdRoot;
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
 
 		drawTags(players, oldPos, newPos, interpRatio);

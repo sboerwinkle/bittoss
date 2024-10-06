@@ -374,14 +374,24 @@ void edit_rm(gamestate *gs, ent *me) {
 	}
 }
 
-static void typeFlag(gamestate *gs, ent *me, const char* argsStr, int32_t flag) {
+static void typeFlag(gamestate *gs, ent *me, const char* argsStr, int32_t flag, char verbose) {
 	if (!me) return;
 	getLists(me);
+	if (!strncmp(argsStr, " ?", 2)) {
+		// Weird coincidence, both "weight" and "fpdraw" are expressed via the
+		// absence of a flag.
+		if (verbose) printf("Currently: %c\n", (a[0]->typeMask & flag) ? 'N' : 'Y');
+		return;
+	}
+
 	parseArgs(argsStr);
 	int mode = 2;
-	// Weird coincidence, both "weight" and "fpdraw" are expressed via the
-	// absence of a flag.
-	if (args.num) mode = !args[0];
+	if (args.num) {
+		mode = !args[0];
+		if (verbose) printf("Setting to: %c\n", mode ? 'N' : 'Y');
+	} else {
+		if (verbose) puts("Flipping for each item");
+	}
 	range(i, a.num) {
 		ent *e = a[i];
 		int32_t t = e->typeMask;
@@ -392,16 +402,16 @@ static void typeFlag(gamestate *gs, ent *me, const char* argsStr, int32_t flag) 
 	}
 }
 
-void edit_m_weight(gamestate *gs, ent *me, const char* argsStr) {
-	typeFlag(gs, me, argsStr, T_WEIGHTLESS);
+void edit_m_weight(gamestate *gs, ent *me, const char* argsStr, char verbose) {
+	typeFlag(gs, me, argsStr, T_WEIGHTLESS, verbose);
 }
 
-void edit_m_fpdraw(gamestate *gs, ent *me, const char* argsStr) {
-	typeFlag(gs, me, argsStr, T_NO_DRAW_FP);
+void edit_m_drawself(gamestate *gs, ent *me, const char* argsStr, char verbose) {
+	typeFlag(gs, me, argsStr, T_NO_DRAW_SELF, verbose);
 }
 
 static void typemask_m(ent *e, int32_t type) {
-	uMyTypeMask(e, (e->typeMask & (T_NO_DRAW_FP | T_WEIGHTLESS | T_EQUIP | TEAM_MASK | T_INPUTS)) | type);
+	uMyTypeMask(e, (e->typeMask & (T_NO_DRAW_SELF | T_WEIGHTLESS | T_EQUIP | TEAM_MASK | T_INPUTS)) | type);
 }
 
 static void typemask_t(ent *e, int32_t type) {

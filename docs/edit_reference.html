@@ -58,7 +58,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_ghost">/ghost</a></li>
 		<li><a href="#_decor">/decor</a></li>
 		<li><a href="#_friction">/friction</a></li>
-		<li><a href="#_fpdraw">/fpdraw</a></li>
+		<li><a href="#_drawself">/drawself</a></li>
 		</ul>
 	</li>
 	<li><a href="#type">Type</a>
@@ -247,8 +247,8 @@ Clear items will be flipped to gray, though it is a special internal representat
 <h3 id="material">Material</h3>
 These commands operate on the blocks in the Blue buffer, changing how their physics work. Applying a material command typically replaces the existing material, though some exceptions are noted.
 <br/><br/>
-<b id="_weight">/weight</b> [01]?<br/>
-Weight controls whether a block is affected by gravity, and is not typically affected by other material commands. Weight is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively.
+<b id="_weight">/weight</b> [01?]?<br/>
+Weight controls whether a block is affected by gravity. Weight is turned off with <pre>0</pre>, turned on with <pre>1</pre>, or toggled (if no argument is given). If the argument is <pre>?</pre>, the status for the first block in the Blue buffer is printed. This flag is not affected by most other material commands.
 <div class="para"></div>
 Turning this off for your player can be useful to get to hard-to-reach places while editing.
 <br/><br/>
@@ -286,8 +286,8 @@ This is intended to add decorative elements on vehicles or other complex objects
 <b id="_friction">/friction</b> <span>number</span>?<br/>
 Sets the friction on the blocks to the given number, or prints the friction if no number is given. This value controls how much friction this block experiences when it is pushed by something else, <i>not</i> how much friction it applies to blocks that it pushes. Friction is not set by other material commands, and usually you won't need to set it either. It may be of use on <a href="#_legg">/legg</a> or <a href="#_spider">/spider</a> blocks, to give them more "grip".
 <br/><br/>
-<b id="_fpdraw">/fpdraw</b> [01]?<br/>
-Controls whether certain parts of a vehicle are rendered in first person mode. Specifically, in first person mode, blocks with "/fpdraw 0" won't be rendered if they're part of the same <a href="#_tree">tree</a> as you. First-person drawing is turned off, turned on, or toggled, if the argument is 0, 1, or absent, respectively. This flag is not set by other material commands.
+<b id="_drawself">/drawself</b> [01?]?<br/>
+Controls whether blocks are rendered when they're part of the same <a href="#_tree">tree</a> as you. For instance, most items you can pick up have this set (so that you won't see them inside you if the camera clips through you). Passing <pre>1</pre> or <pre>0</pre> will turn this on or off, and passing no argument will toggle this flag for each block in the Blue buffer. If you pass <pre>?</pre>, the status will be printed for the first block in the Blue buffer. This flag is not set by other material commands.
 <div class="para"></div>
 As a point of trivia, this is why you can't see your own eye in first-person mode.
 <h3 id="type">Type</h3>

@@ -267,7 +267,7 @@ none			| me	| him	| both	| none
 #define T_WEIGHTLESS 16
 #define T_FLAG 32
 #define T_DECOR 64
-#define T_NO_DRAW_FP 128
+#define T_NO_DRAW_SELF 128 // Don't draw this ent if the player is holding it
 #define TEAM_BIT 256
 #define TEAM_MASK (7*TEAM_BIT)
 #define T_INPUTS (1<<11)

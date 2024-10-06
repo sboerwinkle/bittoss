@@ -58,7 +58,7 @@ ent* selectCast(gamestate *gs, ent *parent, int32_t * look) {
 
 // This was copied very closely from selectCast.
 // Since this isn't crucial for synchronization we can use floating point types.
-double cameraCast(gamestate *gs, int32_t *pos, double *look, ent *ignoreRoot) {
+double cameraCast(gamestate *gs, double *look, ent *ignoreRoot, int32_t const * const oldPos, int32_t const * const newPos, float interpRatio) {
 	int32_t flip[3];
 	range(i, 3) {
 		// We're going to be potentially handling division by zero below,
@@ -82,7 +82,9 @@ double cameraCast(gamestate *gs, int32_t *pos, double *look, ent *ignoreRoot) {
 		double lower = 0;
 		double upper = best;
 		range(d, 3) {
-			int32_t x = flip[d]*(e->center[d] - pos[d]);
+			int32_t d1 = e->old[d] - oldPos[d];
+			int32_t delt = (e->center[d] - newPos[d]) - d1;
+			int32_t x = flip[d]*(d1 + delt * interpRatio);
 
 			// Padding of 300 units makes it harder for walls to wind up
 			// inside the GL near clipping plane.

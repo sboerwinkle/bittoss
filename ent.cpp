@@ -889,17 +889,15 @@ void finishStep(gamestate *gs) {
 
 static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	if (e->holdRoot == inhabit) {
-		if (thirdPerson) {
-			// A little hacky, but we make an exception for bullets at the moment, since
-			// that's the one thing that might be stuck to you that you'd want to see regardless.
-			// If a lot of things need this behavior, maybe figure out some way to unify this
-			// sort of thing with the `T_NO_DRAW_FP` hack.
-			if (e->tickHeld != bulletHeldTick) {
-				stippleList.add(e);
-				return;
-			}
-		} else {
-			if (e->typeMask & T_NO_DRAW_FP) return;
+		if (e->typeMask & T_NO_DRAW_SELF) return;
+
+		// A little hacky, but we make an exception for bullets at the moment, since
+		// that's the one thing that might be stuck to you that you'd want to see regardless.
+		// If a lot of things need this behavior, maybe figure out some way to unify this
+		// sort of thing with the `T_NO_DRAW_SELF` hack.
+		if (e->tickHeld != bulletHeldTick) {
+			stippleList.add(e);
+			return;
 		}
 	}
 	int32_t color = e->color;
