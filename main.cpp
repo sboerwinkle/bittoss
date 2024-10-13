@@ -94,7 +94,10 @@ static char chatBuffer[TEXT_BUF_LEN];
 static char loopbackCommandBuffer[TEXT_BUF_LEN];
 static char loadedFilename[TEXT_BUF_LEN];
 
-static gamestate *rootState, *phantomState;
+// Mostly, nobody outside this file should use `rootState`,
+// but it's helpful to have for debug prints somtimes.
+gamestate *rootState;
+static gamestate *phantomState;
 
 static GLFWwindow *display;
 

@@ -48,12 +48,17 @@ static void door_tick(gamestate *gs, ent *me) {
 	int32_t accel = getSlider(me, 1);
 	int32_t dist = getMagnitude(pos, 3);
 	if (dist && getStoppingDist(speed, accel) > dist) speed = getApproachSpeed(dist, accel);
+	//if (dist && gs == rootState) printf("speed: %d\n", speed);
+
+	// Right now `vel` is an attempt to match speed;
+	// account for our displacement so we attempt to actually arrive
 	boundVec(pos, speed, 3);
-	// `pos` is now my desired velocity
 	range(i, 3) vel[i] = pos[i] + vel[i];
+
+	// We're limited on how hard we can actually push
 	boundVec(vel, accel, 3);
-	// `vel` is now my desired acceleration
 	uVel(me, vel);
+	//if (vel[2] && gs == rootState) printf("accel: %d\n", vel[2]);
 }
 
 static void cmdDoor(gamestate *gs, ent *e) {
