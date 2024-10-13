@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GLES3/gl3.h>
 #include "loadJsonConfig.h"
 #include "font.h"
 

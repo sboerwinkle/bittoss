@@ -1,7 +1,7 @@
 #include <math.h>
 #include <stdio.h>
-#include <GL/glew.h>
 #include <GL/gl.h>
+#include <GLES3/gl3.h>
 #include <string.h>
 
 #include "ExternLinAlg.h"
@@ -101,10 +101,6 @@ static GLuint mkShader(GLenum type, const char* path) {
 }
 
 void initGraphics() {
-	if (GLEW_OK != glewInit()) {
-		puts("GLEW failed to init, whups");
-		exit(1);
-	}
 	GLuint vertexShader = mkShader(GL_VERTEX_SHADER, "shaders/solid.vert");
 	GLuint vertexShader2d = mkShader(GL_VERTEX_SHADER, "shaders/flat.vert");
 	GLuint vertexShaderTags = mkShader(GL_VERTEX_SHADER, "shaders/tags.vert");
