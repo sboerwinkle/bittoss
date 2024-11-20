@@ -85,6 +85,7 @@ enum {
 	WHOMOVES_STACKEM,
 	WHOMOVES_WOOD,
 	WHOMOVES_METAL,
+	WHOMOVES_PAPER,
 	WHOMOVES_NUM
 };
 // Did you include your module in "modules.c"?

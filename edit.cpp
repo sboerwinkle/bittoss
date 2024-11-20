@@ -452,7 +452,7 @@ void edit_m_paper(gamestate *gs, ent *me) {
 	getLists(me);
 	range(i, a.num) {
 		ent *e = a[i];
-		e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);
+		e->whoMoves = whoMovesHandlers.get(WHOMOVES_PAPER);
 		typemask_m(e, T_OBSTACLE);
 		uMyCollideMask(e, T_OBSTACLE + T_TERRAIN);
 		e->onFumbled = entPairHandlers.get(ENTPAIR_NIL);
