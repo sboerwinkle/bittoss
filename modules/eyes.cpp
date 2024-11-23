@@ -23,16 +23,25 @@ static void eye_tick(gamestate *gs, ent *me) {
 
 static void eye_tick_held(gamestate *gs, ent *me) {
 	ent *parent = me->holder;
-	// This kinda assumes the parent is a cube/sphere, and ofc yeah it should be
-	int32_t r = parent->radius[2] - eyeInset;
 	int32_t vec[3], pos[3], vel[3];
 	getLook(vec, parent);
+	int32_t component = abs(vec[2]);
+	int32_t r = parent->radius[2] - eyeInset;
+	range(i, 2) {
+		int32_t i_comp = abs(vec[i]);
+		int32_t i_r = parent->radius[i] - eyeInset;
+		if (i_comp * r > component * i_r) {
+			r = i_r;
+			component = i_comp;
+		}
+	}
+	if (!component) return;
 	getPos(pos, parent, me);
 	getVel(vel, parent, me);
 	range(i, 3) {
 		// Another multiplication where we don't upgrade to int64_t,
 		// it should probably be in bounds given that axisMaxis is 64
-		vec[i] = r * vec[i] / axisMaxis - pos[i] - vel[i];
+		vec[i] = r * vec[i] / component - pos[i] - vel[i];
 	}
 	uVel(me, vec);
 }

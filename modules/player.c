@@ -361,11 +361,22 @@ static void player_tick(gamestate *gs, ent *me) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
+				// Very small, but not 0. Avoids divide-by-zero error later, worst case.
+				int32_t numer = 1, denom = 65536;
+				range(i, 3) {
+					// Find which axis meets its boundary first,
+					// i.e. is already the greatest fraction of the way there.
+					int n = abs(look[i]);
+					int d = me->radius[i] - 450; // Stackem blocks are 900 units to a side
+					if (n * denom > numer * d) {
+						numer = n;
+						denom = d;
+					}
+				}
 				int32_t offset[3];
 				range(i, 3) {
-					// 1000 - 900 = 100; 100/2 = 50, so 50 units we can use for the offset.
-					// `look` maxes out as 64, so we /2.
-					offset[i] = look[i]/2;
+					offset[i] = denom * look[i] / numer; // Divide by the winning fraction
+					// re-use `look` vector as velocity now that we're done with it
 					look[i] *= (double)(14*32)/axisMaxis;
 				}
 				ent* stackem = mkStackem(gs, me, offset);
