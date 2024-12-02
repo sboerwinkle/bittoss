@@ -77,8 +77,11 @@ double cameraCast(gamestate *gs, double *look, ent *ignoreRoot, int32_t const * 
 
 	double best = INFINITY;
 	for (ent *e = gs->ents; e; e = e->ll.n) {
-		// We skip invisible things, since we're raycasting for a camera
-		if (e->holdRoot == ignoreRoot || e->color == -1) continue;
+		// We skip invisible things, since we're raycasting for a camera.
+		// We also skip things without a `box` (e->myBox) since in practice
+		//   it's usually just annoying for non-colliding things (spawners,
+		//   logic nodes, shrubs, etc) to block the camera.
+		if (e->holdRoot == ignoreRoot || e->color == -1 || !e->myBox) continue;
 		double lower = 0;
 		double upper = best;
 		range(d, 3) {
