@@ -16,6 +16,8 @@ char const * const * const M_RESPAWN_HELP = (char const * const[]){
 	"delay - how long they've been dead",
 	"cooldown - how long between spawns",
 	"counter - working memory for cooldown",
+	"width - Width of spawned player",
+	"height - Height of spawned player",
 	NULL
 };
 
@@ -42,7 +44,16 @@ static void respawn_tick(gamestate *gs, ent *me) {
 	}
 	if (!toRevive) return;
 
-	toRevive->entity = mkPlayer(gs, me->center, (toRevive->data % 2) + 1);
+	int32_t width = 0, height = 0;
+	if (me->numSliders >= 7) {
+		width = getSlider(me, 5);
+		height = getSlider(me, 6);
+	}
+	if (width <= 0 || height <= 0) {
+		width = 1000;
+		height = 1000;
+	}
+	toRevive->entity = mkPlayer(gs, me->center, (toRevive->data % 2) + 1, width, height);
 	mkEye(gs, toRevive->entity);
 	toRevive->reviveCounter = 0;
 	toRevive->entity->color = toRevive->color;
@@ -55,7 +66,7 @@ static void respawn_tick(gamestate *gs, ent *me) {
 }
 
 static void cmdRespawn(gamestate *gs, ent *e) {
-	basicTypeCommand(gs, e, 0, 5);
+	basicTypeCommand(gs, e, 0, 7);
 	e->tick = tickHandlers.get(TICK_RESPAWN);
 	e->tickHeld = tickHandlers.get(TICK_RESPAWN);
 }

@@ -22,7 +22,7 @@ ent* mkHero(gamestate *gs, int n, int total) {
 	pos[1] = n/2 * 1024; // Multiples of 1K, based on index within team
 	pos[2] = -8000;
 
-	ent *p = mkPlayer(gs, pos, team);
+	ent *p = mkPlayer(gs, pos, team, 1000, 1000);
 	mkEye(gs, p);
 	return p;
 }

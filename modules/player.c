@@ -403,10 +403,9 @@ static void player_tick(gamestate *gs, ent *me) {
 	if (cooldown < 5) uSlider(me, s_cooldown, cooldown + 1);
 }
 
-int32_t playerSize[3] = {500, 500, 500};
-
-ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team) {
+ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team, int32_t width, int32_t height) {
 	int32_t vel[3] = {0, 0, 0};
+	int32_t playerSize[3] = {width/2, width/2, height/2};
 	ent *ret = initEnt(
 		gs, NULL,
 		pos, vel, playerSize,

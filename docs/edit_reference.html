@@ -78,7 +78,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_spider">/spider</a></li>
 		<li><a href="#_legg">/legg</a></li>
 		<li><a href="#_seat">/seat</a></li>
-		<li><a href="#_respawner">/respawner</a></li>
+		<li><a href="#_respawn">/respawn</a></li>
 		<li><a href="#_teamselect">/teamselect</a></li>
 		<li><a href="#_scoreboard">/scoreboard</a></li>
 		<li><a href="#_cursed">/cursed</a></li>
@@ -299,7 +299,7 @@ These commands change the special behaviors of the blocks in the Blue buffer. Ty
 Clears the type, the block is just a block.
 <br/><br/>
 <b id="_logic">/logic</b><br/>
-Blocks of this type can send and process the signals used by things like <a href="#_respawner">/respawner</a> and <a href="#_factory">/factory</a> blocks. They can also act as sensors.
+Blocks of this type can send and process the signals used by things like <a href="#_respawn">/respawn</a> and <a href="#_factory">/factory</a> blocks. They can also act as sensors.
 <div class="para"></div>
 There are 2 logic signals, which we'll call "1" and "2". Logic blocks are active or not based on which signals they received last tick, and if active they send a signal(s) to every block they are <a href="#_wire">wired</a> to. Whether the block activates depends on its gate type, which is <a href="#_slider">slider</a> 0:
 <ul>
@@ -391,12 +391,12 @@ Makes the block act as a control point for vehicles. Players connect on contact 
 <div class="para"></div>
 Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
 <br/><br/>
-<b id="_respawner">/respawner</b><br/>
+<b id="_respawn">/respawn</b><br/>
 Makes the block respawn players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.
 <div class="para"></div>
 The exact meaning of the configuration <a href="#_slider">slider</a>s can be checked in-game with <a href="#_i">/i</a>, but the short version is that players are eligible for respawn at a given spawner based on their <a href="#_data">/data</a>, how long they've been dead, and how long since the spawner last spawned someone.
 <div class="para"></div>
-Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawner block, a players team will be based on whether their /data is even or odd.
+Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawn block, a players team will be based on whether their /data is even or odd.
 <br/><br/>
 <b id="_teamselect">/teamselect</b><br/>
 Makes the block set the <a href="#_data">/data</a> and <a href="#_c">color</a> of players who touch it. The color is pulled from the block itself. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
@@ -414,12 +414,12 @@ It will then display the winner and the current score as a chat message.
 <div class="para"></div>
 After the round is scored, the map is reset. This can't be a full load, since player data and the current score should be kept, but it also can't be managed with <a href="#_factory">/factory</a> blocks since that would be a nightmare to maintain. Instead, the block will delete every other block in the world except for itself, then request whichever player is currently the <a href="#_loader">/loader</a> to <a href="#_add">/add</a> the most recently loaded map back into the world. The new scoreboard then emits a <a href="#_logic">logical</a> signal "1" to any wired blocks.
 <div class="para"></div>
-Mostly this approach results in a transparent experience. Some trickery with <a href="#material">materials</a> ensures that the newly-added instance of the scoreboard block destroys the existing one and copies its score. However, any quicksaves or quick-<a href="#_load">/load</a>s will likely result in unexpected behavior, and if the map data contains pre-placed players (as opposed to respawners) they won't be re-inhabited by the players when it resets. The signal which is emitted when the world resets can be (for instance) fed to an inverter and then to the <a href="#_respawner">respawners</a>, so that they are active for one frame when the world resets.
+Mostly this approach results in a transparent experience. Some trickery with <a href="#material">materials</a> ensures that the newly-added instance of the scoreboard block destroys the existing one and copies its score. However, any quicksaves or quick-<a href="#_load">/load</a>s will likely result in unexpected behavior, and if the map data contains pre-placed players (as opposed to respawners) they won't be re-inhabited by the players when it resets. The signal which is emitted when the world resets can be (for instance) fed to an inverter and then to the <a href="#_respawn">respawners</a>, so that they are active for one frame when the world resets.
 <br/><br/>
 <b id="_cursed">/cursed</b><br/>
 This does not completely overwrite the block's type, but it will be overwritten if another "normal" type is assigned. This just adds the behavior that if this block is ever <i>not</i> held by something, it will destroy itself.
 <div class="para"></div>
-This is typically useful for immaterial things (perhaps <a href="#_logic">/logic</a> gates or <a href="#_respawner">/respawner</a>s) that are attached to a larger object, which you don't want to be left as orphans if the larger object is destroyed.
+This is typically useful for immaterial things (perhaps <a href="#_logic">/logic</a> gates or <a href="#_respawn">/respawn</a>ers) that are attached to a larger object, which you don't want to be left as orphans if the larger object is destroyed.
 <br/><br/>
 <b id="_fragile">/fragile</b><br/>
 This does not completely overwrite the block's type, but it will be overwritten if another "normal" type is assigned. Whenever the block is pushed, it is immediately destroyed. It can still push blocks of a "lighter" <a href="#material">material</a>, however.
@@ -468,7 +468,7 @@ Similar to <a href="#_import">/import</a>, but is relative to the absolute posit
 Currently the plan is for the operation underlying this command to be used by game logic in some cases, so it does not require <a href="#_rule">/rule</a> 10 to be on.
 <br/><br/>
 <b id="_data">/data</b> <span>number</span>?<br/>
-Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawner">/respawner</a>s, and in practice you probably only need 0, 1, or 2. 
+Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawn">/respawn</a>s, and in practice you probably only need 0, 1, or 2. 
 <br/><br/>
 <b id="_name">/name</b> <span>text</span>?<br/>
 Sets the player's name (as it appears to other players), or prints the existing name to the terminal if no argument is given.
@@ -480,7 +480,7 @@ Turns edit mode on or off for the player. If on, the player controls are used fo
 <b id="_rule">/rule</b> <span>number</span>?<br/>
 Without an argument, prints the names and descriptions of the various game rules. With an argument, toggles the specified rule on or off.
 <div class="para"></div>
-A full listing is best found in-game, but these are things like world boundaries, gravity, default player respawning (see <a href="#_respawner">/respawner</a>), and enabling edit commands.
+A full listing is best found in-game, but these are things like world boundaries, gravity, default player respawning (see <a href="#_respawn">/respawn</a>), and enabling edit commands.
 <br/><br/>
 <b id="_seed">/seed</b> <span>number</span>?<br/>
 Sets (for one argument) or displays (for no arguments) the current RNG seed.

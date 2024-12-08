@@ -12,7 +12,7 @@ extern void getLook(int32_t *dest, ent *e);
 extern void player_setAxis(ent *e, int32_t *x);
 extern void player_setLook(ent *e, int32_t *x);
 extern void player_setButtons(ent *e, int32_t x);
-extern ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team);
+extern ent* mkPlayer(gamestate *gs, int32_t *pos, int32_t team, int32_t width, int32_t height);
 extern void player_toggleBauble(gamestate *gs, ent *me, ent *target, int mode);
 extern void player_clearBaubles(gamestate *gs, ent *me, int mode);
 extern void player_flipBaubles(ent *me);
