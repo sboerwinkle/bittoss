@@ -74,6 +74,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_blink">/blink</a></li>
 		<li><a href="#_jumper">/jumper</a></li>
 		<li><a href="#_door">/door</a></li>
+		<li><a href="#_thrust">/thrust</a></li>
 		<li><a href="#_teleport">/teleport</a></li>
 		<li><a href="#_spider">/spider</a></li>
 		<li><a href="#_legg">/legg</a></li>
@@ -361,6 +362,9 @@ The block should be <a href="#_wire">/wire</a>d to some number of <a href="#_log
 The simplest setup is that exactly one of the waypoints should be active, and the door will travel there. More technically, the door will take the average velocity of all active waypoints as its frame of reference, and the average position of all active waypoints as its destination. If there are no active waypoints, it will try to come to rest, taking the average velocity of <i>all</i> waypoints as its frame of reference. If it is not wired to any blocks at all, it will be inert.
 <div class="para"></div>
 To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive - you can then do whatever variety of circuitry you want to turn the wall gate on and off. See also <a href="#_logic">/logic</a>.
+<br/><br/>
+<b id="_thrust">/thrust</b><br/>
+If this block receives a <a href="#_logic">logical</a> signal "1", it accelerates the <a href="#_tree">tree</a> it's attached to. The direction and force are determined by the relative position of the block it's <a href="#_wire">wired</a> to (if multiple blocks are wired, their offsets are summed). The scaling on this force can be configured; more details in-game with <a href="#_i">/i</a>.
 <br/><br/>
 <b id="_teleport">/teleport</b><br/>
 <b>/tp</b><br/>

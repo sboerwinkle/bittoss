@@ -29,6 +29,7 @@
 #include "modules/material.h"
 #include "modules/respawn.h"
 #include "modules/seat.h"
+#include "modules/thrust.h"
 #include "modules/factory.h"
 #include "modules/gun.h"
 #include "modules/blink.h"
@@ -55,6 +56,7 @@ void initMods() {
 	module_material();
 	module_respawn();
 	module_seat();
+	module_thrust();
 	module_factory();
 	module_gun();
 	module_blink();
