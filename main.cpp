@@ -11,6 +11,7 @@
 #include "util.h"
 #include "list.h"
 #include "queue.h"
+#include "bloc.h"
 #include "graphics.h"
 #include "font.h"
 #include "ent.h"
@@ -39,6 +40,9 @@
 #include "main.h"
 
 #define numKeys 6
+#define TEXT_BUF_LEN 200
+
+typedef bloc<char, TEXT_BUF_LEN> strbuf;
 
 char globalRunning = 1;
 
@@ -52,7 +56,6 @@ static char const * defaultColors[6] = {
 
 int p1Codes[numKeys] = {GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_W, GLFW_KEY_S, GLFW_KEY_SPACE, GLFW_KEY_LEFT_SHIFT};
 
-#define TEXT_BUF_LEN 200
 struct inputs {
 	struct {
 		char p1Keys[numKeys];
@@ -65,13 +68,14 @@ struct inputs {
 	controlBuffer lmbBuf;
 	controlBuffer rmbBuf;
 
-	char textBuffer[TEXT_BUF_LEN];
-	char sendInd;
-
 	// If this struct gets much bigger,
 	// may want to consider a `queue` of message objects or something...
 };
 inputs activeInputs = {0}, sharedInputs = {0};
+
+char textBuffer[TEXT_BUF_LEN];
+char textSendInd;
+queue<strbuf> outboundTextQueue;
 
 struct {
 	int width, height;
@@ -261,7 +265,8 @@ static void drawOverlay(list<player> *ps) {
 	drawHudText(drawMe, 0, 0, 0.5, 0.5, 1, overlayColor);
 	// The very last char of this buffer is always and forever '\0',
 	// so while unsynchronized reads to data owned by another thread is bad this is probably actually okay
-	if (typingLen >= 0) drawHudText(activeInputs.textBuffer, 0, 0, 0.5, 1.6, 1, overlayColor);
+	if (typingLen >= 0) drawHudText(textBuffer, 0, 0, 0.5, 1.6, 1, overlayColor);
+	// Todo: Draw boxes for pending messages in queue?
 
 	float f1 = (double) inputs_nanos / STEP_NANOS;
 	float f2 = (double) update_nanos / STEP_NANOS;
@@ -414,9 +419,11 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		if (readFile(loadedFilename, &out)) {
 			fputs("ERROR: Couldn't read file for reload\n", stderr);
 		}
-	} else if (sharedInputs.sendInd) {
-		sharedInputs.sendInd = 0;
-		const char *const text = sharedInputs.textBuffer;
+	} else if (outboundTextQueue.size()) {
+		// This didn't use to be a queue. Now that it is, we could update this section
+		// to process multiple items in the event that the first `n` are actually
+		// locally-processed commands.
+		char *const text = outboundTextQueue.pop().items;
 		if (isCmd(text, "/help")) {
 			/* TODO:
 			This needs /data, /c,
@@ -429,6 +436,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 				"If you're not editing, you probably only need:\n"
 				"`/data` (to set your team),\n"
 				"`/c` (to set your color),\n"
+				"`/name` (to set your name),\n"
 				"and `/save` and `/load`.\n"
 				"Controls are WASD, Shift, Space, Tab, and the mouse.\n"
 			);
@@ -479,7 +487,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 				timespec now;
 				clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 				int sec_truncate = now.tv_sec;
-				snprintf(sharedInputs.textBuffer, TEXT_BUF_LEN, "/seed %d", sec_truncate);
+				snprintf(text, TEXT_BUF_LEN, "/seed %d", sec_truncate);
 			}
 			int start = out.num;
 			int len = strlen(text);
@@ -549,10 +557,9 @@ void shareInputs() {
 	sharedInputs.spaceBuf.consume(&activeInputs.spaceBuf);
 	sharedInputs.lmbBuf.consume(&activeInputs.lmbBuf);
 	sharedInputs.rmbBuf.consume(&activeInputs.rmbBuf);
-	if (!sharedInputs.sendInd && activeInputs.sendInd) {
-		activeInputs.sendInd = 0;
-		sharedInputs.sendInd = 1;
-		strcpy(sharedInputs.textBuffer, activeInputs.textBuffer);
+	if (textSendInd) {
+		textSendInd = 0;
+		strcpy(outboundTextQueue.add().items, textBuffer);
 	}
 	unlock(sharedInputsMutex);
 }
@@ -571,9 +578,9 @@ char handleKey(int code, char pressed) {
 	}
 	if (pressed && code == GLFW_KEY_TAB) {
 		if (ctrlPressed) {
-			if (!activeInputs.sendInd) {
-				strcpy(activeInputs.textBuffer, "/edit");
-				activeInputs.sendInd = 1;
+			if (!textSendInd) {
+				strcpy(textBuffer, "/edit");
+				textSendInd = 1;
 				typingLen = -1;
 			}
 		} else {
@@ -643,11 +650,12 @@ static void handleMouseDrag(double xpos, double ypos) {
 	}
 	// From here, we assume we're in drag mode 2.
 
-	// Currently, lazy coding means we send at most one msg per frame.
-	// If we don't have the chance to send one, don't bother checking.
-	// We can send it later, and the logic for handling multiple-sized
-	// motions is simpler this way too.
-	if (activeInputs.sendInd) return;
+	// While dragging the mouse it's possible to enqueue these messages
+	// very very quickly. They are sent to the server at 15Hz, however,
+	// so can wait and combine these messages into a larger drag amount
+	// if we have pending messages. (We check two places because of how
+	// the handoff between the game and input threads is orchestrated.)
+	if (textSendInd || outboundTextQueue.size()) return;
 
 	double o, x;
 	if (mouseDragInput) o = mouseY, x = ypos;
@@ -660,8 +668,8 @@ static void handleMouseDrag(double xpos, double ypos) {
 	else mouseX += steps * mouseDragSize;
 
 	if (mouseDragFlip) steps *= -1;
-	snprintf(activeInputs.textBuffer, TEXT_BUF_LEN, "%s %d %d", ctrlPressed ? "/p" : "/s", mouseDragOutput, steps*wheelIncr);
-	activeInputs.sendInd = 1;
+	snprintf(textBuffer, TEXT_BUF_LEN, "%s %d %d", ctrlPressed ? "/p" : "/s", mouseDragOutput, steps*wheelIncr);
+	textSendInd = 1;
 	typingLen = -1;
 }
 
@@ -1168,7 +1176,7 @@ static void* gameThreadFunc(void *startFramePtr) {
 }
 
 static char handleCtrlBind(int key) {
-	char *const t = activeInputs.textBuffer;
+	char *const t = textBuffer;
 	if (key == GLFW_KEY_R) {
 		strcpy(t, "/sync");
 	} else if (key == GLFW_KEY_E) {
@@ -1193,7 +1201,7 @@ static char handleCtrlBind(int key) {
 	} else {
 		return 0;
 	}
-	activeInputs.sendInd = 1;
+	textSendInd = 1;
 	typingLen = -1;
 	return 1;
 }
@@ -1204,12 +1212,12 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 			if (key == GLFW_KEY_ESCAPE) {
 				typingLen = -1;
 			} else if (key == GLFW_KEY_BACKSPACE && typingLen) {
-				activeInputs.textBuffer[typingLen] = '\0';
-				activeInputs.textBuffer[typingLen-1] = '_';
+				textBuffer[typingLen] = '\0';
+				textBuffer[typingLen-1] = '_';
 				typingLen--;
 			} else if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER) {
-				activeInputs.textBuffer[typingLen] = '\0';
-				activeInputs.sendInd = 1;
+				textBuffer[typingLen] = '\0';
+				textSendInd = 1;
 				typingLen = -1;
 			}
 		}
@@ -1236,8 +1244,8 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 static void character_callback(GLFWwindow* window, unsigned int c) {
 	if (typingLen < 0) {
 		// Maybe we start typing, but nothing else
-		if (!activeInputs.sendInd) {
-			char *const t = activeInputs.textBuffer;
+		if (!textSendInd) {
+			char *const t = textBuffer;
 			if (c == 't') {
 				t[1] = '\0';
 				t[0] = '_';
@@ -1252,7 +1260,7 @@ static void character_callback(GLFWwindow* window, unsigned int c) {
 		return;
 	}
 
-	char *const t = activeInputs.textBuffer;
+	char *const t = textBuffer;
 	// `c` is the unicode codepoint
 	if (c >= 0x20 && c <= 0xFE && typingLen+2 < TEXT_BUF_LEN) {
 		t[typingLen+2] = '\0';
@@ -1312,7 +1320,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 void scroll_callback(GLFWwindow* window, double _x, double _y) {
 	int yoffset = (int)-_y;
-	if (yoffset && !activeInputs.sendInd && (ctrlPressed || altPressed)) {
+	if (yoffset && !textSendInd && (ctrlPressed || altPressed)) {
 		int axis;
 		if (activeInputs.basic.viewPitch > M_PI_4) {
 			axis = -3;
@@ -1326,14 +1334,14 @@ void scroll_callback(GLFWwindow* window, double _x, double _y) {
 			yoffset = -yoffset;
 		}
 		snprintf(
-			activeInputs.textBuffer,
+			textBuffer,
 			TEXT_BUF_LEN,
 			"/%s %d %d",
 			ctrlPressed ? "p" : "s",
 			axis,
 			yoffset * wheelIncr
 		);
-		activeInputs.sendInd = 1;
+		textSendInd = 1;
 		typingLen = -1;
 	}
 }
@@ -1539,6 +1547,7 @@ int main(int argc, char **argv) {
 	initMods(); //Set up modules
 	ent_init();
 	hud_init();
+	outboundTextQueue.init();
 	outboundData.init();
 	syncData.init();
 	seat_tick = tickHandlers.get(TICK_SEAT);
@@ -1582,10 +1591,9 @@ int main(int argc, char **argv) {
 	// Setup text buffers.
 	// We make it so the player automatically sends the "syncme" command on their first frame,
 	// which just displays a message to anybody else already in-game
-	activeInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
-	sharedInputs.textBuffer[TEXT_BUF_LEN-1] = '\0';
-	strcpy(sharedInputs.textBuffer, "/syncme");
-	sharedInputs.sendInd = 1;
+	textBuffer[TEXT_BUF_LEN-1] = '\0';
+	strcpy(textBuffer, "/syncme");
+	textSendInd = 1;
 
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 	loadedFilename[0] = loadedFilename[TEXT_BUF_LEN-1] = '\0';
@@ -1653,6 +1661,7 @@ int main(int argc, char **argv) {
 	puts("Cleaning up simple interal components...");
 	syncData.destroy();
 	outboundData.destroy();
+	outboundTextQueue.destroy();
 	net2_destroy();
 	destroyFont();
 	destroy_registrar();
