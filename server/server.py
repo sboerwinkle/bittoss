@@ -31,6 +31,7 @@ USAGE_POOL_RECOVERY_PER_SEC = 20 * 1024
 # We add some bytes to our usage calculations to compensate for headers. Unit is bytes
 HEADERADJ = 120
 FRAMERATE = 15
+INCR = 1/FRAMERATE
 
 EMPTY_MSG = b'\0\0\0\0'
 
@@ -40,15 +41,37 @@ This program can be run without arguments (e.g. \"./server.py\") for default beh
 Alternatively, a port number can be provided as the single argument.
 A second argument will be interpreted as the `starting_players`, but this is only useful for debugging."""
 
+clientpool = CLIENT_POOL
+clientpool_t = 0
+def check_clientpool():
+    global clientpool, clientpool_t
+    now_t = time.monotonic();
+    clientpool += CLIENT_POOL_RECOVERY_PER_SEC * (now_t - clientpool_t)
+    if clientpool > CLIENT_POOL:
+        clientpool = CLIENT_POOL
+    clientpool_t = now_t
+
+    if clientpool > 1:
+        clientpool -= 1
+        return True
+    return False
+
+active_host = None
+def get_host():
+    global active_host
+    if active_host is None:
+        active_host = Host()
+        asyncio.create_task(loop(active_host))
+    return active_host
+
 class Host:
-    def __init__(self, starting_players):
+    def __init__(self):
         self.frame = 0
-        self.clients = [None] * starting_players
+        self.clients = [] # [None] * starting_players
         self.clientpool = CLIENT_POOL
 
 class ClientNetHandler(asyncio.Protocol):
-    def __init__(self, host):
-        self.host = host
+    def __init__(self):
         self.recvd = b''
         self.inited = False
         self.complete_messages = []
@@ -58,11 +81,12 @@ class ClientNetHandler(asyncio.Protocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        # for client reconnection limiting
-        if self.host.clientpool < 1:
+        if not check_clientpool():
             print("Rejecting client because host's clientpool is exhausted")
             self.transport.close()
-        self.host.clientpool -= 1
+            # Should there be a `return` here? Not sure
+
+        self.host = get_host()
         clients = self.host.clients
         for ix in range(len(clients)):
             if clients[ix] is None:
@@ -146,6 +170,7 @@ class ClientNetHandler(asyncio.Protocol):
             self.transport.close()
 
     def connection_lost(self, exc):
+        global active_host
         print(f"Connection to client {self.ix} lost")
         if exc is not None:
             # Apparently in Python 3.11 this is less clumsy
@@ -156,15 +181,12 @@ class ClientNetHandler(asyncio.Protocol):
             if c is not None:
                 break
         else:
-            # Normally we don't do this since the client doesn't handle disconnections as elegantly as new connections.
-            # (Partly by design; people should be allowed to rejoin games.)
-            # However, if there's nobody left to remember, we can cleanly reset w/out confusing anybody.
-            # This is also nice so the server can be running continuously, at least in theory.
-            print("All clients disconnected, resetting client list")
-            clients.clear()
+            # If everyone drops, we can reset the number of players without confusing anybody.
+            # Also, we can pause the main FRAMERATE thread, which in practice we do by killing
+            # this host object and making a new one when necessary.
+            active_host = None
 
-async def loop(host, port):
-    lp = asyncio.get_event_loop()
+async def do_server(port):
     try:
         # Open port
         server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -175,18 +197,18 @@ async def loop(host, port):
         server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
         server_socket.bind(('', port))
 
-        server = await lp.create_server(
-            lambda: ClientNetHandler(host),
+        server = await asyncio.get_running_loop().create_server(
+            lambda: ClientNetHandler(),
             sock=server_socket
         )
         print("Server started on port " + str(port))
     except:
         print("Couldn't create network server!")
-        traceback.print_exc()
-        return
+        raise
+    await server.serve_forever()
 
-    # Framerate setup
-    incr = 1 / FRAMERATE
+async def loop(host):
+    print("Starting FRAMERATE thread")
     target = 0
 
     # Main loop
@@ -201,28 +223,30 @@ async def loop(host, port):
             target = t
         else:
             await asyncio.sleep(duration)
-        target += incr
+        target += INCR
 
         clients = host.clients.copy()
         numClients = len(clients)
         frame = host.frame
         host.frame = (frame+1)%FRAME_ID_MAX
 
-        host.clientpool += CLIENT_POOL_RECOVERY_PER_SEC * incr
-        if host.clientpool > CLIENT_POOL:
-            host.clientpool = CLIENT_POOL
-
+        anyConnectedClient = False
         msg = frame.to_bytes(4, 'big') + numClients.to_bytes(1, 'big')
         # Add everyone's data to the message, then clear their data
         for c in clients:
             if c is None:
                 msg += bytes([255]) # 255 == -1 (signed char)
                 continue
+            anyConnectedClient = True
             items = c.complete_messages
             msg += bytes([len(items)])
             for i in items:
                 msg += i;
             items.clear()
+
+        if not anyConnectedClient:
+            print("All clients disconnected, shutting down FRAMERATE thread until next connection")
+            return
 
         for ix in range(numClients):
             cl = clients[ix]
@@ -267,5 +291,5 @@ if __name__ == "__main__":
     else:
         starting_players = 0
 
-    asyncio.run(loop(Host(starting_players), port))
+    asyncio.run(do_server(port))
     print("Goodbye!")
