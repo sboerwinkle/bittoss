@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <GL/gl.h>
 #include <GLES3/gl3.h>
-#include "loadJsonConfig.h"
+#include "json.h"
 #include "font.h"
 
 font myfont;
@@ -16,27 +16,28 @@ void initFont() {
 	
 	printf("Loading font\n");
 	jsonValue* fontjson = jsonLoad(fontfp);
-	myfont.invaspect = jsonGetDouble(jsonGetObj(*fontjson, "invaspect"));
-	myfont.spacing = jsonGetDouble(jsonGetObj(*fontjson, "spacing"));
-	jsonValue pointsjson = jsonGetObj(*fontjson, "points");
-	jsonValue formjson = jsonGetObj(*fontjson, "form");
-	jsonValue letterstartjson = jsonGetObj(*fontjson, "letter");
-	int pointsLen = jsonGetLen(pointsjson);
-	int formLen = jsonGetLen(formjson);
-	int numLetters = jsonGetLen(letterstartjson);
+
+	myfont.invaspect = fontjson->get("invaspect")->getDouble();
+	myfont.spacing = fontjson->get("spacing")->getDouble();
+	list<jsonValue> *pointsjson = fontjson->get("points")->getItems();
+	list<jsonValue> *formjson = fontjson->get("form")->getItems();
+	list<jsonValue> *letterstartjson = fontjson->get("letter")->getItems();
+	int pointsLen = pointsjson->num;
+	int formLen = formjson->num;
+	int numLetters = letterstartjson->num;
 	float* points = (float*)calloc(pointsLen, sizeof(float));
 	short* form = (short*)calloc(formLen, sizeof(short));
 
 	for(int idx = 0; idx < pointsLen; idx++){
-		points[idx] = (float)jsonGetDouble(jsonGetArr(pointsjson, idx));
+		points[idx] = (float)((*pointsjson)[idx].getDouble());
 	}
 	for(int idx = 0; idx < formLen; idx++){
-		form[idx] = jsonGetInt(jsonGetArr(formjson, idx));
+		form[idx] = (*formjson)[idx].getInt();
 	}
 	myfont.letterStart = new short[numLetters];
 	myfont.letterLen = new short[numLetters];
 	for(int idx = 0; idx < numLetters; idx++){
-		myfont.letterStart[idx] = jsonGetInt(jsonGetArr(letterstartjson, idx));
+		myfont.letterStart[idx] = (*letterstartjson)[idx].getInt();
 		if(idx != 0){
 			myfont.letterLen[idx-1] = (myfont.letterStart[idx]-myfont.letterStart[idx-1]);
 		}
@@ -54,7 +55,7 @@ void initFont() {
 	free(form);
 	free(points);
 	fclose(fontfp);
-	jsonFree(*fontjson);
+	fontjson->destroy();
 	free(fontjson);
 }
 
