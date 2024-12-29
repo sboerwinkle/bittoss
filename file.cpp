@@ -5,11 +5,12 @@
 #include <string.h>
 
 #include "list.h"
+#include "file.h"
 
 void file_init() {
 	// All operations will be out of the `data/` directory from here on
 	if (chdir("data")) {
-		fprintf(stderr, "Failed to set working directory to ./data - errno is %d\n", errno);
+		fprintf(stderr, "Failed to set working directory to ./data - `chdir` gave error %s (%s)\n", strerrorname_np(errno), strerror(errno));
 		exit(1);
 	}
 }
@@ -26,8 +27,7 @@ static const char* resolvePath(const char* path) {
 		fprintf(stderr, "ERROR - path '%s' may not contain the sequence '..'\n", path);
 		return NULL;
 	}
-	// File contents are sometimes sent over the network (for /load).
-	// Crucially, they aren't deserialized into a valid gamestate first, which is a
+	// File contents are sometimes sent over the network (for /load), which is a
 	// potential security issue. This was addressed by making commands that accept
 	// path arguments be processed entirely locally - paths are never read from network data.
 	//
@@ -47,18 +47,21 @@ static const char* resolvePath(const char* path) {
 char writeFile(const char *name, const list<char> *data) {
 	name = resolvePath(name);
 	if (!name) return 1;
+	return writeFileArbitraryPath(name, data);
+}
 
+char writeFileArbitraryPath(const char *name, const list<char> *data) {
 	int fd = open(name, O_WRONLY | O_CREAT | O_TRUNC, 0664); // perms: rw-rw-r--
 	if (fd == -1) {
-		fprintf(stderr, "ERROR - Save failed - Couldn't write file '%s'\n", name);
+		fprintf(stderr, "ERROR writing file '%s': `open` gave error %s (%s)\n", name, strerrorname_np(errno), strerror(errno));
 		return 1;
 	}
 	int ret = write(fd, data->items, data->num);
 	if (ret != data->num) {
-		fprintf(stderr, "ERROR - Save failed - `write` returned %d when %d was expected\n", ret, data->num);
+		fprintf(stderr, "ERROR writing file '%s': `write` returned %d when %d was expected.\n", name, ret, data->num);
 		// We could always retry a partial write but that's more effort that I'm not sure is necessary
 		if (ret == -1) {
-			fprintf(stderr, "errno is %d\n", errno);
+			fprintf(stderr, "Error is %s (%s)\n", strerrorname_np(errno), strerror(errno));
 		}
 		return 1;
 	}
@@ -72,7 +75,7 @@ char readFile(const char *name, list<char> *out) {
 
 	int fd = open(name, O_RDONLY);
 	if (fd == -1) {
-		fprintf(stderr, "ERROR - Load failed - Couldn't read file '%s'\n", name);
+		fprintf(stderr, "ERROR reading file '%s': `open` gave error %s (%s)\n", name, strerrorname_np(errno), strerror(errno));
 		return 1;
 	}
 	int ret;
@@ -80,7 +83,7 @@ char readFile(const char *name, list<char> *out) {
 		out->setMaxUp(out->num + 1000);
 		ret = read(fd, out->items + out->num, 1000);
 		if (ret == -1) {
-			fprintf(stderr, "Failed to read from file, errno is %d\n", errno);
+			fprintf(stderr, "ERROR reading file '%s': `read` gave error %s (%s)\n", name, strerrorname_np(errno), strerror(errno));
 			break;
 		}
 		out->num += ret;

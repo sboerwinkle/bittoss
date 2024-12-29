@@ -13,7 +13,7 @@ void initFont() {
 		printf("Could not open font file\n");
 		return;
 	}
-	
+
 	printf("Loading font\n");
 	jsonValue* fontjson = jsonLoad(fontfp);
 

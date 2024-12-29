@@ -12,9 +12,11 @@
 #include "list.h"
 #include "queue.h"
 #include "bloc.h"
-#include "graphics.h"
-#include "font.h"
+
+#include "config.h"
 #include "ent.h"
+#include "font.h"
+#include "graphics.h"
 #include "modules.h"
 #include "net.h"
 #include "net2.h"
@@ -1542,6 +1544,7 @@ int main(int argc, char **argv) {
 	glfwMakeContextCurrent(NULL); // Give up control so other thread can take it
 
 	file_init();
+	config_init(); // "config" should be after "file"
 	colors_init();
 	edit_init();
 	initMods(); //Set up modules
@@ -1641,6 +1644,9 @@ int main(int argc, char **argv) {
 	signal(netCond);
 	unlock(netMutex);
 
+	puts("Writing config file...");
+	config_write();
+	puts("Done.");
 	puts("Beginning cleanup.");
 	closeSocket();
 	cleanupThread(netThread, "network");
@@ -1670,12 +1676,13 @@ int main(int argc, char **argv) {
 	edit_destroy();
 	velbox_destroy();
 	colors_destroy();
+	config_destroy();
 	file_destroy();
 	puts("Done.");
 	puts("Cleaning up GLFW...");
 	glfwTerminate();
 	puts("Done.");
 	char const * x[17] = {"goodbye", "so long", "thanks for playing", "peace", "dude", "man", "wow", "adios", "but you owe me", "heck yeah", "I think", "toodles", "and how", "all done", "hooray", "for now", "allegedly"};
-	printf("Cleanup complete, %s!\n", x[rand%13]);
+	printf("Cleanup complete, %s!\n", x[rand%17]);
 	return 0;
 }

@@ -20,6 +20,7 @@ struct jsonValue {
 
 	jsonValue* get(char const *key);
 	jsonValue* set(char const *key);
+	char rm(char const *key);
 	list<jsonValue>* getItems();
 	char const* getString();
 	int getInt();
@@ -48,3 +49,4 @@ extern jsonValue* jsonLoad(FILE* fp);
  * while setting it to -1 will result in dense JSON.
  */
 extern void jsonSerialize(list<char> *data, jsonValue *v, int indent);
+extern char const* typeStr(elementType t);

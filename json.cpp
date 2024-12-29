@@ -7,6 +7,9 @@
 #include <string.h>
 #include "json.h"
 
+// Default build erases all jsonLog() calls, you can add them back if needed!
+#define jsonLog(msg, lvl)
+/*
 #define ERROR_VERBOSITY 3
 static void jsonLog(const char* msg, int lvl){
 	//jsonLog("func jsonLog", 666);
@@ -24,10 +27,11 @@ static void jsonLog(const char* msg, int lvl){
 		printf("JSON STAT: \"%s\"\n", msg);
 	}
 }
+*/
 
 jsonValue* jsonValue::get(char const *key) {
 	if (type != J_OBJ) {
-		printf("JSON: `get` needs J_OBJ (%d), got %d\n", J_OBJ, type);
+		fprintf(stderr, "JSON: `get` needs J_OBJ, got %s\n", typeStr(type));
 		return NULL;
 	}
 	for (int i = 0; i < d.obj.num; i++) {
@@ -38,7 +42,7 @@ jsonValue* jsonValue::get(char const *key) {
 
 jsonValue* jsonValue::set(char const *key) {
 	if (type != J_OBJ) {
-		printf("JSON: `set` needs J_OBJ (%d), got %d\n", J_OBJ, type);
+		fprintf(stderr, "JSON: `set` needs J_OBJ, got %s\n", typeStr(type));
 		return NULL;
 	}
 	for (int i = 0; i < d.obj.num; i++) {
@@ -52,9 +56,25 @@ jsonValue* jsonValue::set(char const *key) {
 	return &newEntry.value;
 }
 
+char jsonValue::rm(char const *key) {
+	if (type != J_OBJ) {
+		fprintf(stderr, "JSON: `rm` needs J_OBJ, got %s\n", typeStr(type));
+		return 0;
+	}
+	for (int i = 0; i < d.obj.num; i++) {
+		if (!strcmp(key, d.obj[i].key)) {
+			free(d.obj[i].key);
+			d.obj[i].value.destroy();
+			d.obj.rmAt(i);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 list<jsonValue>* jsonValue::getItems() {
 	if (type != J_ARR) {
-		printf("JSON: `getItems` needs J_ARR (%d), got %d\n", J_ARR, type);
+		fprintf(stderr, "JSON: `getItems` needs J_ARR, got %s\n", typeStr(type));
 		return NULL;
 	}
 	return &d.arr;
@@ -62,7 +82,7 @@ list<jsonValue>* jsonValue::getItems() {
 
 char const* jsonValue::getString(){
 	if (type != J_STR) {
-		printf("JSON: `getString` needs J_STR (%d), got %d\n", J_STR, type);
+		fprintf(stderr, "JSON: `getString` needs J_STR, got %s\n", typeStr(type));
 		return NULL;
 	}
 	return d.str;
@@ -70,7 +90,7 @@ char const* jsonValue::getString(){
 
 int jsonValue::getInt() {
 	if (type != J_NUM) {
-		printf("JSON: `getInt` needs J_NUM (%d), got %d\n", J_NUM, type);
+		fprintf(stderr, "JSON: `getInt` needs J_NUM, got %s\n", typeStr(type));
 		return 0;
 	}
 	int ret;
@@ -80,7 +100,7 @@ int jsonValue::getInt() {
 
 double jsonValue::getDouble() {
 	if (type != J_NUM) {
-		printf("JSON: `getDouble` needs J_NUM (%d), got %d\n", J_NUM, type);
+		fprintf(stderr, "JSON: `getDouble` needs J_NUM, got %s\n", typeStr(type));
 		return 0;
 	}
 	double ret;
@@ -90,7 +110,7 @@ double jsonValue::getDouble() {
 
 char jsonValue::getBool() {
 	if (type != J_BOL) {
-		printf("JSON: `getBool` needs J_BOL (%d), got %d\n", J_BOL, type);
+		fprintf(stderr, "JSON: `getBool` needs J_BOL, got %s\n", typeStr(type));
 		return 0;
 	}
 	return d.bol;
@@ -200,7 +220,7 @@ static void jsonReadObject(jsonValue *dest, char* data, int dataLen, int* pos){
 			SKIP_WHITE();
 			c = PEEK(':');
 			if (c != ':') {
-				printf("JSON: Object key should be followed by ':', got '%c' (0x%hhx)\n", c, c);
+				fprintf(stderr, "JSON: Object key should be followed by ':', got '%c' (0x%hhx)\n", c, c);
 			} else {
 				jsonLog("Found ':'", 4);
 				(*pos)++;
@@ -212,7 +232,7 @@ static void jsonReadObject(jsonValue *dest, char* data, int dataLen, int* pos){
 		} else if (c == '}') {
 			return;
 		} else if (c != ',') {
-			printf("JSON: Invalid character in Object. Expected one of '\"', '}', or ','; got '%c' (0x%hhx)\n", c, c);
+			fprintf(stderr, "JSON: Invalid character in Object. Expected one of '\"', '}', or ','; got '%c' (0x%hhx)\n", c, c);
 		}
 	}
 }
@@ -264,7 +284,7 @@ static void jsonReadConstant(const char *goal, char *data, int dataLen, int *pos
 		}
 
 		// Else, handle failure...
-		printf("JSON: Trying to read keyword \"%s\", but only processed %d characters before hitting unexpected char '%c' (0x%hhx)\n", goal, ix, c, c);
+		fprintf(stderr, "JSON: Trying to read keyword \"%s\", but only processed %d characters before hitting unexpected char '%c' (0x%hhx)\n", goal, ix, c, c);
 		// Clear any letters out of the input before we return to regular processing
 		while ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
 			(*pos)++;
@@ -302,7 +322,7 @@ static void getNextValue(jsonValue *dest, char* data, int dataLen, int* pos){
 		(*pos)--;
 		jsonReadConstant("null", data, dataLen, pos);
 	} else {
-		printf("JSON: Character is not a legal start to any JSON value: '%c' (0x%hhx)\n", c, c);
+		fprintf(stderr, "JSON: Character is not a legal start to any JSON value: '%c' (0x%hhx)\n", c, c);
 		dest->initNul();
 	}
 }
@@ -315,10 +335,6 @@ jsonValue* jsonInterpret(char* data, int dataLen){
 }
 
 jsonValue* jsonLoad(FILE* fp){
-	if(fp == NULL){
-		jsonLog("Filepointer is NULL", 1);
-		return (jsonValue*)NULL;
-	}
 	rewind(fp);
 	//datasize is the allocation. datalen is the actual length
 	int dataSize = 10;
@@ -425,10 +441,6 @@ static void writeArr(list<char> *data, jsonValue *v, int indent) {
 	data->add(']');
 }
 
-/**
- * Setting `indent` to 0 will result in slightly prettier JSON,
- * while setting it to -1 will result in dense JSON.
- */
 void jsonSerialize(list<char> *data, jsonValue *v, int indent) {
 	switch (v->type) {
 	case J_OBJ:
@@ -449,5 +461,26 @@ void jsonSerialize(list<char> *data, jsonValue *v, int indent) {
 	case J_NUL:
 		writeRawString(data, "null");
 		break;
+	}
+}
+
+///// Misc util stuff /////
+
+char const* typeStr(elementType t) {
+	switch (t) {
+	case J_OBJ:
+		return "J_OBJ";
+	case J_ARR:
+		return "J_ARR";
+	case J_STR:
+		return "J_STR";
+	case J_NUM:
+		return "J_NUM";
+	case J_BOL:
+		return "J_BOL";
+	case J_NUL:
+		return "J_NUL";
+	default:
+		return "UNKNOWN";
 	}
 }
