@@ -5,11 +5,12 @@
 #include "entGetters.h"
 #include "entUpdaters.h"
 #include "entFuncs.h"
+#include "gamestring.h"
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam5";
-#define VERSION 5
+static const char* version_string = "gam6";
+#define VERSION 6
 
 static int version; // TODO global state is bad, use a context object during deserialization
 
@@ -164,6 +165,17 @@ void writeHeader(list<char> *data) {
 	data->num += 4;
 }
 
+static void serializeGamestrings(list<char> *data) {
+	int count = 0;
+	range(i, GAMESTR_NUM) {
+		if (*gamestrings[i]) count = i+1;
+	}
+	data->add(count);
+	range(i, count) {
+		writeStr(data, gamestrings[i]);
+	}
+}
+
 void serialize(gamestate *gs, list<char> *data) {
 	writeHeader(data);
 
@@ -185,6 +197,7 @@ void serialize(gamestate *gs, list<char> *data) {
 
 	write32(data, gs->rand);
 	write32(data, gs->gamerules);
+	serializeGamestrings(data);
 }
 
 // Same format as a proper savegame, but we only include some ents, and never any players or global state
@@ -200,6 +213,7 @@ void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset,
 	// This is ignored in normal use. However, if we load this as a level, we don't want a 0 here.
 	write32(data, gs->rand);
 	write32(data, 0); // Game rules (none)
+	data->add(0); // Strings (none)
 }
 
 static char read8(const list<const char> *data, int *ix) {
@@ -334,6 +348,17 @@ int verifyHeader(const list<const char> *data, int *ix) {
 	return numEnts;
 }
 
+static void deserializeGamestrings(gamestate *gs, const list<const char> *data, int *ix) {
+	if (version < 6) return;
+
+	unsigned char count = read8(data, ix);
+	char buffer[GAMESTR_LEN];
+	range(i, count) {
+		readStr(data, ix, buffer, GAMESTR_LEN);
+		gamestring_set(gs, i, buffer);
+	}
+}
+
 void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 	int _ix;
 	int *ix = &_ix;
@@ -384,6 +409,7 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 		gs->rand = rand;
 	}
 	gs->gamerules = read32(data, ix);
+	deserializeGamestrings(gs, data, ix);
 
 	delete[] ents;
 }

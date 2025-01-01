@@ -102,6 +102,8 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_rule">/rule</a></li>
 		<li><a href="#_seed">/seed</a></li>
 		<li><a href="#_reseed">/reseed</a></li>
+		<li><a href="#_str">/str</a></li>
+		<li><a href="#_setstr">/setstr</a></li>
 		<li><a href="#_b">/b</a></li>
 		<li><a href="#_d">/d</a></li>
 		<li><a href="#_p">/p</a></li>
@@ -155,6 +157,7 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 		<ul>
 			<li><a href="#_rule">gamerules</a> - grab bag of on/off flags</li>
 			<li><a href="#_seed">random seed</a></li>
+			<li><a href="#_str">game-strings</a> - some string data stored in the world, for whatever purpose</li>
 		</ul>
 	</li>
 </ul><br/>
@@ -493,6 +496,18 @@ Sets (for one argument) or displays (for no arguments) the current RNG seed.
 <br/><br/>
 <b id="_reseed">/reseed</b><br/>
 Resets the current RNG seed based on the time. Used to be more important, you probably won't need this one.
+<br/><br/>
+<b id="_str">/str</b> <span>number</span>?<br/>
+With no argument, prints the contents of all current (non-empty) game-strings. With an argument, prints the contents of the specified game-string.
+<div class="para"></div>
+Game-strings are just string storage in the level; some blocks may reference a game-string by index, but they are not "owned" by any block, and the expectation is that they aren't changed very often. It is legal to ask about any valid index (currently 0-63); a game-string is never "invalid" or "missing" in any sense, though it can be empty.
+<div class="para"></div>
+See also <a href="#_setstr">/setstr</a>.
+<br/><br/>
+<b id="_setstr">/setstr</b> <span>number</span> <span>string</span>?<br/>
+Sets the value of the specified <a href="#_str">game-string</a>. The second argument can be omitted (i.e. the empty string); setting a game-string to the empty string is in some sense similar to "removing" it.
+<div class="para"></div>
+There are no quoting or escaping rules here; after reading the given <span>number</span> (and the space charcter which may follow it), any and all remaining characters are taken as the <span>string</span>.
 <br/><br/>
 <b id="_b">/b</b> <span>number</span>{3}<br/>
 <i>Ctrl+B: /b 400 400 400</i><br/>

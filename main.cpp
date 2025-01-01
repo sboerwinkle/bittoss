@@ -16,6 +16,7 @@
 #include "config.h"
 #include "ent.h"
 #include "font.h"
+#include "gamestring.h"
 #include "graphics.h"
 #include "modules.h"
 #include "net.h"
@@ -735,6 +736,9 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/unwire", edit_unwire(gs, me));
 
 	cmd("/factory", edit_factory(gs, me));
+
+	cmd("/str", edit_string_get(chatBuffer+4, verbose));
+	cmd("/setstr", edit_string_set(gs, chatBuffer+7, verbose));
 
 	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
 	cmd("/p", edit_push(gs, me, chatBuffer + 2));
@@ -1543,6 +1547,7 @@ int main(int argc, char **argv) {
 	initGraphics(); // OpenGL Setup (calls initFont())
 	glfwMakeContextCurrent(NULL); // Give up control so other thread can take it
 
+	gamestring_init();
 	file_init();
 	config_init(); // "config" should be after "file"
 	colors_init();
@@ -1678,6 +1683,7 @@ int main(int argc, char **argv) {
 	colors_destroy();
 	config_destroy();
 	file_destroy();
+	gamestring_destroy();
 	puts("Done.");
 	puts("Cleaning up GLFW...");
 	glfwTerminate();

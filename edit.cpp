@@ -10,6 +10,7 @@
 #include "entUpdaters.h"
 #include "entFuncs.h"
 #include "colors.h"
+#include "gamestring.h"
 #include "handlerRegistrar.h"
 #include "file.h"
 #include "serialize.h"
@@ -1076,6 +1077,35 @@ void edit_factory(gamestate *gs, ent *me) {
 		// which would resolve these issues but require effort to reconstruct the holds + wire destinations.
 	}
 	fixNewBaubles(gs);
+}
+
+void edit_string_get(const char *argsStr, char verbose) {
+	if (!verbose) return;
+	int32_t ix;
+	if (getNum(&argsStr, &ix)) {
+		if (*argsStr) {
+			puts("Extra argument detected! This method only gets strings, were you trying to set one?");
+		}
+		printf("String %d: '%s'\n", ix, gamestring_get(ix));
+	} else {
+		puts("Strings: (");
+		range(i, GAMESTR_NUM) {
+			if (*gamestrings[i]) {
+				printf("%2d: '%s'\n", i, gamestrings[i]);
+			}
+		}
+		puts(")");
+	}
+}
+
+void edit_string_set(gamestate *gs, const char *argsStr, char verbose) {
+	int32_t ix;
+	if (!getNum(&argsStr, &ix)) {
+		if (verbose) puts("First argument must be a number");
+		return;
+	}
+	if (*argsStr) argsStr++;
+	gamestring_set(gs, ix, argsStr);
 }
 
 void edit_highlight(gamestate *gs, ent *me) {
