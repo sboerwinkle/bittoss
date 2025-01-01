@@ -43,8 +43,8 @@ static list<message> pendingMessages;
 static void reclaimBuffer(list<char> *buf) {
 	// A "big" message, like a level load, is in the 10K range.
 	// Todo: This is a `realloc`, which we could try to move outside of the mutex'd region
-	//       if we really wanted. (`reclaimBuffer` is called exclusively from the mutex'd
-	//       region, since we're reclaiming from `frameData`.)
+	//       if we really wanted. (`reclaimBuffer` is mostly called from the mutex'd region
+	//       currently.)
 	if (buf->max > 1'000) buf->setMax(MSG_SIZE_GUESS);
 	buf->num = 0;
 	availBuffers.add(*buf);
@@ -175,15 +175,21 @@ void* netThreadFunc(void *startFrame) {
 		range(i, pendingMessages.num) {
 			message &m = pendingMessages[i];
 			list<char> *dest = &frameData.peek(finalizedFrames + m.frameOffset)[m.player];
+
 			// At present, anything in `frameData` when we unlock the mutex may be read and held onto by
 			// the game thread, until the game thread removes it from the queue. This means we can't
 			// overwrite / reclaim any of these buffers (excepting the dummy buffer, which is never invalid).
+			//
 			// Writing the same player+frame twice is rare, but may happen if the server has to overwrite
 			// a client-provided frame id to keep it inside the guaranteed bounds [0, MAX_AHEAD].
+			// This will always happen for a couple frames after startup (with the current setup).
+			//
 			// We also can't base an overwrite decision on any kind of information from the game thread,
 			// since that could be ahead/behind on other clients and we don't want desync.
 			if (!dest->items) {
 				*dest = m.data;
+			} else {
+				reclaimBuffer(&m.data);
 			}
 		}
 		pendingMessages.num = 0;
