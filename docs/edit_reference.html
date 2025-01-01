@@ -138,7 +138,7 @@ Editing is changing state. There's a lot of it, but the interesting bits break d
 			<li><a href="#material">material</a> - how it interacts when it hits another block</li>
 			<li><a href="#_slider">sliders</a> - integers used to store internal state. Number and meaning is determined by the type.</li>
 			<li><a href="#_wire">wires</a> - set of one-way connections to other blocks. Meaning is determined by the type.</li>
-			<li><a href="#_pickup">holder</a> - blocks which are "connected" have a parent-child relationship, so a group of connected blocks will form a tree.</li>
+			<li><a href="#_pickup">holder</a> - blocks which are "connected" have a parent-child relationship, so a group of connected blocks will form a <a href="#_tree">tree</a>.</li>
 		</ul>
 	</li>
 	<li>
@@ -243,7 +243,7 @@ If there are exactly 2 items in the Blue buffer, this will also report:
 <i>Ctrl+F</i><br/>
 Flips the colors of blocks in the Blue buffer. Intended as a visual aid to see what's selected. Issuing this command again will always restore the original color.
 <div class="para"></div>
-Clear items will be flipped to gray, though it is a special internal representation which will be flipped back to clear.
+Clear items will be flipped to gray, though it is a special internal representation which will be flipped back to clear. Note that <a href="#_logic_debug">/logic_debug</a> blocks will not be visibly affected, as they are actually re-assigning their own color every frame.
 <br/><br/>
 <h3 id="material">Material</h3>
 These commands operate on the blocks in the Blue buffer, changing how their physics work. Applying a material command typically replaces the existing material, though some exceptions are noted.
@@ -364,7 +364,9 @@ The simplest setup is that exactly one of the waypoints should be active, and th
 To get a typical "door" setup, you would have 2 (invisible, /ghost) logic gates, one in the doorway, and one in the wall. The wall gate is then wired to the doorway gate, which is an XNOR (inverter). This means the doorway gate will be active whenever the wall gate is inactive - you can then do whatever variety of circuitry you want to turn the wall gate on and off. See also <a href="#_logic">/logic</a>.
 <br/><br/>
 <b id="_thrust">/thrust</b><br/>
-If this block receives a <a href="#_logic">logical</a> signal "1", it accelerates the <a href="#_tree">tree</a> it's attached to. The direction and force are determined by the relative position of the block it's <a href="#_wire">wired</a> to (if multiple blocks are wired, their offsets are summed). The scaling on this force can be configured; more details in-game with <a href="#_i">/i</a>.
+Makes the block accelerate the <a href="#_tree">tree</a> it's attached to. The direction and force are determined by the relative position of any blocks it's <a href="#_wire">wired</a> to (thruster "nozzles"). A nozzle is considered "active" (adds its offset to the thrust vector) if it's receiving a <a href="#_logic">logical</a> signal "1". If the <pre>/thrust</pre> block itself is receiving a signal "1", it is disabled and will not apply any acceleration regardless of active nozzles.
+<div class="para"></div>
+The scaling of this acceleration can be configured; more details in-game with <a href="#_i">/i</a>.
 <br/><br/>
 <b id="_teleport">/teleport</b><br/>
 <b>/tp</b><br/>
@@ -440,7 +442,7 @@ All file I/O happens in the <pre>data/</pre> directory.
 <i>Ctrl+L: /load</i><br/>
 Reads the game state from disk, broadcasting it to all players. If the file has more players than are currently in-game, the extra player data is discarded; if it has fewer, the leftover players are reset (as though they had freshly connected). As with <a href="#_save">/save</a>, the default path if none is provided is "savegame".
 <div class="para"></div>
-Player <a href="#_c">color</a>, <a href="#_data">/data</a>, and <a href="#_name">/name</a> are not affected by this operation, to avoid having to re-set personal preferences excessively. The <a href="#_seed">/seed</a> is also not affected, to avoid "random" outcomes repeating. These values can be sent with <a href="#_sync">/sync</a>.
+Player <a href="#_c">color</a>, <a href="#_data">/data</a>, and <a href="#_name">/name</a> are not affected by this operation, to avoid having to re-set personal preferences excessively. The <a href="#_seed">/seed</a> is also not affected, to avoid "random" outcomes repeating. Because of these exempted values, if client states were somehow out of sync before the <pre>/load</pre>, they may still be out of sync after. The <a href="#_sync">/sync</a> command does not have these exemptions.
 <div class="para"></div>
 All file I/O happens in the <pre>data/</pre> directory.
 <br/><br/>
@@ -469,7 +471,7 @@ Imports something that was previously <a href="#_export">/export</a>ed, relative
 <b id="_add">/add</b> <span>number</span>{6} <span>path</span><br/>
 Similar to <a href="#_import">/import</a>, but is relative to the absolute position and velocity vectors supplied before the path. Does not add the blocks to the Blue buffer. Maybe think of a better name?
 <div class="para"></div>
-Currently the plan is for the operation underlying this command to be used by game logic in some cases, so it does not require <a href="#_rule">/rule</a> 10 to be on.
+Currently this command does not require <a href="#_rule">/rule</a> 10 to be on, but that could change at some point.
 <br/><br/>
 <b id="_data">/data</b> <span>number</span>?<br/>
 Sets the player's data, or prints the existing data to the terminal if no argument is given. Currently this is really just used for <a href="#_respawn">/respawn</a>s, and in practice you probably only need 0, 1, or 2. 
@@ -490,7 +492,7 @@ A full listing is best found in-game, but these are things like world boundaries
 Sets (for one argument) or displays (for no arguments) the current RNG seed.
 <br/><br/>
 <b id="_reseed">/reseed</b><br/>
-Resets the current RNG seed based on the time. Note that a <a href="#_load">/load</a> of a game restores the state exactly as it was, including the seed, so /reseed can be helpful if you want "random" events to play out differently.
+Resets the current RNG seed based on the time. Used to be more important, you probably won't need this one.
 <br/><br/>
 <b id="_b">/b</b> <span>number</span>{3}<br/>
 <i>Ctrl+B: /b 400 400 400</i><br/>

@@ -18,15 +18,17 @@ char const * const * const M_THRUST_HELP = (char const * const[]) {
 
 static void thrust_tick(gamestate *gs, ent *me) {
 	int numWires = me->wires.num;
-	if (!numWires || !getButton(me, 0)) return;
+	if (!numWires || getButton(me, 0)) return;
 
 	int32_t divisor = getSlider(me, 0);
 	if (!divisor) return;
 
 	int32_t offset[3] = {0, 0, 0}, tmp[3];
 	wiresAnyOrder(w, me) {
-		getPos(tmp, w, me);
-		range(i, 3) offset[i] += tmp[i];
+		if (getButton(w, 0)) {
+			getPos(tmp, w, me);
+			range(i, 3) offset[i] += tmp[i];
+		}
 	}
 	range(i, 3) {
 		offset[i] = offset[i] * 64 / divisor;
