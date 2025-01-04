@@ -38,9 +38,9 @@ static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? 
 static void printGLProgErrors(GLuint prog, const char *name){
 	GLint ret = 0;
 	glGetProgramiv(prog, GL_LINK_STATUS, &ret);
-	printf("Link status %d ", ret);
-	glGetProgramiv(prog, GL_ATTACHED_SHADERS, &ret);
-	printf("Attached Shaders: %d\n", ret);
+	if (ret != GL_TRUE) printf("Link status for program \"%s\": %d\n", name, ret);
+	//glGetProgramiv(prog, GL_ATTACHED_SHADERS, &ret);
+	//printf("Attached Shaders: %d\n", ret);
 
 	glGetProgramInfoLog(prog, 3000, NULL, glMsgBuf);
 	// If the returned string is non-empty, print it

@@ -1511,21 +1511,7 @@ static void cleanupThread(pthread_t thread, char const * const descr) {
 	}
 }
 
-const char* usage = "Arguments: server_addr [port]\n\tport default is 15000";
-
 int main(int argc, char **argv) {
-	// Parse args
-	if (argc < 2 || argc > 3) {
-		puts(usage);
-		return 1;
-	}
-	char *srvAddr = argv[1];
-	const char *port = "15000";
-	if (argc > 2) {
-		port = argv[2];
-		printf("Using specified port of %s\n", port);
-	}
-
 	velbox_init();
 	rootState = mkGamestate();
 
@@ -1553,10 +1539,44 @@ int main(int argc, char **argv) {
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())
 	glfwMakeContextCurrent(NULL); // Give up control so other thread can take it
+	puts("GL setup complete.");
 
-	gamestring_init();
 	file_init();
 	config_init(); // "config" should be after "file"
+
+	char const *host, *hostSrc, *port, *portSrc;
+	if (argc > 3) {
+		printf("At most 2 args expected, got %d\n", argc-1);
+		return 1;
+	}
+	char const *configHost = config_getHost(), *configPort = config_getPort();
+	if (argc > 1) {
+		host = argv[1];
+		hostSrc = "program argument";
+		if (argc > 2) {
+			port = argv[2];
+			portSrc = "program argument";
+		} else {
+			port = "15000";
+			portSrc = "default";
+		}
+	} else {
+		char okay = 1;
+		if (!*configHost) {
+			puts("Without arguments, config must include a host, but none was found!");
+			okay = 0;
+		}
+		if (!*configPort) {
+			puts("Without arguments, config must include a port, but none was found!");
+			okay = 0;
+		}
+		if (!okay) return 1;
+		host = configHost;
+		port = configPort;
+		hostSrc = portSrc = "from config";
+	}
+
+	gamestring_init();
 	colors_init();
 	edit_init();
 	initMods(); //Set up modules
@@ -1569,8 +1589,9 @@ int main(int argc, char **argv) {
 	seat_tick_old = tickHandlers.get(TICK_SEAT_OLD);
 
 	// Other general game setup, including networking
+	printf("Using host '%s' (%s) and port '%s' (%s)\n", host, hostSrc, port, portSrc);
 	puts("Connecting to host...");
-	if (initSocket(srvAddr, port)) return 1;
+	if (initSocket(host, port)) return 1;
 	puts("Done.");
 	puts("Awaiting setup info...");
 	char initNetData[7];
@@ -1588,6 +1609,12 @@ int main(int argc, char **argv) {
 	printf("Done, I am client #%d out of %d\n", myPlayer, numPlayers);
 	setupPlayers(rootState, numPlayers);
 	isLoader = (numPlayers == 1);
+	// Connection was at least mostly successful,
+	// record the `host` and `port` that we used.
+	// First check if these match existing values
+	// to skip unnecessary config writes to disk.
+	if (strcmp(host, configHost)) config_setHost(host);
+	if (strcmp(port, configPort)) config_setPort(port);
 
 	net2_init(numPlayers);
 
@@ -1686,11 +1713,11 @@ int main(int argc, char **argv) {
 	hud_destroy();
 	ent_destroy();
 	edit_destroy();
-	velbox_destroy();
 	colors_destroy();
+	gamestring_destroy();
 	config_destroy();
 	file_destroy();
-	gamestring_destroy();
+	velbox_destroy();
 	puts("Done.");
 	puts("Cleaning up GLFW...");
 	glfwTerminate();

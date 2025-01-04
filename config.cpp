@@ -15,8 +15,9 @@ static char modified;
 static char name[BUF_LEN];
 static char color[BUF_LEN];
 static char host[BUF_LEN];
+static char port[BUF_LEN];
 
-#define NUM_KEYS 3
+#define NUM_KEYS 4
 static struct {
 	const char *jsonKey;
 	char *dest;
@@ -24,23 +25,26 @@ static struct {
 	{.jsonKey="name", .dest=name},
 	{.jsonKey="color", .dest=color},
 	{.jsonKey="host", .dest=host},
+	{.jsonKey="port", .dest=port},
 };
 
 ///// getters & setters for config properties /////
+// (Getters just add a "const" qualifier)
 
 char const* config_getName() {
-	if (*name) return name;
-	return NULL;
+	return name;
 }
 
 char const* config_getColor() {
-	if (*color) return color;
-	return NULL;
+	return color;
 }
 
 char const* config_getHost() {
-	if (*host) return host;
-	return NULL;
+	return host;
+}
+
+char const* config_getPort() {
+	return port;
 }
 
 void config_setName(char const* str) {
@@ -55,6 +59,11 @@ void config_setColor(char const* str) {
 
 void config_setHost(char const* str) {
 	snprintf(host, BUF_LEN, "%s", str);
+	modified = 1;
+}
+
+void config_setPort(char const* str) {
+	snprintf(port, BUF_LEN, "%s", str);
 	modified = 1;
 }
 
@@ -76,7 +85,7 @@ void config_init() {
 	configDir[0] = '\0';
 	configFile[0] = '\0';
 	modified = 0;
-	name[0] = color[0] = host[0] = '\0';
+	name[0] = color[0] = host[0] = port[0] = '\0';
 
 	char const *xdg_config_home = getenv("XDG_CONFIG_HOME");
 	if (xdg_config_home) {
@@ -89,8 +98,8 @@ void config_init() {
 			printf("HOME='%s'\n", home);
 			snprintf(configDir, BUF_LEN, "%s/.config/bittoss", home);
 		} else {
-			puts("HOME not set either, config files will use the current folder.");
-			strcpy(configDir, ".");
+			puts("HOME not set either, config files will be stored one level above `data/`.");
+			strcpy(configDir, "..");
 		}
 	}
 	snprintf(configFile, 200, "%s/config.json", configDir);

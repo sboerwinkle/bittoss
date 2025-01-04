@@ -13,6 +13,7 @@ void file_init() {
 		fprintf(stderr, "Failed to set working directory to ./data - `chdir` gave error %s (%s)\n", strerrorname_np(errno), strerror(errno));
 		exit(1);
 	}
+	puts("Set working directory to 'data/'");
 }
 
 void file_destroy() {
