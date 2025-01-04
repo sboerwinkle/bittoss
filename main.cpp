@@ -454,9 +454,16 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		} else if (isCmd(text, "/load")) {
 			const char *file = "savegame";
 			if (text[5]) file = text + 6;
-			strcpy(loadedFilename, file);
+			int initial = out.num;
+
 			out.add((char)BIN_CMD_LOAD);
-			readFile(file, &out);
+			if (readFile(file, &out)) {
+				// If reading the file failed, don't send anything out at all
+				out.num = initial;
+			} else {
+				// If it was successful, update local `loadedFilename`
+				strcpy(loadedFilename, file);
+			}
 		} else if (isCmd(text, "/loader")) {
 			int32_t x;
 			const char *c = text + 7;
