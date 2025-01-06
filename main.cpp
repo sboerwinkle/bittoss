@@ -77,7 +77,7 @@ struct inputs {
 inputs activeInputs = {0}, sharedInputs = {0};
 
 char textBuffer[TEXT_BUF_LEN];
-char textSendInd;
+char textSendInd = 0;
 queue<strbuf> outboundTextQueue;
 
 struct {
@@ -157,6 +157,7 @@ static int syncNeeded = 0;
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 static char isLoader = 0;
 static char doReload = 0;
+static char prefsSent = 0;
 
 // Simple utility to get "time" in just a regular (long) number.
 // `startSec` exists so we're more confident we don't overflow.
@@ -530,6 +531,20 @@ static void handleSharedInputs(int outboundFrame) {
 	sendData(out->items, out->num);
 }
 
+static void ensurePrefsSent() {
+	if (prefsSent) return;
+	prefsSent = 1;
+
+	char const *val = config_getColor();
+	if (*val) {
+		snprintf(outboundTextQueue.add().items, TEXT_BUF_LEN, "/c %s", val);
+	}
+	val = config_getName();
+	if (*val) {
+		snprintf(outboundTextQueue.add().items, TEXT_BUF_LEN, "/name %s", val);
+	}
+}
+
 static void mkHeroes(gamestate *gs) {
 	int numPlayers = gs->players.num;
 	range(i, numPlayers) {
@@ -767,7 +782,15 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 		char isSync = *(unsigned char*)data == BIN_CMD_SYNC;
 
 		if (isSync) {
-			if (syncNeeded > MAX_AHEAD) syncNeeded = 0;
+			if (syncNeeded > MAX_AHEAD) {
+				syncNeeded = 0;
+				// Probably already `isLoader == isMe`, but maybe not.
+				// (e.g. if the loader left and someone else did the sync)
+				isLoader = isMe;
+			}
+			// After we've been synced in, if there are no other auto-syncs on the horizon,
+			// that's a good time to send our stuff and be fairly sure it won't be lost.
+			if (!syncNeeded) ensurePrefsSent();
 		} else {
 			isLoader = isMe;
 		}
@@ -879,13 +902,19 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 			}
 		} else if (isCmd(chatBuffer, "/name")) {
 			if (chars >= 6) {
-				snprintf(p->name, NAME_BUF_LEN, "%s", chatBuffer + 6);
+				char *name = chatBuffer + 6;
+				snprintf(p->name, NAME_BUF_LEN, "%s", name);
+				if (isMe && isReal) config_setName(name);
 			} else if (isMe && isReal) {
 				printf("Name is %s\n", p->name);
 			}
 		} else if (chars >= 6 && !strncmp(chatBuffer, "/c ", 3)) {
-			int32_t color = edit_color(p->entity, chatBuffer + 3, !!(gs->gamerules & RULE_EDIT));
-			if (color != -2) p->color = color;
+			char *colorStr = chatBuffer + 3;
+			int32_t color = edit_color(p->entity, colorStr, !!(gs->gamerules & RULE_EDIT));
+			if (color != -2) {
+				p->color = color;
+				if (isMe && isReal) config_setColor(colorStr);
+			}
 		} else if ((gs->gamerules & RULE_EDIT) && chatBuffer[0] == '/') {
 			wasCommand = editCmds(gs, p->entity, isMe && isReal);
 		} else {
@@ -1611,10 +1640,8 @@ int main(int argc, char **argv) {
 	isLoader = (numPlayers == 1);
 	// Connection was at least mostly successful,
 	// record the `host` and `port` that we used.
-	// First check if these match existing values
-	// to skip unnecessary config writes to disk.
-	if (strcmp(host, configHost)) config_setHost(host);
-	if (strcmp(port, configPort)) config_setPort(port);
+	config_setHost(host);
+	config_setPort(port);
 
 	net2_init(numPlayers);
 
@@ -1634,8 +1661,19 @@ int main(int argc, char **argv) {
 	// We make it so the player automatically sends the "syncme" command on their first frame,
 	// which just displays a message to anybody else already in-game
 	textBuffer[TEXT_BUF_LEN-1] = '\0';
-	strcpy(textBuffer, "/syncme");
-	textSendInd = 1;
+	strcpy(outboundTextQueue.add().items, "/syncme");
+	if (isLoader) {
+		// This is admittedly a hack, ultimately due to the lack of any way to
+		// be sure that a given command makes a round-trip. If our client falls
+		// behind for a frame or two, some of our inputs will get dropped,
+		// and currently text commands are not treated specially in that regard.
+		// Combined with the fact that we start out a few frames behind, we
+		// reliably drop some text inputs between frames 2-4 (approx)
+		range(i,3) {
+			outboundTextQueue.add().items[0] = '\0';
+		}
+		ensurePrefsSent();
+	}
 
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 	loadedFilename[0] = loadedFilename[TEXT_BUF_LEN-1] = '\0';

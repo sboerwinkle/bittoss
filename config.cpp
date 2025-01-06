@@ -47,24 +47,27 @@ char const* config_getPort() {
 	return port;
 }
 
+static void setConfigVal(char *dest, char const *src) {
+	if (strcmp(dest, src)) {
+		snprintf(dest, BUF_LEN, "%s", src);
+		modified = 1;
+	}
+}
+
 void config_setName(char const* str) {
-	snprintf(name, BUF_LEN, "%s", str);
-	modified = 1;
+	setConfigVal(name, str);
 }
 
 void config_setColor(char const* str) {
-	snprintf(color, BUF_LEN, "%s", str);
-	modified = 1;
+	setConfigVal(color, str);
 }
 
 void config_setHost(char const* str) {
-	snprintf(host, BUF_LEN, "%s", str);
-	modified = 1;
+	setConfigVal(host, str);
 }
 
 void config_setPort(char const* str) {
-	snprintf(port, BUF_LEN, "%s", str);
-	modified = 1;
+	setConfigVal(port, str);
 }
 
 ///// Logic for the on-disk config file /////
