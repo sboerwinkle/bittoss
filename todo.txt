@@ -104,7 +104,8 @@ TODO:
 	- maybe configuration for scroll wheel handling, if you've got one of those fancy smooth scroll wheels?
 	- left-handed mode for mouse button inputs
 	- left-handed mode for Aux tool HUD display
-	- default color, *maybe*
+	/ default color, *maybe*
+		Haha did this first actually (plus name, host, port)
 / raytrace for camera positioning uses interpolated positions
 / Eye box positioning uses velocity setting, not teleportation, so it interpolates
 / Fix graphical lag, or whatever that is

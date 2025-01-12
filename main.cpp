@@ -118,6 +118,7 @@ static int wheelIncr = 200;
 static char mouseGrabbed = 0;
 static int mouseDragMode = 0, mouseDragInput = 0, mouseDragOutput = 0, mouseDragFlip = 0;
 static int mouseDragSize = 30;
+static int mouseDragSteps = 0;
 
 static int32_t ghostCenter[3] = {0, -15000, 16000};
 
@@ -612,6 +613,16 @@ static int yawToAxis(int offset) {
 	return directions[(directionIx+offset) & 3];
 }
 
+static void cancelDrag() {
+	// `0` is no drag; `-1` is a pre-state that prevents the view from jumping
+	mouseDragMode = -1;
+	// If the drag is finished, we don't want to send any pending drag commands
+	// since `ctrlPressed` (e.g.) might change, altering the meaning.
+	mouseDragSteps = 0;
+	// Not bothering to clear textSendInd. It could maybe be `2`, but
+	// that's unlikely. Won't matter anyway if `mouseDragSteps` is 0.
+}
+
 void shareInputs() {
 	lock(sharedInputsMutex);
 	sharedInputs.basic = activeInputs.basic;
@@ -619,8 +630,27 @@ void shareInputs() {
 	sharedInputs.lmbBuf.consume(&activeInputs.lmbBuf);
 	sharedInputs.rmbBuf.consume(&activeInputs.rmbBuf);
 	if (textSendInd) {
-		textSendInd = 0;
-		strcpy(outboundTextQueue.add().items, textBuffer);
+		if (textSendInd == 2) {
+			// `2` means we're sending a drag command
+			if (!outboundTextQueue.size()) {
+				// Requiring that `outboundTextQueue` be empty is to prevent us
+				// from sending too many mouse drag commands. Instead, they are
+				// combined and sent out at approx 15Hz. The check can't happen
+				// in the drag handling code since the queue might become empty
+				// while the mouse is sitting still.
+				snprintf(
+					textBuffer, TEXT_BUF_LEN, "%s %d %d",
+					ctrlPressed ? "/p" : "/s", mouseDragOutput, mouseDragSteps*wheelIncr
+				);
+				mouseDragSteps = 0;
+				textSendInd = 1;
+			}
+		}
+		if (textSendInd == 1) {
+			// `1` means a regular text chat/command to send
+			textSendInd = 0;
+			strcpy(outboundTextQueue.add().items, textBuffer);
+		}
 	}
 	unlock(sharedInputsMutex);
 }
@@ -649,10 +679,10 @@ char handleKey(int code, char pressed) {
 		}
 	} else if (code == GLFW_KEY_LEFT_CONTROL || code == GLFW_KEY_RIGHT_CONTROL) {
 		ctrlPressed = pressed;
-		if (mouseDragMode) mouseDragMode = -1;
+		if (mouseDragMode > 0) cancelDrag();
 	} else if (code == GLFW_KEY_LEFT_ALT || code == GLFW_KEY_RIGHT_ALT) {
 		altPressed = pressed;
-		if (mouseDragMode) mouseDragMode = -1;
+		if (mouseDragMode > 0) cancelDrag();
 	} else if (code == GLFW_KEY_F3 && pressed) {
 		if (ctrlPressed) manualGlFinish ^= 1;
 		else showFps ^= 1;
@@ -711,13 +741,6 @@ static void handleMouseDrag(double xpos, double ypos) {
 	}
 	// From here, we assume we're in drag mode 2.
 
-	// While dragging the mouse it's possible to enqueue these messages
-	// very very quickly. They are sent to the server at 15Hz, however,
-	// so can wait and combine these messages into a larger drag amount
-	// if we have pending messages. (We check two places because of how
-	// the handoff between the game and input threads is orchestrated.)
-	if (textSendInd || outboundTextQueue.size()) return;
-
 	double o, x;
 	if (mouseDragInput) o = mouseY, x = ypos;
 	else o = mouseX, x = xpos;
@@ -729,8 +752,9 @@ static void handleMouseDrag(double xpos, double ypos) {
 	else mouseX += steps * mouseDragSize;
 
 	if (mouseDragFlip) steps *= -1;
-	snprintf(textBuffer, TEXT_BUF_LEN, "%s %d %d", ctrlPressed ? "/p" : "/s", mouseDragOutput, steps*wheelIncr);
-	textSendInd = 1;
+
+	mouseDragSteps += steps;
+	textSendInd = 2;
 	typingLen = -1;
 }
 
@@ -1265,6 +1289,8 @@ static void* gameThreadFunc(void *startFramePtr) {
 }
 
 static char handleCtrlBind(int key) {
+	if (textSendInd) return 0;
+
 	char *const t = textBuffer;
 	if (key == GLFW_KEY_R) {
 		strcpy(t, "/sync");
@@ -1399,7 +1425,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 			mouseDragMode = 1;
 			return;
 		}
-		if (mouseDragMode && !press) mouseDragMode = -1;
+		if (mouseDragMode > 0 && !press) cancelDrag();
 
 		activeInputs.lmbBuf.push(press*(1+activeInputs.basic.p1Keys[5]));
 	} else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
