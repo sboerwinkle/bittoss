@@ -100,19 +100,18 @@ void* netThreadFunc(void *startFrame) {
 			if (readData(&numMessages, 1)) goto done;
 			range(j, numMessages) {
 
-				int32_t netSize;
-				if (readData(&netSize, 4)) goto done;
-				int32_t size = ntohl(netSize);
-				// Minimum valid size is 4 bytes frame id + 6 bytes data. Maybe make this a #define somewhere?
-				if (size && size < 10) {
-					fprintf(stderr, "Fatal error, can't handle player net input of size %hhd\n", size);
+				byte size;
+				if (readData(&size, 1)) goto done;
+				// We are expecting exactly 6 bytes here
+				if (size != 6) {
+					fprintf(stderr, "Fatal error, player net input should declare size 6, not %d\n", size);
 					goto done;
 				}
 
 				int32_t msgFrame;
 				if (readData(&msgFrame, 4)) goto done;
-				size -= 4;
 				msgFrame = ntohl(msgFrame);
+
 				// Todo: Server has the ability to rewrite absolute frames into frame offsets on its end,
 				//       might actually be more natural that way.
 				int32_t frameOffset = (msgFrame - frame + FRAME_ID_MAX) % FRAME_ID_MAX;
@@ -125,12 +124,27 @@ void* netThreadFunc(void *startFrame) {
 
 				message *m = &pendingMessages.add();
 				supplyBuffer(&m->data);
+				list<char> &data = m->data;
 				m->player = i;
 				m->frameOffset = frameOffset;
 
-				m->data.setMaxUp(size);
-				if (readData(m->data.items, size)) goto done;
-				m->data.num = size;
+				data.setMaxUp(size);
+				if (readData(data.items, size)) goto done;
+				data.num = size;
+
+				// Now read in any commands
+				if (readData(&size, 1)) goto done;
+				data.add(size);
+				while (size--) {
+					int32_t netCmdLen;
+					if (readData(&netCmdLen, 4)) goto done;
+					int32_t cmdLen = ntohl(netCmdLen);
+					int end = data.num + cmdLen + 4;
+					data.setMaxUp(end);
+					*(int32_t*)(data.items + data.num) = netCmdLen;
+					if (readData(data.items + data.num + 4, cmdLen)) goto done;
+					data.num = end;
+				}
 			}
 		}
 
@@ -180,15 +194,12 @@ void* netThreadFunc(void *startFrame) {
 			// the game thread, until the game thread removes it from the queue. This means we can't
 			// overwrite / reclaim any of these buffers (excepting the dummy buffer, which is never invalid).
 			//
-			// Writing the same player+frame twice is rare, but may happen if the server has to overwrite
-			// a client-provided frame id to keep it inside the guaranteed bounds [0, MAX_AHEAD].
-			// This will always happen for a couple frames after startup (with the current setup).
-			//
 			// We also can't base an overwrite decision on any kind of information from the game thread,
 			// since that could be ahead/behind on other clients and we don't want desync.
 			if (!dest->items) {
 				*dest = m.data;
 			} else {
+				fputs("Not an issue, but this case shouldn't happen with the new server rules?\n", stderr);
 				reclaimBuffer(&m.data);
 			}
 		}

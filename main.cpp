@@ -151,8 +151,8 @@ static time_t startSec;
 #define BIN_CMD_IMPORT 129
 #define BIN_CMD_LOAD 130
 #define BIN_CMD_ADD 131
-queue<list<char>> outboundData;
-list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
+static queue<list<char>> outboundData;
+static list<char> syncData; // Temporary buffer for savegame data, for "/sync" command
 static int syncNeeded = 0;
 pthread_mutex_t sharedInputsMutex = PTHREAD_MUTEX_INITIALIZER;
 static char isLoader = 0;
@@ -368,15 +368,22 @@ static char isCmd(const char* input, const char *cmd) {
 static void serializeControls(int32_t frame, list<char> *_out) {
 	list<char> &out = *_out;
 
-	out.setMaxUp(14); // 4 size + 4 frame + 6 input data
-	out.num = 14;
+	out.setMaxUp(12); // 1 size + 4 frame + 6 input data + 1 cmd count
+	out.num = 12;
 
 	const char *const k = sharedInputs.basic.p1Keys;
 
-	// Size will go in 0-3, we populate it in a minute
-	*(int32_t*)(out.items + 4) = htonl(frame);
+	// The server needs to know some things like frame index
+	// and where commands start/end so it can uphold its end
+	// of the contract (not broadcasting late frames, making
+	// sure commands aren't dropped, etc). The format of the
+	// "input data" section is irrelevant to it, however, so
+	// we just use a byte to describe that section's length.
+	// This is more flexible, but hardcoding would work too.
+	out[0] = 6;
+	*(int32_t*)(out.items + 1) = htonl(frame);
 	// Other buttons also go here, once they exist; bitfield
-	out[8] = sharedInputs.spaceBuf.pop() + 2*k[5] + 4*sharedInputs.lmbBuf.pop() + 16*sharedInputs.rmbBuf.pop();
+	out[5] = sharedInputs.spaceBuf.pop() + 2*k[5] + 4*sharedInputs.lmbBuf.pop() + 16*sharedInputs.rmbBuf.pop();
 
 	int axis1 = k[1] - k[0];
 	int axis2 = k[3] - k[2];
@@ -391,10 +398,10 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 		// Normally messy properties of floating point division
 		// are mitigated by the fact that `axisMaxis` is a power of 2
 		double divisor = (mag_x > mag_y ? mag_x : mag_y) / axisMaxis;
-		out[9] = round(r_x / divisor);
-		out[10] = round(r_y / divisor);
+		out[6] = round(r_x / divisor);
+		out[7] = round(r_y / divisor);
 	} else {
-		out[9] = out[10] = 0;
+		out[6] = out[7] = 0;
 	}
 	double pitchRadians = sharedInputs.basic.viewPitch;
 	double pitchCos = cos(pitchRadians);
@@ -407,26 +414,40 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 	mag2 = abs(pitchSine);
 	if (mag2 > mag) mag = mag2;
 	double divisor = mag / axisMaxis;
-	out[11] = round(sine / divisor);
-	out[12] = round(-cosine / divisor);
-	out[13] = round(pitchSine / divisor);
+	out[ 8] = round(sine / divisor);
+	out[ 9] = round(-cosine / divisor);
+	out[10] = round(pitchSine / divisor);
+	// out[11] is the number of commands, populate that in a sec
+	byte numCmds = 0;
+	// TODO
 
 	if (syncData.num) {
-		out.add((char)BIN_CMD_SYNC);
+		out.setMaxUp(out.num + 4 + syncData.num);
+		*(int32_t*)(out.items + out.num) = htonl(syncData.num);
+		out.num += 4;
 		out.addAll(syncData);
 		syncData.num = 0;
-	} else if (doReload) {
+		numCmds++;
+	}
+	if (doReload) { // `doReload` is a misbegotten creature only used for one level at present.
 		doReload = 0;
+		// Populate the 4-byte length once we know it, later
+		int initial = out.num;
+		out.num += 4;
+		out.setMaxUp(out.num);
+
 		out.add((char)BIN_CMD_ADD);
 		// 6 numbers * 4 bytes
 		range(i, 24) out.add(0);
 		if (readFile(loadedFilename, &out)) {
 			fputs("ERROR: Couldn't read file for reload\n", stderr);
+			out.num = initial;
+		} else {
+			*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
+			numCmds++;
 		}
-	} else if (outboundTextQueue.size()) {
-		// This didn't use to be a queue. Now that it is, we could update this section
-		// to process multiple items in the event that the first `n` are actually
-		// locally-processed commands.
+	}
+	while (outboundTextQueue.size()) {
 		char *const text = outboundTextQueue.pop().items;
 		if (isCmd(text, "/help")) {
 			/* TODO:
@@ -456,6 +477,8 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			const char *file = "savegame";
 			if (text[5]) file = text + 6;
 			int initial = out.num;
+			// We'll record the size here later
+			out.setMaxUp(out.num += 4);
 
 			out.add((char)BIN_CMD_LOAD);
 			if (readFile(file, &out)) {
@@ -464,6 +487,8 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			} else {
 				// If it was successful, update local `loadedFilename`
 				strcpy(loadedFilename, file);
+				*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
+				numCmds++;
 			}
 		} else if (isCmd(text, "/loader")) {
 			int32_t x;
@@ -474,12 +499,22 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			if (text[5]) strcpy(loadedFilename, text + 6);
 			printf("Filename: %s\n", loadedFilename);
 		} else if (!strncmp(text, "/import ", 8)) {
+			int initial = out.num;
+			// We'll record the size here later
+			out.setMaxUp(out.num += 4);
 			out.add((char)BIN_CMD_IMPORT);
-			readFile(text + 8, &out);
+			readFile(text + 8, &out); // A failure here is fine, the command will be nonsense but server won't care
+			*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
+			numCmds++;
 		} else if (isCmd(text, "/add")) {
 			int initial = out.num;
+			// We'll record the size here later
+			out.setMaxUp(out.num += 4);
 			if (parseAddCmd(&out, text+4)) {
 				out.num = initial;
+			} else {
+				*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
+				numCmds++;
 			}
 		} else if (isCmd(text, "/save") || isCmd(text, "/export") || isCmd(text, "/sync")) {
 			// Commands that don't get roundtripped to the server.
@@ -500,15 +535,16 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 				int sec_truncate = now.tv_sec;
 				snprintf(text, TEXT_BUF_LEN, "/seed %d", sec_truncate);
 			}
-			int start = out.num;
+			int initial = out.num;
 			int len = strlen(text);
-			out.num += len;
-			out.setMaxUp(out.num);
-			memcpy(out.items + start, text, len);
+			out.setMaxUp(out.num += len + 4);
+			*(int32_t*)(out.items + initial) = htonl(len);
+			memcpy(out.items + initial + 4, text, len);
+			numCmds++;
 		}
 	}
 
-	*(int32_t*)out.items = htonl(out.num - 4);
+	out[11] = numCmds;
 }
 
 static void updateResolution() {
@@ -715,6 +751,7 @@ static void processLoopbackCommand(gamestate *gs) {
 		edit_export(gs, me, c + 8);
 	} else if (isCmd(c, "/sync")) {
 		syncData.num = 0;
+		syncData.add(BIN_CMD_SYNC);
 		serialize(rootState, &syncData);
 	} else {
 		printf("Unknown loopback command: %s\n", c);
@@ -961,7 +998,17 @@ static void doWholeStep(gamestate *state, list<list<char>> const *_inputData, ch
 		// so especially if they missed last frame we really want to
 		// process the command *after* we process their inputs.
 		if (data.num > 6 && (isMe || isReal)) {
-			processCmd(state, &players[i], data.items + 6, data.num - 6, isMe, isReal);
+			byte numCmds = data[6];
+			int index = 7;
+			while (numCmds--) {
+				int32_t len = ntohl(*(int32_t*)(data.items + index));
+				if (index+4+len > data.num) {
+					fputs("net2.cpp should ensure we don't have invalid lengths here!\n", stderr);
+					break;
+				}
+				processCmd(state, &players[i], data.items + index + 4, len, isMe, isReal);
+				index += 4+len;
+			}
 		}
 	}
 	if (isReal && *loopbackCommandBuffer) {
@@ -1028,9 +1075,9 @@ static void insertOutbound(list<char> *dest, list<char> *src) {
 	// who's doing what this frame, those two fields have been removed.
 	// We have to do the same here. Fortunately, it's assumed these
 	// lists are stricly read-only, so it's okay to make a "fake" list here!
-	dest->num = src->num - 8;
-	dest->max = src->max - 8; // Does this even matter if RO?
-	dest->items = src->items + 8;
+	dest->num = src->num - 5;
+	dest->max = src->max - 5; // Does this even matter if RO?
+	dest->items = src->items + 5;
 }
 
 static void* gameThreadFunc(void *startFramePtr) {
@@ -1628,8 +1675,8 @@ int main(int argc, char **argv) {
 		puts("Error, aborting!");
 		return 1;
 	}
-	if (initNetData[0] != (char)0x81) {
-		printf("Bad initial byte %hhd, aborting!\n", initNetData[0]);
+	if (initNetData[0] != (char)0x82) {
+		printf("Bad initial byte 0x%hhX, aborting!\n", initNetData[0]);
 		return 1;
 	}
 	myPlayer = initNetData[1];
@@ -1662,18 +1709,7 @@ int main(int argc, char **argv) {
 	// which just displays a message to anybody else already in-game
 	textBuffer[TEXT_BUF_LEN-1] = '\0';
 	strcpy(outboundTextQueue.add().items, "/syncme");
-	if (isLoader) {
-		// This is admittedly a hack, ultimately due to the lack of any way to
-		// be sure that a given command makes a round-trip. If our client falls
-		// behind for a frame or two, some of our inputs will get dropped,
-		// and currently text commands are not treated specially in that regard.
-		// Combined with the fact that we start out a few frames behind, we
-		// reliably drop some text inputs between frames 2-4 (approx)
-		range(i,3) {
-			outboundTextQueue.add().items[0] = '\0';
-		}
-		ensurePrefsSent();
-	}
+	if (isLoader) ensurePrefsSent();
 
 	chatBuffer[0] = chatBuffer[TEXT_BUF_LEN-1] = '\0';
 	loadedFilename[0] = loadedFilename[TEXT_BUF_LEN-1] = '\0';
