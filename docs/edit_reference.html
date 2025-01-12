@@ -93,6 +93,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_loader">/loader</a></li>
 		<li><a href="#_file">/file</a></li>
 		<li><a href="#_sync">/sync</a></li>
+		<li><a href="#_syncme">/syncme</a></li>
 		<li><a href="#_export">/export</a></li>
 		<li><a href="#_import">/import</a></li>
 		<li><a href="#_add">/add</a></li>
@@ -452,7 +453,7 @@ All file I/O happens in the <pre>data/</pre> directory.
 <b id="_loader">/loader</b> [01]?<br/>
 Shouldn't be needed normally. Reads/writes your loader status.
 <div class="para"></div>
-The first person to join the server is initially the loader. Anyone who issues <a href="#_load">/load</a> becomes the new loader. In cases where game logic requires someone to read from disk or a new player must be <a href="#_sync">/sync</a>ed, the loader will process this. No attempt is made to automatically promote a new loader if the loader leaves the server.
+The first person to join the server is initially the loader. Anyone who issues <a href="#_load">/load</a> becomes the new loader. In cases where game logic requires someone to read from disk or a new player must be <a href="#_sync">/sync</a>ed, the loader will process this. In the event that someone <i>else</i> <a href="#_sync">/sync</a>s in the new player (perhaps the old loader left?), that someone becomes the new loader.
 <br/><br/>
 <b id="_file">/file</b> <span>path</span>?<br/>
 Shouldn't be needed normally. Reads/writes the loaded filename.
@@ -462,6 +463,9 @@ This is set automatically when you issue <a href="#_load">/load</a> (see also <a
 <b id="_sync">/sync</b><br/>
 <i>Ctrl+R</i><br/>
 Sends the current game state over the network (similar to <a href="#_load">/load</a>). Typically this isn't necessary, but players may be prompted to press <i>Ctrl+R</i> if automatic syncing of a new player fails for some reason.
+<br/><br/>
+<b id="_syncme">/syncme</b><br/>
+This is sent automatically when you first connect to the server, and just requests that one of the other clients (typically the <a href="#_loader">loader</a>) get you up to speed with <a href="#_sync">/sync</a>.
 <br/><br/>
 <b id="_export">/export</b> <span>path</span><br/>
 Similar to <a href="#_save">/save</a>, but only applies to the contents of the Blue buffer. Positions and velocities are saved relative to the player, rather than in world coordinates. Typically these paths use the <pre>.itm</pre> suffix, and may be placed in the <pre>itm/</pre> folder. Useful if you've created something you want to reuse.
