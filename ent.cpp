@@ -12,8 +12,8 @@
 
 const int32_t zeroVec[3] = {0, 0, 0};
 
-static list<ent*> entList, stippleList;
-static tick_t bulletHeldTick;
+static list<ent*> entList, stippleList, taggedList;
+static tick_t bulletHeldTick, signTick;
 
 void boundVec(int32_t *values, int32_t bound, int32_t len) {
 	int32_t max = bound;
@@ -900,6 +900,7 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const
 			return;
 		}
 	}
+	if (e->tickHeld == signTick && e->numSliders >= 2) taggedList.add(e);
 	int32_t color = e->color;
 	if (color == -1) return;
 
@@ -921,9 +922,23 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const
 	rect(pos, e->radius, red, grn, blu);
 }
 
+void drawSign(ent *e, char const *text, int size, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
+	int32_t pos[3];
+	range(dim, 3) {
+		int32_t a = e->old[dim] - oldPos[dim];
+		int32_t b = e->center[dim] - newPos[dim];
+		pos[dim] = a + (b-a)*ratio;
+	}
+	pos[2] += -(e->radius[2] + 50); // 50 is arbitrary here
+
+	drawTag(text, pos, size, whiteColor);
+}
+
 void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const interpRatio) {
 	// We'll add things to this list in `drawEnt` if it should be stippled instead
 	stippleList.num = 0;
+	// This is the list of things we need to draw some text over
+	taggedList.num = 0;
 	for (ent *i = gs->ents; i; i = i->ll.n) {
 		// Passing in oldPos, newPos, and interpRatio for every single ent every frame seems a touch excessive.
 		// If we ever need performance here, they could probably be file-level fields.
@@ -933,6 +948,15 @@ void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *con
 	setupStipple();
 	for (int i = 0; i < stippleList.num; i++) {
 		drawEnt(stippleList[i], NULL, 0, oldPos, newPos, interpRatio);
+	}
+
+	setupTags();
+	for (int i = 0; i < taggedList.num; i++) {
+		// We know these items have at least 2 sliders, as that's a prerequisite for being in this list.
+		ent *e = taggedList[i];
+		int32_t textIdx = e->sliders[0].v;
+		int32_t size = e->sliders[1].v;
+		drawSign(t, gamestring_get(textIdx), size, oldPos, newPos, interpRatio);
 	}
 }
 
@@ -1126,10 +1150,12 @@ gamestate* dup(gamestate *in) {
 void ent_init() {
 	entList.init();
 	stippleList.init();
+	taggedList.init();
 	bulletHeldTick = tickHandlers.get(TICK_HELD_BULLET);
-	// Used to do something lol
+	signTick = tickHandlers.get(TICK_SIGN);
 }
 void ent_destroy() {
 	entList.destroy();
 	stippleList.destroy();
+	taggedList.destroy();
 }

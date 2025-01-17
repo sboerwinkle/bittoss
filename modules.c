@@ -37,6 +37,7 @@
 #include "modules/teamselect.h"
 #include "modules/scoreboard.h"
 #include "modules/teleport.h"
+#include "modules/sign.h"
 
 void initMods() {
 	module_common();
@@ -64,4 +65,5 @@ void initMods() {
 	module_teamselect();
 	module_scoreboard();
 	module_teleport();
+	module_sign();
 }

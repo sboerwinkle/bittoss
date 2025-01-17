@@ -125,6 +125,7 @@ enum {
 	TICK_HELD_JUMPER,
 	TICK_DUST,
 	TICK_SPIDER,
+	TICK_SIGN,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

@@ -242,23 +242,14 @@ static float bluColor[3] = {0.0, 0.0, 1.0};
 static float redColor[3] = {1.0, 0.0, 0.0};
 static float whiteColor[3] = {1.0, 1.0, 1.0};
 
-static void drawTags(list<player> *ps, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
-	setupTags();
+static void drawNames(list<player> *ps, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	range(i, ps->num) {
 		if (i == myPlayer) continue;
 		player &p = (*ps)[i];
 		ent *e = p.entity;
 		if (!e) continue;
 
-		int32_t pos[3];
-		range(dim, 3) {
-			int32_t a = e->old[dim] - oldPos[dim];
-			int32_t b = e->center[dim] - newPos[dim];
-			pos[dim] = a + (b-a)*ratio;
-		}
-		pos[2] += -(e->radius[2] + 50); // 50 is arbitrary here
-
-		drawTag(p.name, pos, 6000, whiteColor);
+		drawSign(e, p.name, 6000, oldPos, newPos, ratio);
 	}
 }
 
@@ -1513,8 +1504,8 @@ static void* renderThreadFunc(void *_arg) {
 		ent *root = (*players)[myPlayer].entity;
 		if (root) root = root->holdRoot;
 		doDrawing(renderedState, root, thirdPerson, oldPos, newPos, interpRatio);
-
-		drawTags(players, oldPos, newPos, interpRatio);
+		// We rely on `doDrawing` to call `setupTags` before we go into `drawNames`
+		drawNames(players, oldPos, newPos, interpRatio);
 		drawOverlay(players);
 
 		if (showFps) {
