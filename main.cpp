@@ -1606,17 +1606,19 @@ static void cleanupThread(pthread_t thread, char const * const descr) {
 }
 
 int main(int argc, char **argv) {
+	puts("init 1...");
 	velbox_init();
 	rootState = mkGamestate();
 
 	init_registrar();
 	init_entFuncs();
 
+	puts("init GLFW...");
 	if (!glfwInit()) {
 		fputs("Couldn't init GLFW\n", stderr);
 		return 1;
 	}
-	// glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	puts("init window...");
 	display = glfwCreateWindow(1000, 700, "Bittoss", NULL, NULL);
 	if (!display) {
 		fputs("Couldn't create our display\n", stderr);
@@ -1630,6 +1632,7 @@ int main(int argc, char **argv) {
 		setDisplaySize(fbWidth, fbHeight);
 	}
 
+	puts("init GL...");
 	glfwMakeContextCurrent(display);
 	initGraphics(); // OpenGL Setup (calls initFont())
 	glfwMakeContextCurrent(NULL); // Give up control so other thread can take it

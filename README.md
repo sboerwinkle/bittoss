@@ -1,7 +1,7 @@
 
 ## Under Construction
 
-Note that this is just for myself and some friends at the moment, so don't expect things to be pretty or well documented. Also it's only written for Linux. It may never move past this stage, but I'm having fun with it, and that's what counts.
+Note that this is just for myself and some friends at the moment, so don't expect things to be pretty or well documented. It's intended to run on Linux, but may work on Windows using WSL (see below). It may never move past this stage, but I'm having fun with it, and that's what counts.
 
 The server resides in `server/` and uses python3. It does not need any arguments.
 
@@ -21,7 +21,13 @@ Documentation for the in-game editing functionality (and other advanced commands
 
 There's some other stuff as well, but I'm not going to put effort into writing that all down when it still might change.
 
-*Contributors:*
+## Running on Windows
+
+To run on Windows, set up WSL, then download, build, and run the game as you would on Linux.
+
+At this point it should be able to launch, but the mouse behavior will be all weird because WSL hasn't solved mouse capturing with OpenGL apps (tracked [here](https://github.com/microsoft/wslg/issues/376)). This can be solved with VcXsrv; install that, then use put `docs/bittoss_vcxsrv.bat` on your desktop or something to launch it.
+
+## Contributors
 
 sboerwinkle: Yours truly, primary author
 
