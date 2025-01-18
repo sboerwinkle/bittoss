@@ -1312,7 +1312,11 @@ static char handleCtrlBind(int key) {
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-	if (typingLen >= 0) {
+	// Most keypresses don't do their usual function if we're
+	// typing. Key releases are fine though! This approach is
+	// simpler than clearing all the keys when typing starts.
+	if (typingLen >= 0 && action != GLFW_RELEASE) {
+		// Some keys gain a function when typing, though.
 		if (action == GLFW_PRESS) {
 			if (key == GLFW_KEY_ESCAPE) {
 				typingLen = -1;
@@ -1326,8 +1330,6 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 				typingLen = -1;
 			}
 		}
-		// Typing mode primarily handles char input, not key input.
-		// Nothing else is handled here.
 		return;
 	}
 
