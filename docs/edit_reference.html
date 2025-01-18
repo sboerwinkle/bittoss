@@ -79,6 +79,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_spider">/spider</a></li>
 		<li><a href="#_legg">/legg</a></li>
 		<li><a href="#_seat">/seat</a></li>
+		<li><a href="#_sign">/sign</a></li>
 		<li><a href="#_respawn">/respawn</a></li>
 		<li><a href="#_teamselect">/teamselect</a></li>
 		<li><a href="#_scoreboard">/scoreboard</a></li>
@@ -400,6 +401,9 @@ Finally, consider setting a custom <a href="#_friction">/friction</a> on your le
 Makes the block act as a control point for vehicles. Players connect on contact and can eject by jumping. Currently this is really only useful in conjunction with <a href="#_legg">/legg</a>s.
 <div class="para"></div>
 Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
+<br/><br/>
+<b id="_sign">/sign</b><br/>
+The block shows some text above it, like a player nametag. The text to show is controlled by a slider; see also <a href="#_setstr">/setstr</a>. More details in-game with <a href="#_i">/i</a>.
 <br/><br/>
 <b id="_respawn">/respawn</b><br/>
 Makes the block respawn players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.

@@ -7,6 +7,7 @@
 #include "list.h"
 #include "ent.h"
 #include "main.h"
+#include "gamestring.h"
 #include "graphics.h"
 #include "handlerRegistrar.h"
 
@@ -922,6 +923,8 @@ static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const
 	rect(pos, e->radius, red, grn, blu);
 }
 
+static float whiteColor[3] = {1.0, 1.0, 1.0};
+
 void drawSign(ent *e, char const *text, int size, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	int32_t pos[3];
 	range(dim, 3) {
@@ -956,7 +959,7 @@ void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *con
 		ent *e = taggedList[i];
 		int32_t textIdx = e->sliders[0].v;
 		int32_t size = e->sliders[1].v;
-		drawSign(t, gamestring_get(textIdx), size, oldPos, newPos, interpRatio);
+		drawSign(e, gamestring_get(textIdx), size, oldPos, newPos, interpRatio);
 	}
 }
 
