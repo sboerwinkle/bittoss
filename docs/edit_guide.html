@@ -14,7 +14,7 @@ is a walkthrough tutorial guide thing for the in-game editing. It's designed to 
 <h3>Launching Server + Client</h3>
 Since editing is done in-game, the game has to be running. For that, you need the server up, even if you're just playing locally.
 <p></p>
-The server lives in <pre>server/</pre>, and can be started with e.g. <pre>./server.py 4</pre>. If it's successful, you should see a message like <pre>Server started on port 15000</pre>, and then it should wait.
+The server lives in <pre>server/</pre>, and can be started with <pre>./server.py</pre>. If it's successful, you should see a message like <pre>Server started on port 15000</pre>, and then it should wait.
 <p></p>
 The client is <pre>game</pre>, and needs the server IP as an argument. You should be able to start it with <pre>./game 127.0.0.1</pre>, and then you should see a guy you can move around.
 <p></p>
@@ -76,7 +76,7 @@ Now you should have both walls, floating above the ground, facing different dire
 <p></p>
 Now we're going to address the fact that it's still floating. You want your Blue Buffer to contain both walls, and the Red buffer to contain the ground - this shouldn't be too challenging, give it a go. Once you're set, we're going to double-check it just as an excuse to learn some new commands: <pre>Ctrl+F</pre> toggles the colors of blocks in the Blue Buffer, so you can see those better (then toggle them back). <pre>/i</pre> prints a bunch of info to the terminal you launched the client from; most of this is about the first block of the Blue Buffer, but at the end it should also say <pre>Selected 2, 1</pre>, indicating 2 Blue Buffer blocks and 1 Red Buffer block. Once you're set, just look down and issue <pre>Ctrl+E</pre> to align your walls to the ground.
 <p></p>
-One last trick to address before we move on from our half-house - now that you've got some blocks as a group, it might be nice to measure them. Since they're both in your Blue Buffer already, just look along whatever axis you want to measure, and type <pre>/m</pre>. Measurement info is printed to the terminal.
+One last trick to address before we move on from our half-house - now that you've got some blocks as a group, it might be nice to measure them. Since they're both in your Blue Buffer already, just look along whatever axis you want to measure, and type <pre><a href="edit_reference.html#_m">/m</a></pre>. Measurement info is printed to the terminal.
 
 <h3>Hard-to-Reach Places</h3>
 There's some handy techniques for getting around; we're going to put a block under the floor using them.
