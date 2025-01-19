@@ -478,6 +478,7 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			} else {
 				// If it was successful, update local `loadedFilename`
 				strcpy(loadedFilename, file);
+				printf("Loading game from %s\n", file);
 				*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
 				numCmds++;
 			}
