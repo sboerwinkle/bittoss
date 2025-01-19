@@ -126,6 +126,7 @@ enum {
 	TICK_DUST,
 	TICK_SPIDER,
 	TICK_SIGN,
+	TICK_LOADBLOCK,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?
@@ -160,6 +161,7 @@ enum {
 	PUSH_TEAMSELECT,
 	PUSH_SCOREBOARD,
 	PUSH_TELEPORT,
+	PUSH_LOADBLOCK,
 	PUSH_NUM
 };
 // Did you include your module in "modules.c"?

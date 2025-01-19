@@ -78,7 +78,7 @@ inputs activeInputs = {0}, sharedInputs = {0};
 
 char textBuffer[TEXT_BUF_LEN];
 char textSendInd = 0;
-queue<strbuf> outboundTextQueue;
+static queue<strbuf> outboundTextQueue;
 
 struct {
 	int width, height;
@@ -562,6 +562,7 @@ static void ensurePrefsSent() {
 	if (prefsSent) return;
 	prefsSent = 1;
 
+	lock(sharedInputsMutex);
 	char const *val = config_getColor();
 	if (*val) {
 		snprintf(outboundTextQueue.add().items, TEXT_BUF_LEN, "/c %s", val);
@@ -570,6 +571,7 @@ static void ensurePrefsSent() {
 	if (*val) {
 		snprintf(outboundTextQueue.add().items, TEXT_BUF_LEN, "/name %s", val);
 	}
+	unlock(sharedInputsMutex);
 }
 
 static void mkHeroes(gamestate *gs) {
@@ -1077,6 +1079,16 @@ void showMessage(gamestate const * const gs, char const * const msg) {
 void requestReload(gamestate const * const gs) {
 	if (gs != rootState) return;
 	if (isLoader) doReload = 1;
+}
+
+void requestLoad(gamestate const * gs, int playerIx, int gameStrIx) {
+	if (gs != rootState || playerIx != myPlayer) return;
+
+	lock(sharedInputsMutex);
+	char * dest = outboundTextQueue.add().items;
+	char const * src = gamestring_get(gameStrIx);
+	snprintf(dest, TEXT_BUF_LEN, "/load %s", src);
+	unlock(sharedInputsMutex);
 }
 
 static void newPhantom(gamestate *gs) {

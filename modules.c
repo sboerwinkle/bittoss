@@ -26,6 +26,7 @@
 #include "modules/door.h"
 #include "modules/dust.h"
 #include "modules/legg.h"
+#include "modules/loadblock.h"
 #include "modules/material.h"
 #include "modules/respawn.h"
 #include "modules/seat.h"
@@ -54,6 +55,7 @@ void initMods() {
 	module_door();
 	module_dust();
 	module_legg();
+	module_loadblock();
 	module_material();
 	module_respawn();
 	module_seat();
