@@ -102,16 +102,15 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 
 static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (
-		getButton(me, 1)
+		(type(him) & EQUIP_MASK)
+		&& !getButton(me, 1) // May change this later, but for now 'shift' inhibits pickups
 		&& !(1 & getSlider(me, s_equip_processed))
-		&& (type(him) & EQUIP_MASK)
 		&& !getSlider(me, s_editmode)
 		&& !him->holder
 	) {
 		int32_t tEquip = him->typeMask & T_EQUIP;
 		int32_t tEquipSm = him->typeMask & T_EQUIP_SM;
-		char primaryEquipment = 0;
-		ent *offhandEquipment = NULL;
+		ent *existingEquipment = NULL;
 
 		holdeesAnyOrder(h, me) {
 			int32_t heldEquip = h->typeMask & T_EQUIP;
@@ -122,30 +121,26 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 				// or both require the primary hand,
 				// or we're also holding an offhand item,
 				// we can't pickup.
-				if (heldEquipSm || tEquip || offhandEquipment) return;
-				// Otherwise, we're 1-handed and they're offhand, so no issue yet
-				primaryEquipment = 1;
+				if (heldEquipSm || tEquip || existingEquipment) return;
+				// Otherwise, we're primary and they're offhand, so no issue yet
+				existingEquipment = h;
 			} else if (heldEquipSm) {
 				// If this is our second piece of equipment,
 				// we can't pickup.
-				if (primaryEquipment || offhandEquipment) return;
+				if (existingEquipment) return;
 				// If the new equip is 2-handed,
 				// we can't pickup.
 				if (tEquip && tEquipSm) return;
 				// Otherwise, no issue yet
-				offhandEquipment = h;
+				existingEquipment = h;
 			}
 			// else, some non-equipment holdee, we don't care.
 		}
 
-		// By this point, we know we can pick it up, the only question is
-		// which hand, and do we have to swap an existing offhand item...
-		if (tEquip) {
-			if (offhandEquipment) uSlider(offhandEquipment, 0, 1);
-		} else {
-			// Else we know incoming item is offhand, need to know
-			// which hand it goes in. Prefer off-hand if possible.
-			char hand = !(offhandEquipment && getSlider(offhandEquipment, 0));
+		// By this point, we know we can pick it up. If it's not
+		// 2-handed, though, we still have to decide which hand.
+		if (!(tEquip && tEquipSm)) {
+			char hand = existingEquipment && !getSlider(existingEquipment, 0);
 			uSlider(him, 0, hand);
 		}
 
@@ -206,22 +201,14 @@ void player_flipBaubles(ent *me) {
 }
 
 // Which hand(s) the given equipment uses (1, 2, or 1+2)
-// 2-handed item =>           T_EQUIP + T_EQUIP_SM
-// 1-handed (primary) item => T_EQUIP
-// ambidextrous item =>       T_EQUIP_SM, slider 0 indicates hand
 static char getEquipHands(ent *e) {
 	// EQUIP_MASK == T_EQUIP + T_EQUIP_SM
-	if (!(e->typeMask & EQUIP_MASK)) return 0;
-	char hands = 0;
-
-	int32_t tEquip = e->typeMask & T_EQUIP;
-	if (tEquip || !getSlider(e, 0)) {
-		hands = 1;
-	}
-	if ((e->typeMask & T_EQUIP_SM) && (tEquip || getSlider(e, 0))) {
-		hands |= 2;
-	}
-	return hands;
+	int32_t equipFlags = e->typeMask & EQUIP_MASK;
+	if (!equipFlags) return 0;
+	if (equipFlags == EQUIP_MASK) return 3; // Both hands
+	// Anything else (primary equip or offhand equip)
+	// contractually must store its hand in slider 0.
+	return 1 + !!getSlider(e, 0);
 }
 
 static void player_tick(gamestate *gs, ent *me) {
@@ -295,12 +282,12 @@ static void player_tick(gamestate *gs, ent *me) {
 			hands |= eHands;
 		}
 
-		// Update s_equip_processed
+		// Update s_equip_processed. This tracks equipment actions, namely pickups, Shift+LMB, Shift+RMB.
 		int32_t equipProcessed = getSlider(me, s_equip_processed);
-		// equipProcessed tracks equipment actions, namely Shift, Shift+LMB, Shift+RMB.
+		equipProcessed &= ~1; // Clear the 'item picked up' flag, we can process one per frame.
 		if (altfire) {
 			if (!(equipProcessed & 2)) {
-				equipProcessed |= 3;
+				equipProcessed |= 2;
 				drops |= 1;
 			}
 		} else {
@@ -308,18 +295,12 @@ static void player_tick(gamestate *gs, ent *me) {
 		}
 		if (altfire2) {
 			if (!(equipProcessed & 4)) {
-				equipProcessed |= 5;
+				equipProcessed |= 4;
 				drops |= 2;
 			}
 		} else {
 			equipProcessed &= ~4;
 		}
-		// altfire/altfire2 also mark utility (Shift) as processed, since the purpose of
-		// pressing Shift might have been to get at altfire/altfire2.
-		// It's also possible Shift is released by the time the frame processes, though,
-		// so we do this check last:
-		if (!utility) equipProcessed &= ~1;
-		// (if `utility` is true, we don't act on that here, it's for pickups in the "push" handler)
 		uSlider(me, s_equip_processed, equipProcessed);
 
 		// We don't always need this but sometimes we do
@@ -341,8 +322,8 @@ static void player_tick(gamestate *gs, ent *me) {
 				// Else we have a drop request, but nothing in that hand.
 				// This is how we swap offhand item hands, let's try that
 				holdeesAnyOrder(h, me) {
-					// We know it can't be 2-handed, so T_EQUIP_SM means offhand here
-					if (h->typeMask & T_EQUIP_SM) {
+					// We know it can't be 2-handed, so any equipment we find is swappable
+					if (h->typeMask & EQUIP_MASK) {
 						// `drops` is a bitfield, but from context we know it must be either
 						// 1 or 2 right now, so we can be a little sneaky and subtract 1 to
 						// get the index of the hand the "drop" was requested on

@@ -22,7 +22,7 @@ static ent* mkFlag(gamestate *gs, ent *owner, int32_t team) {
 	ent *e = initEnt(
 		gs, owner,
 		owner->center, owner->vel, flagSize,
-		2,
+		1, // Slider here is for handedness, since this is equipment
 		T_FLAG + T_EQUIP + T_OBSTACLE + (TEAM_BIT*team) + T_NO_DRAW_SELF, T_TERRAIN + T_OBSTACLE
 	);
 	e->whoMoves = whoMovesHandlers.get(WHOMOVES_ME);

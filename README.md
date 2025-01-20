@@ -12,7 +12,7 @@ Once in-game, the default map is sort of capture-the-flag, though there's not pr
 - WASD: move
 - Space: jump
 - Mouse: look, primary/secondary fire
-- Left Shift: hold while bumping into equipment to pick it up. Shift + click drops equipment. The only "equipment" on the default map is the flags.
+- Left Shift: Shift + click drops equipment. The only "equipment" on the default map is the flags.
 - Tab: toggles first-person, which used to be a lot more useful
 
 You can change your nametag (visible to other players) with `/name`.

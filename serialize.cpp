@@ -9,8 +9,8 @@
 #include "serialize.h"
 #include "handlerRegistrar.h"
 
-static const char* version_string = "gam6";
-#define VERSION 6
+static const char* version_string = "gam7";
+#define VERSION 7
 
 static int version; // TODO global state is bad, use a context object during deserialization
 
@@ -262,37 +262,41 @@ static void handleButtons(const list<const char> *data, int *ix, ent *e) {
 	}
 }
 
-static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<const char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
+static void deserializeEnt(gamestate *gs, ent** ents, int numEnts, ent *e, const list<const char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
 	int32_t c[3], v[3], r[3];
 
 #define check(x) checksum(data, ix, x)
 #define i32(x) x = read32(data, ix)
 #define handler(x, y, i) if (handlersBitfield & (1 << i)) x = y.get(read32(data, ix))
-#define wire(x) x = ents[read32(data, ix)]
 	check(128);
 	range(i, 3) c[i] = read32(data, ix) + c_offset[i];
 	range(i, 3) v[i] = read32(data, ix) + v_offset[i];
 	range(i, 3) i32(r[i]);
 	check(129);
-	// Order in which arguments are evaluated isn't defined, so this has to be explicitly ordered
-	// I bet you can guess that I learned that the hard way
 	int32_t numSliders = read32(data, ix);
 	int32_t typeMask = read32(data, ix);
 	int32_t collideMask = read32(data, ix);
+
+	char equipFix = (version < 7) && ((typeMask & EQUIP_MASK) == T_EQUIP);
+	if (equipFix) numSliders++;
+
 	initEnt(e, gs, NULL, c, v, r, numSliders, typeMask, collideMask);
 
 	int32_t numWires;
 	i32(numWires);
 	e->wires.setMaxUp(numWires);
-	e->wires.num = numWires;
 
 	check(130);
 	i32(e->color);
 	handleButtons(data, ix, e);
-	range(i, e->numSliders) i32(e->sliders[i].v);
+	// When `equipFix` is set, skip the first slider
+	range(i, e->numSliders) if (!equipFix || i) i32(e->sliders[i].v);
 	check(131);
-	// TODO unchecked access here, provided ent index could be bogus
-	range(i, numWires) wire(e->wires[i]);
+	range(i, numWires) {
+		int32_t entIx = read32(data, ix);
+		if (entIx >= 0 && entIx < numEnts) e->wires.add(ents[entIx]);
+		else fprintf(stderr, "Invalid wire during deserialization: %d\n", entIx);
+	}
 
 	check(132);
 	int32_t handlersBitfield = (version >= 4) ? read32(data, ix) : 63;
@@ -300,14 +304,17 @@ static void deserializeEnt(gamestate *gs, ent** ents, ent *e, const list<const c
 	if (handlersBitfield & (1<<31)) {
 		i32(e->friction);
 	}
-#undef wire
 #undef i32
 #undef handler
 #undef check
 	int holder = read32(data, ix);
 	int holdFlags = version >= 2 ? read32(data, ix) : 0;
 	if (holder != -1) {
-		pickupNoHandlers(gs, ents[holder], e, holdFlags);
+		if (holder >= 0 && holder < numEnts) {
+			pickupNoHandlers(gs, ents[holder], e, holdFlags);
+		} else {
+			fprintf(stderr, "Invalid holder during deserialization: %d\n", holder);
+		}
 	}
 }
 
@@ -373,7 +380,7 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 		ents[i] = (ent*) calloc(1, sizeof(ent));
 	}
 	range(i, numEnts) {
-		deserializeEnt(gs, ents, ents[i], data, ix, zeroVec, zeroVec);
+		deserializeEnt(gs, ents, numEnts, ents[i], data, ix, zeroVec, zeroVec);
 	}
 
 	int serializedPlayers = read32(data, ix);
@@ -425,7 +432,7 @@ void deserializeSelected(gamestate *gs, const list<const char> *data, const int3
 		ents[i] = (ent*) calloc(1, sizeof(ent));
 	}
 	range(i, numEnts) {
-		deserializeEnt(gs, ents, ents[i], data, ix, c_offset, v_offset);
+		deserializeEnt(gs, ents, numEnts, ents[i], data, ix, c_offset, v_offset);
 	}
 
 	delete[] ents;

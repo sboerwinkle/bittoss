@@ -13,6 +13,7 @@
 #include "gun.h"
 
 enum {
+	s_hand,
 	s_ammo,
 	s_cooldown,
 	s_reload,
@@ -24,6 +25,7 @@ enum {
 };
 
 char const * const * const M_GUN_HELP = (char const * const[]) {
+	"(internal) hand",
 	"(internal) ammo",
 	"(internal) cooldown",
 	"(internal) reload progress",
@@ -45,7 +47,7 @@ static void gun_tick_held(gamestate *gs, ent *me) {
 	int32_t ammo = getSlider(me, s_ammo);
 	if (cooldown > 1) {
 		uSlider(me, s_cooldown, cooldown - 1);
-	} else if (getTrigger(h, 0) && ammo) {
+	} else if (getTrigger(h, !!getSlider(me, s_hand)) && ammo) {
 		uSlider(me, s_cooldown, getSlider(me, s_cooldown_max));
 		uSlider(me, s_ammo, ammo-1);
 		uSlider(me, s_reload, 0);

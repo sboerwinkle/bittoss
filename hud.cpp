@@ -101,11 +101,11 @@ static char drawEquipUi(ent *e) {
 		}
 		return hands;
 	} else if (e->tickHeld == gun_tick_held) {
-		int ammo = getSlider(e, 0);
-		int ammoMax = getSlider(e, 3);
+		int ammo = getSlider(e, 1);
+		int ammoMax = getSlider(e, 4);
 		if (ammoMax <= 0) ammoMax = 1;
-		int reload = getSlider(e, 2);
-		int reloadMax = getSlider(e, 5);
+		int reload = getSlider(e, 3);
+		int reloadMax = getSlider(e, 6);
 		if (reloadMax <= 0) reloadMax = 1;
 		double fullWidth = ammoMax/64.0;
 		double start = 0.5 - fullWidth/2;
@@ -123,7 +123,10 @@ static char drawEquipUi(ent *e) {
 		drawHudRect(0.5 - unit, 0.5+unit-line, 2*unit, line, hudColor); // Bottom of flag
 		drawHudRect(0.5+unit-line, 0.5, line, unit, hudColor); // Far edge of flag
 	}
-	return 4 + ((e->typeMask & T_EQUIP_SM) ? 3 : 1);
+	// We already handled the offhand case, so this would be the 2-handed case
+	if (e->typeMask & T_EQUIP_SM) return 7;
+	// Only remaining case is 1-handed primary
+	return 4 + 1 + !!getSlider(e, 0);
 }
 
 static void drawToolsCursor(ent *p) {
@@ -134,7 +137,14 @@ static void drawToolsCursor(ent *p) {
 			hands |= drawEquipUi(e);
 		}
 	}
-	if ((hands & 3) != 3) {
+	// If we have some equipment, but nothing in the
+	// middle of the screen yet, we draw a lil mark.
+	if (hands && !(hands & 4)) {
+		drawHudRect(0.5 - 1.0/256, 0.5, 1.0/128, 1.0/256, hudColor);
+	}
+	// We don't need the `4` bit anymore
+	hands &= ~4;
+	if (hands != 3) {
 		// UI for basic shooty-block player
 
 		int charge = getSlider(p, 8);
@@ -142,11 +152,9 @@ static void drawToolsCursor(ent *p) {
 		if (charge > 600) charge = 600;
 
 		float x;
-		if ((hands & 3) == 1) x = 0.6; // Draw it to the right if only our primary hand is full
-		else {
-			x = 0.5 - 3.0/128; // Otherwise (empty hands / off-hand full), draw in center
-			hands |= 4; // Also mark central reticle as filled so we don't add the dot
-		}
+		if (hands == 1) x = 0.6; // Right side
+		else if (hands == 2) x = 0.4 - 3.0/64; // Left side
+		else x = 0.5 - 3.0/128; // Centered (no equipment)
 
 		while (charge >= 60) {
 			drawHudRect(x, 0.5, 1.0/64, 1.0/64, hudColor);
@@ -154,10 +162,6 @@ static void drawToolsCursor(ent *p) {
 			charge -= 60;
 		}
 		drawHudRect(x, 0.5 + 1.0/256, (float)charge*(1.0/64/60), 1.0/128, hudColor);
-	}
-	// Small mark if the central reticle hasn't been filled by anything else
-	if (!(hands & 4)) {
-		drawHudRect(0.5 - 1.0/256, 0.5, 1.0/128, 1.0/256, hudColor);
 	}
 }
 
@@ -191,8 +195,12 @@ void drawHud(ent *p) {
 			drawToolsCursor(p);
 		}
 		// 2px line for grounded / not grounded indicator
-		float *c = getSlider(p, 7) ? hudColor : hudColorDark;
-		drawHudRect(0.5 - 1.0/64, 0.6, 1.0/32, 2.0/displayHeight, c);
+		if (getSlider(p, 7)) {
+			drawHudRect(0.5 - 1.0/64, 0.6, 1.0/32, 2.0/displayHeight, hudColor);
+		} else {
+			drawHudRect(0.5 - 1.0/ 64, 0.6, 1.0/128, 2.0/displayHeight, hudColor);
+			drawHudRect(0.5 + 1.0/128, 0.6, 1.0/128, 2.0/displayHeight, hudColor);
+		}
 		drawVeloceter(p);
 	}
 }
