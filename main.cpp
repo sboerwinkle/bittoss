@@ -120,7 +120,7 @@ static int mouseDragMode = 0, mouseDragInput = 0, mouseDragOutput = 0, mouseDrag
 static int mouseDragSize = 30;
 static int mouseDragSteps = 0;
 
-static int32_t ghostCenter[3] = {0, -15000, 16000};
+static int32_t ghostCenter[3] = {0, 0, 0};
 
 static tick_t seat_tick, seat_tick_old;
 
@@ -1726,14 +1726,19 @@ int main(int argc, char **argv) {
 
 	net2_init(numPlayers);
 
-	// Map loading
-	mkMap(rootState);
-	// Loading from file is one thing, but programatically defined maps may need a `flush` so things aren't weird the first time around.
-	// `flush` isn't exposed since this is the one time we need it, and it's not like it really matters,
-	// so we just do the second half of a normal step to get the same effect.
-	prepPhysics(rootState);
-	doPhysics(rootState);
-	finishStep(rootState);
+	{
+		timespec now;
+		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
+		rootState->rand = now.tv_sec;
+
+		list<char> data;
+		data.init();
+		readFile("lobby.sav", &data);
+		list<const char> const fakeList = {.items=data.items, .num = data.num, .max = data.num};
+		deserialize(rootState, &fakeList, 0);
+		data.destroy();
+	}
+
 	// init phantomState
 	newPhantom(rootState);
 	renderedState = dup(rootState); // Give us something to render, so we can skip null checks
