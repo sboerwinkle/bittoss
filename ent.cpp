@@ -43,6 +43,19 @@ static void recursiveHoldRoot(ent *who, ent *r) {
 	}
 }
 
+void entsLlAdd(gamestate *gs, ent *e) {
+	if (gs->ents) gs->ents->ll.p = e;
+	e->ll.n = gs->ents;
+	e->ll.p = NULL;
+	gs->ents = e;
+}
+
+void entsLlRemove(gamestate *gs, ent *e) {
+	if (e->ll.p) e->ll.p->ll.n = e->ll.n;
+	else gs->ents = e->ll.n;
+	if (e->ll.n) e->ll.n->ll.p = e->ll.p;
+}
+
 static void addRootEnt(gamestate *gs, ent *e) {
 	if (gs->rootEnts) gs->rootEnts->LL.p = e;
 	e->LL.n = gs->rootEnts;
@@ -94,10 +107,7 @@ void addEnt(gamestate *gs, ent *e, ent *relative) {
 	if (needsVelbox(e)) assignVelbox(e, getRelBox(gs, relative));
 	else e->myBox = NULL;
 
-	if (gs->ents) gs->ents->ll.p = e;
-	e->ll.n = gs->ents;
-	e->ll.p = NULL;
-	gs->ents = e;
+	entsLlAdd(gs, e);
 	addRootEnt(gs, e);
 }
 
@@ -180,10 +190,7 @@ static void killEntNoHandlers(gamestate *gs, ent *e) {
 	while (e->holdee) fumble(gs, e->holdee);
 	fumble(gs, e);
 
-	//if (ents == e) ents = e->ll.n;
-	if (e->ll.p) e->ll.p->ll.n = e->ll.n;
-	else gs->ents = e->ll.n;
-	if (e->ll.n) e->ll.n->ll.p = e->ll.p;
+	entsLlRemove(gs, e);
 
 	rmRootEnt(gs, e);
 	if (e->myBox) {

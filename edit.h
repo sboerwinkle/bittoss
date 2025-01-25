@@ -38,6 +38,7 @@ extern void edit_drop(gamestate *gs, ent *me);
 extern void edit_wire(gamestate *gs, ent *me);
 extern void edit_unwire(gamestate *gs, ent *me);
 extern void edit_factory(gamestate *gs, ent *me);
+extern void edit_first(gamestate *gs, ent *me);
 extern void edit_string_get(const char *argsStr, char verbose);
 extern void edit_string_set(gamestate *gs, const char *argsStr, char verbose);
 extern void edit_highlight(gamestate *gs, ent *me);

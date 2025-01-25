@@ -1079,6 +1079,17 @@ void edit_factory(gamestate *gs, ent *me) {
 	fixNewBaubles(gs);
 }
 
+void edit_first(gamestate *gs, ent *me) {
+	if (!me) return;
+	getLists(me);
+
+	for (int i = a.num - 1; i >= 0; i--) {
+		ent *e = a[i];
+		entsLlRemove(gs, e);
+		entsLlAdd(gs, e);
+	}
+}
+
 void edit_string_get(const char *argsStr, char verbose) {
 	if (!verbose) return;
 	int32_t ix;

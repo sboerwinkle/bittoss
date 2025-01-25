@@ -812,6 +812,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/unwire", edit_unwire(gs, me));
 
 	cmd("/factory", edit_factory(gs, me));
+	cmd("/first", edit_first(gs, me));
 
 	cmd("/str", edit_string_get(chatBuffer+4, verbose));
 	cmd("/setstr", edit_string_set(gs, chatBuffer+7, verbose));

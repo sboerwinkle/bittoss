@@ -123,6 +123,7 @@ This is intended as more of an in-depth technical reference. Consider also the <
 		<li><a href="#_turn">/turn</a></li>
 		<li><a href="#_scale">/scale</a></li>
 		<li><a href="#_factory">/factory</a></li>
+		<li><a href="#_first">/first</a></li>
 		<li><a href="#_c">/c</a></li>
 		</ul>
 	</li>
@@ -625,6 +626,11 @@ Transforms the blocks in the Blue buffer into factory blocks instead. These can 
 In terms of how they produce their product, factory blocks should mostly be treated as a black box. There's nothing terribly arcane, but there are a lot of sliders required to replicate all the state, and restoring wires does require additional factory blocks (which are automatically added to the Blue buffer, so you don't need to worry about that). It is almost always easier to instantiate the factory, make some change on the object, and turn that back into a new factory, than it is to modify an existing factory.
 <div class="para"></div>
 However, so long as you don't mess with <a href="#_slider">sliders</a> or <a href="#type">types</a>, most other operations are fine. For example, you can move, <a href="#_copy">/copy</a>, <a href="#_flip">/flip</a>, and re-<a href="#_c">color</a> factories freely, or even <a href="#_pickup">attach</a> them to something. Most <a href="#material">material commands</a> are also fine, e.g. <a href="#_wall">/wall</a> for ease of manipulation, but you'll probably want it back as a <a href="#_ghost">/ghost</a> before activating it.
+<br/><br/>
+<b id="_first">/first</b><br/>
+Most of the game is careful that the underlying, hidden order of the blocks doesn't matter; ties are never broken by order. In some cases however, such as when there are multiple eligible <a href="#_respawn">respawn</a> points, the tie must be broken and there may not be a good way to do it. In this case, order matters.
+<div class="para"></div>
+This command takes the blocks in the blue buffer and moves them to front of the order. Blocks that were added to the blue buffer sequentially will have this order reversed (most recently-added block will be first in the order). Blocks that were added as a group (for instance, from <a href="#_inside">/inside</a>) will typically maintain their relative order, but there are exceptions. Given the rarity of this command, I'm not documenting / maintaining a list of those exceptions, as it isn't something I usually think about.
 <br/><br/>
 <b id="_c">/c</b> ([0-9A-F]{6}|<span>CSS4_name</span>)<br/>
 This command also works even with the editing <a href="#_rule">/rule</a> disabled, in which case it always just affects your player's color (both your current block, and future spawns).

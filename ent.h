@@ -202,6 +202,9 @@ extern void flushPickups(gamestate *gs);
 
 //extern void accelRecursive(ent *who, int32_t *a);
 
+void entsLlAdd(gamestate *gs, ent *e);
+void entsLlRemove(gamestate *gs, ent *e);
+
 extern void assignVelbox(ent *e, box *relBox);
 extern void addEnt(gamestate *gs, ent *e, ent *relative);
 extern void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags);
