@@ -75,9 +75,19 @@ static void writeStr(list<char> *data, const char *str) {
 	data->num = end;
 }
 
+// Returns the last top-level ent (or NULL if no ents)
+static ent* getTail(gamestate *gs) {
+	ent *e = gs->ents;
+	if (!e) {
+		return NULL;
+	}
+	while (e->ll.n) e = e->ll.n;
+	return e;
+}
+
 static int enumerateAll(ent *e) {
 	int ix = 0;
-	for (; e; e = e->ll.n) {
+	for (; e; e = e->ll.p) {
 		e->clone.ix = ix++;
 	}
 	return ix;
@@ -85,7 +95,7 @@ static int enumerateAll(ent *e) {
 
 static int enumerateSelected(ent *e) {
 	int ix = 0;
-	for (; e; e = e->ll.n) {
+	for (; e; e = e->ll.p) {
 		if (e->clone.ix != -1) e->clone.ix = ix++;
 	}
 	return ix;
@@ -154,7 +164,7 @@ static void serializeEnt(ent *e, list<char> *data, const int32_t *c_offset, cons
 }
 
 static void serializeEnts(ent *e, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
-	for (; e; e = e->ll.n) {
+	for (; e; e = e->ll.p) {
 		if (e->clone.ix != -1) serializeEnt(e, data, c_offset, v_offset);
 	}
 }
@@ -179,10 +189,11 @@ static void serializeGamestrings(list<char> *data) {
 void serialize(gamestate *gs, list<char> *data) {
 	writeHeader(data);
 
+	ent *tail = getTail(gs);
 	// Count of entities
-	write32(data, enumerateAll(gs->ents));
+	write32(data, enumerateAll(tail));
 
-	serializeEnts(gs->ents, data, zeroVec, zeroVec);
+	serializeEnts(tail, data, zeroVec, zeroVec);
 
 	int numPlayers = gs->players.num;
 	write32(data, numPlayers);
@@ -204,10 +215,11 @@ void serialize(gamestate *gs, list<char> *data) {
 void serializeSelected(gamestate *gs, list<char> *data, const int32_t *c_offset, const int32_t *v_offset) {
 	writeHeader(data);
 
+	ent *tail = getTail(gs);
 	// Count of entities
-	write32(data, enumerateSelected(gs->ents));
+	write32(data, enumerateSelected(tail));
 
-	serializeEnts(gs->ents, data, c_offset, v_offset);
+	serializeEnts(tail, data, c_offset, v_offset);
 
 	write32(data, 0); // Number of players (0)
 	// This is ignored in normal use. However, if we load this as a level, we don't want a 0 here.

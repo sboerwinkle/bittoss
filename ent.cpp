@@ -627,25 +627,6 @@ static char shouldResolveCollision(gamestate *gs, ent *e) {
 	}
 }
 
-static void _doTick(gamestate *gs, ent *e) {
-	if (e->tick != NULL) (*e->tick)(gs, e);
-}
-
-static void _doTickHeld(gamestate *gs, ent *e) {
-	if (e->tickHeld != NULL) (*e->tickHeld)(gs, e);
-}
-
-static void doTick(gamestate *gs, ent *e, int type) {
-	if (type == 1) _doTickHeld(gs, e);
-	else _doTick(gs, e);
-
-	ent *i;
-	for (i = e->holdee; i; i = i->LL.n) {
-		int ret = e->tickType(e, i);
-		if (ret) doTick(gs, i, ret);
-	}
-}
-
 static void flushMisc(gamestate *gs, ent *e) {
 	if (e->fullFlush) {
 		e->fullFlush = 0;
@@ -797,9 +778,12 @@ static void flushCtrls(gamestate *gs) {
 
 void doUpdates(gamestate *gs) {
 	flushCtrls(gs);
-	ent *i;
-	for (i = gs->rootEnts; i; i = i->LL.n) {
-		doTick(gs, i, 2);
+	for (ent *e = gs->ents; e; e = e->ll.n) {
+		if (e->holder) {
+			if (e->tickHeld != NULL) (*e->tickHeld)(gs, e);
+		} else {
+			if (e->tick != NULL) (*e->tick)(gs, e);
+		}
 	}
 }
 

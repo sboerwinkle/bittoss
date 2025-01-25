@@ -7,8 +7,6 @@
 
 #include "entFuncs.h"
 
-int tickTypeDefault(ent *a, ent *b) {return 1;}
-
 char okayFumbleDefault(ent *me, ent *him) {
 	return 0;
 }
@@ -64,7 +62,6 @@ void initEnt(
 	e->whoMoves = NULL;
 	e->tick = NULL;
 	e->tickHeld = NULL;
-	e->tickType = tickTypeDefault;
 	e->color = -1;
 	e->friction = DEFAULT_FRICTION;
 	e->crush = NULL;

@@ -144,8 +144,6 @@ typedef struct ent {
 	tick_t tick;
 	// Like above, but when someone is holding me. Doesn't technically have to be a separate method, but a lot of things are going to do nothing when held, so this encourages that "default" behavior.
 	tick_t tickHeld;
-	//void (*onTickHeld)(struct ent *me);
-	int (*tickType)(struct ent *me, struct ent *him);
 	int32_t color;
 	int32_t friction;
 	crush_t crush;
