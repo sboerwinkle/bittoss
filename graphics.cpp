@@ -15,8 +15,8 @@ int displayWidth = 0;
 int displayHeight = 0;
 
 // Might improve this later, for now we just send the updated coords to the graphics card
-// once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 6 attributes/vertex (XYZRGB)
-static GLfloat boxData[216];
+// once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 8 attributes/vertex (XYZRGBUV)
+static GLfloat boxData[288];
 
 static GLuint main_prog, stipple_prog, tag_prog, flat_prog;
 static GLuint vaos[2];
@@ -34,6 +34,8 @@ static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
 static GLfloat camera_uniform_mat[16];
 static float rotation_mat[16];
+
+static GLuint tex_noise;
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
 static void printGLProgErrors(GLuint prog, const char *name){
@@ -131,7 +133,6 @@ void initGraphics() {
 	glAttachShader(flat_prog, fragShader);
 	glLinkProgram(flat_prog);
 	cerr("Post link");
-
 	/* TODO:
 	 * / Offset is handled in CPU code (ints are fun)
 	 * / set u_camera appropriately (ExternLinAlg.h is big friend-o here)
@@ -143,6 +144,7 @@ void initGraphics() {
 	// These will be the same attrib locations as stipple_prog, since they use the same vertex shader
 	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
 	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
+	GLint a_uv_id = glGetAttribLocation(main_prog, "a_uv");
 	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
 
 	if (u_camera_id != glGetUniformLocation(stipple_prog, "u_camera")) {
@@ -182,27 +184,60 @@ void initGraphics() {
 	glEnable(GL_CULL_FACE);
 	//glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
 	glGenVertexArrays(2, vaos);
-
+	cerr("After GenVertexArrays");
+	{// prepare va 0
 	glBindVertexArray(vaos[0]);
 	glEnableVertexAttribArray(a_loc_id);
 	glEnableVertexAttribArray(a_color_id);
+	glEnableVertexAttribArray(a_uv_id);
 	glGenBuffers(1, &stream_buffer_id);
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
 	// Position data is first
-	glVertexAttribPointer(a_loc_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (void*) 0);
+	glVertexAttribPointer(a_loc_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) 0);
 	// Followed by color data
-	glVertexAttribPointer(a_color_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (void*) (sizeof(GLfloat) * 3));
-
+	glVertexAttribPointer(a_color_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) (sizeof(GLfloat) * 3));
+	// Followed by uv data
+	glVertexAttribPointer(a_uv_id, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) (sizeof(GLfloat) * 6));
+	}
+	cerr("End of vao 0 prep");
+	{// prepare va 1
 	glBindVertexArray(vaos[1]);
 	glEnableVertexAttribArray(a_flat_loc_id);
 	initFont();
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
+	}
+	cerr("End of vao 1 prep");
 
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
 	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
 	// (Further note: Unlike GL_ELEMENT_ARRAY_BUFFER, the GL_ARRAY_BUFFER binding is _NOT_ part of VAO state.
 	//  Its value is written to VAO state when glVertexAttribPointer (and kin) are called, though.)
+
+	// Generate a random texture for mottling
+	uint8_t tex_noise_data[MOTTLE_TEX_RESOLUTION*MOTTLE_TEX_RESOLUTION];
+	uint32_t rstate = 59423;
+	for(int idx = 0; idx < MOTTLE_TEX_RESOLUTION*MOTTLE_TEX_RESOLUTION; idx++){
+		/* Algorithm "xor" from p. 4 of Marsaglia, "Xorshift RNGs" */
+		rstate ^= rstate << 13;
+		rstate ^= rstate >> 17;
+		rstate ^= rstate << 5;
+		tex_noise_data[idx] = rstate & 0xFF;
+	}
+	glGenTextures(1, &tex_noise);
+	glBindTexture(GL_TEXTURE_2D, tex_noise);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// When evaluating changes to the below filtering settings, you should at least evaluate the two scenarios:
+	//  1. You are on a large, flat plane moving around.
+	//    How crisp is it? How visible is the mipmap and sampling seam? How much does the sampling seam move as you move the camera only?
+	//  2. There is a large object moving in the distance.
+	//    How crisp is it? How does it look as it approaches the threshold of minification->magnification? Is there significant aliasing shimmer?
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, MOTTLE_TEX_RESOLUTION, MOTTLE_TEX_RESOLUTION, 0, GL_RED, GL_UNSIGNED_BYTE, tex_noise_data);
+	// We do naive 'generateMipmap', but we should possibly consider forcing some of the extreme mipmap levels to be exactly neutral (rather than assuming it will filter to that)
+	glGenerateMipmap(GL_TEXTURE_2D);
 	cerr("End of graphics setup");
 }
 
@@ -368,57 +403,63 @@ void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
 	GLfloat r5 = red * 0.50;
 	GLfloat g5 = grn * 0.50;
 	GLfloat b5 = blu * 0.50;
+	GLfloat xuv = ((float)(r[0]*2)) * MOTTLE_TEX_SCALE;
+	GLfloat yuv = ((float)(r[1]*2)) * MOTTLE_TEX_SCALE;
+	GLfloat zuv = ((float)(r[2]*2)) * MOTTLE_TEX_SCALE;
 	// Hopefully the compiler will optimize the counter out.
 	// As previously stated, needs work.
 	int counter = 0;
-#define vtx(x, y, z, r, g, b) \
+#define vtx(x, y, z, r, g, b, u, v) \
 	boxData[counter++] = x; \
 	boxData[counter++] = y; \
 	boxData[counter++] = z; \
 	boxData[counter++] = r; \
 	boxData[counter++] = g; \
-	boxData[counter++] = b;
+	boxData[counter++] = b; \
+	boxData[counter++] = u; \
+	boxData[counter++] = v; \
+	// END vtx
 	// Top is full color
-	vtx(L,F,U,r1,g1,b1);
-	vtx(L,B,U,r1,g1,b1);
-	vtx(R,F,U,r1,g1,b1);
-	vtx(L,B,U,r1,g1,b1);
-	vtx(R,B,U,r1,g1,b1);
-	vtx(R,F,U,r1,g1,b1);
+	vtx(L,F,U,r1,g1,b1,0.0,0.0);
+	vtx(L,B,U,r1,g1,b1,0.0,yuv);
+	vtx(R,F,U,r1,g1,b1,xuv,0.0);
+	vtx(L,B,U,r1,g1,b1,0.0,yuv);
+	vtx(R,B,U,r1,g1,b1,xuv,yuv);
+	vtx(R,F,U,r1,g1,b1,xuv,0.0);
 	// Front is dimmer
-	vtx(L,F,U,r2,g2,b2);
-	vtx(R,F,U,r2,g2,b2);
-	vtx(L,F,D,r2,g2,b2);
-	vtx(R,F,U,r2,g2,b2);
-	vtx(R,F,D,r2,g2,b2);
-	vtx(L,F,D,r2,g2,b2);
+	vtx(L,F,U,r2,g2,b2,0.0,0.0);
+	vtx(R,F,U,r2,g2,b2,0.0,xuv);
+	vtx(L,F,D,r2,g2,b2,zuv,0.0);
+	vtx(R,F,U,r2,g2,b2,0.0,xuv);
+	vtx(R,F,D,r2,g2,b2,zuv,xuv);
+	vtx(L,F,D,r2,g2,b2,zuv,0.0);
 	// Sides are a bit dimmer
-	vtx(L,B,U,r3,g3,b3);
-	vtx(L,F,U,r3,g3,b3);
-	vtx(L,B,D,r3,g3,b3);
-	vtx(L,F,U,r3,g3,b3);
-	vtx(L,F,D,r3,g3,b3);
-	vtx(L,B,D,r3,g3,b3);
-	vtx(R,F,D,r3,g3,b3);
-	vtx(R,F,U,r3,g3,b3);
-	vtx(R,B,D,r3,g3,b3);
-	vtx(R,F,U,r3,g3,b3);
-	vtx(R,B,U,r3,g3,b3);
-	vtx(R,B,D,r3,g3,b3);
+	vtx(L,B,U,r3,g3,b3,0.0,0.0);
+	vtx(L,F,U,r3,g3,b3,0.0,yuv);
+	vtx(L,B,D,r3,g3,b3,zuv,0.0);
+	vtx(L,F,U,r3,g3,b3,0.0,yuv);
+	vtx(L,F,D,r3,g3,b3,zuv,yuv);
+	vtx(L,B,D,r3,g3,b3,zuv,0.0);
+	vtx(R,F,D,r3,g3,b3,0.0,0.0);
+	vtx(R,F,U,r3,g3,b3,0.0,zuv);
+	vtx(R,B,D,r3,g3,b3,yuv,0.0);
+	vtx(R,F,U,r3,g3,b3,0.0,zuv);
+	vtx(R,B,U,r3,g3,b3,yuv,zuv);
+	vtx(R,B,D,r3,g3,b3,yuv,0.0);
 	// Back is dimmer still
-	vtx(L,B,U,r4,g4,b4);
-	vtx(L,B,D,r4,g4,b4);
-	vtx(R,B,U,r4,g4,b4);
-	vtx(L,B,D,r4,g4,b4);
-	vtx(R,B,D,r4,g4,b4);
-	vtx(R,B,U,r4,g4,b4);
+	vtx(L,B,U,r4,g4,b4,0.0,0.0);
+	vtx(L,B,D,r4,g4,b4,0.0,zuv);
+	vtx(R,B,U,r4,g4,b4,xuv,0.0);
+	vtx(L,B,D,r4,g4,b4,0.0,zuv);
+	vtx(R,B,D,r4,g4,b4,xuv,zuv);
+	vtx(R,B,U,r4,g4,b4,xuv,0.0);
 	// Bottom is dimmest
-	vtx(L,F,D,r5,g5,b5);
-	vtx(R,F,D,r5,g5,b5);
-	vtx(L,B,D,r5,g5,b5);
-	vtx(R,F,D,r5,g5,b5);
-	vtx(R,B,D,r5,g5,b5);
-	vtx(L,B,D,r5,g5,b5);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*216, boxData, GL_STREAM_DRAW);
+	vtx(L,F,D,r5,g5,b5,0.0,0.0);
+	vtx(R,F,D,r5,g5,b5,0.0,xuv);
+	vtx(L,B,D,r5,g5,b5,yuv,0.0);
+	vtx(R,F,D,r5,g5,b5,0.0,xuv);
+	vtx(R,B,D,r5,g5,b5,yuv,xuv);
+	vtx(L,B,D,r5,g5,b5,yuv,0.0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*288, boxData, GL_STREAM_DRAW);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }
