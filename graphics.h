@@ -2,6 +2,13 @@
 #define fontSizePx 16
 // TODO This constant is waaaay outdated, from back when this was a 2D game (!)
 #define PTS_PER_PX 32
+// Resolution of the mottling texture
+#define MOTTLE_TEX_RESOLUTION 64
+// Size of a mottling pixel in-game
+#define MOTTLE_PIXEL_SIZE 64
+// Mottle texture in-game size.
+#define MOTTLE_TEX_SCALE (1.0/(MOTTLE_TEX_RESOLUTION*MOTTLE_PIXEL_SIZE))
+
 
 // Person cube radius is 16, and with a 90 deg FOV the closest
 // something touching our surface could be while still being onscreen
