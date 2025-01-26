@@ -367,12 +367,8 @@ static void player_tick(gamestate *gs, ent *me) {
 				cooldown = 0;
 				getLook(look, me);
 				int32_t color = (random(gs) % 2) ? CLR_WHITE : CLR_BLUE;
-				int32_t r = me->radius[0] + platformSize[0];
 				range(i, 3) {
-					// Previously this depended on platform size along each axis.
-					// Making the summoning region square makes this slightly simpler,
-					// and also allows taller players to make platforms above without
-					// risking collision
+					int32_t r = me->radius[i] + (int32_t)(platformSize[i] * 1.25);
 					look[i] = look[i] * r / axisMaxis;
 				}
 				mkPlatform(gs, me, look, color);

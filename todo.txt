@@ -1,5 +1,5 @@
 TODO:
-- Revert platform spawning change so it's less bad
+/ Revert platform spawning change so it's less bad
 - Rehabilitate shipping.gam (not in git yet)
 - Add "icon" for remaining lobby levels (arena.sav, one other?)
 - Allow /teamselect blocks that don't set color (if value is out of mask, maybe?)
