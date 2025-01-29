@@ -422,7 +422,9 @@ The exact meaning of the configuration <a href="#_slider">slider</a>s can be che
 Currently there is the concept of "team", which is really only used by the blocks players shoot and may someday be removed completely. If spawned at a /respawn block, a players team will be based on whether their /data is even or odd.
 <br/><br/>
 <b id="_teamselect">/teamselect</b><br/>
-Makes the block set the <a href="#_data">/data</a> and <a href="#_c">color</a> of players who touch it. The color is pulled from the block itself. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
+Makes the block set the <a href="#_data">/data</a> of players who touch it. The data is set to the value of <a href="#_slider">slider</a> 1, though only the bits selected by the mask (slider 0) are updated.
+<div class="para"></div>
+If slider 2 is non-zero, the player's <a href="#_c">color</a> is also set (copied from this block).
 <br/><br/>
 <b id="_scoreboard">/scoreboard</b><br/>
 Makes the block keep score. The block can be anywhere on the level, and it will track team score (red vs blue) based on which team survives, and then reset the map. This command also sets the block's <a href="#material">material</a> to <a href="#_wall">/wall</a>.

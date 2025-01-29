@@ -10,12 +10,14 @@
 char const * const * const M_TEAMSELECT_HELP = (char const * const[]){
 	"mask - player data mask",
 	"value - player data is set to this (subject to mask)",
+	"color - if non-zero, set player color from this block",
 	NULL
 };
 
 enum {
 	s_mask,
 	s_value,
+	s_color,
 	s_num
 };
 
@@ -23,8 +25,11 @@ static void updatePlayer(ent *me, player *p) {
 	int32_t mask = getSlider(me, s_mask);
 	int32_t value = getSlider(me, s_value);
 
-	p->color = me->color;
-	p->entity->color = me->color;
+	// `s_color` was a later addition, assume `1` if not present on this block
+	if (me->numSliders <= s_color || getSlider(me, s_color)) {
+		p->color = me->color;
+		p->entity->color = me->color;
+	}
 	p->data = (value & mask) + (p->data & ~mask);
 }
 

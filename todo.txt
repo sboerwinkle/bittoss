@@ -1,8 +1,8 @@
 TODO:
 / Revert platform spawning change so it's less bad
 - Rehabilitate shipping.gam (not in git yet)
-- Add "icon" for remaining lobby levels (arena.sav, one other?)
-- Allow /teamselect blocks that don't set color (if value is out of mask, maybe?)
+/ Add "icon" for remaining lobby levels (arena.sav, one other?)
+/ Allow /teamselect blocks that don't set color (if value is out of mask, maybe?)
 / Things that are being pushed by things that are being pushed aren't resolved first
 / Server exiting cancels input thread but doesn't exit app
 / Complete switch to Scheme ref-counting
