@@ -28,6 +28,7 @@
 #include "modules/legg.h"
 #include "modules/loadblock.h"
 #include "modules/material.h"
+#include "modules/puddlejumper.h"
 #include "modules/respawn.h"
 #include "modules/seat.h"
 #include "modules/thrust.h"
@@ -57,6 +58,7 @@ void initMods() {
 	module_legg();
 	module_loadblock();
 	module_material();
+	module_puddlejumper();
 	module_respawn();
 	module_seat();
 	module_thrust();
