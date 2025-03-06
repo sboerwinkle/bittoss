@@ -128,6 +128,7 @@ enum {
 	TICK_SIGN,
 	TICK_LOADBLOCK,
 	TICK_PUDDLEJUMP,
+	TICK_BOTTLE,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?
@@ -164,6 +165,7 @@ enum {
 	PUSH_TELEPORT,
 	PUSH_LOADBLOCK,
 	PUSH_PUDDLEJUMP,
+	PUSH_BOTTLE,
 	PUSH_NUM
 };
 // Did you include your module in "modules.c"?

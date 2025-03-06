@@ -6,7 +6,9 @@
 #include "../entGetters.h"
 #include "../entUpdaters.h"
 #include "../handlerRegistrar.h"
+#include "../edit.h"
 
+#include "bottle.h"
 #include "player.h"
 
 #define PJ_SPD 200
@@ -58,7 +60,7 @@ static void pj_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int di
 		if (him->sliders[1].v < capacity) capacity = him->sliders[1].v;
 		him->sliders[1].v -= capacity;
 		me->sliders[s_fuel].v += capacity;
-		bottleUpdate(him);
+		bottleUpdate(gs, him);
 	}
 }
 
