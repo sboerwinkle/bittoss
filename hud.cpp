@@ -8,14 +8,16 @@
 #include "edit.h"
 
 #include "modules/player.h"
+#include "modules/bottle.h"
 
-static tick_t gun_tick_held, blink_tick_held, jumper_tick_held;
+static tick_t gun_tick_held, blink_tick_held, jumper_tick_held, bottle_tick;
 static pushed_t flag_pushed;
 
 void hud_init() {
 	gun_tick_held = tickHandlers.get(TICK_HELD_GUN);
 	blink_tick_held = tickHandlers.get(TICK_HELD_BLINK);
 	jumper_tick_held = tickHandlers.get(TICK_HELD_JUMPER);
+	bottle_tick = tickHandlers.get(TICK_BOTTLE);
 	flag_pushed = pushedHandlers.get(PUSHED_FLAG);
 }
 
@@ -98,6 +100,33 @@ static char drawEquipUi(ent *e) {
 			}
 			// Progress bar (w/out arrow) for partial charge
 			d(offset, 0, reload*5*unit, unit, hudColor);
+		} else if (e->tick == bottle_tick) {
+			int bottleType = getSlider(e, 0);
+			int32_t amt = getSlider(e, 1);
+			// This little bit of work could be a function maybe
+			char multiple;
+			if (amt >= 10'000) {
+				amt /= 1'000;
+				if (amt >= 10'000) {
+					amt /= 1'000;
+					multiple = 'M';
+				} else {
+					multiple = 'k';
+				}
+			} else {
+				multiple = ' ';
+			}
+			char typeChar;
+			if (bottleType == BOTTLE_JUICE) typeChar = 'J';
+			else if (bottleType == BOTTLE_FUEL) typeChar = 'F';
+			else typeChar = '?';
+			char str[7];
+			snprintf(str, 7, "%d%c%c", amt, multiple, typeChar);
+			int width = strlen(str);
+			double x;
+			if (hands == 1) x = -2-width;
+			else x = 2;
+			drawHudText(str, 0.5, 0.5, x, 0, 0.5, hudColor);
 		}
 		return hands;
 	} else if (e->tickHeld == gun_tick_held) {

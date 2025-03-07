@@ -30,6 +30,17 @@ char const * const * const M_ADJUST_HELP = (char const * const[]) {
 	NULL
 };
 
+char const * const * const M_DEPLETE_HELP = (char const * const[]) {
+	"slider - which slider of the holder to subtract from",
+	"amt - amount to require and subtract",
+	"output - bitfield of signal(s) to send. 0-3.",
+	NULL
+};
+
+char const * const * const M_DEMOLISH_HELP = (char const * const[]) {
+	NULL // no sliders at all here actually
+};
+
 static void logic_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// All kinds of stuff can be pushed, some of it invisible or otherwise not "real".
 	// This should be good enough to not have phantom activations
@@ -43,13 +54,13 @@ static char logic_common_input(ent *me, int32_t mode) {
 		// mode is 0 (XOR) or 1 (XNOR)
 		return a ^ b ^ mode;
 	} else {
-		// mode is something else (presumably 2) (AND)
+		// mode is something else (presumably 2 (AND))
 		return a && b;
 	}
 }
 
-static void logic_common_output(ent *me) {
-	int32_t outputs = getSlider(me, 1);
+static void logic_common_output(ent *me, int sl) {
+	int32_t outputs = getSlider(me, sl);
 	if (outputs & 1) {
 		wiresAnyOrder(w, me) {
 			pushBtn(w, 0);
@@ -82,7 +93,7 @@ static void timer_tick(gamestate *gs, ent *me) {
 	}
 
 	// Otherwise, output.
-	logic_common_output(me);
+	logic_common_output(me, 1);
 }
 
 static void adjust_tick(gamestate *gs, ent *me) {
@@ -95,9 +106,22 @@ static void adjust_tick(gamestate *gs, ent *me) {
 	}
 }
 
+static void deplete_tick(gamestate *gs, ent *me) {
+	ent *h = me->holder;
+	if (!h) return;
+	if (getButton(me, 0) ^ getButton(me, 1)) {
+		int32_t sl = getSlider(me, 0);
+		int32_t amt = getSlider(me, 1);
+		if (sl < h->numSliders && h->sliders[sl].v >= amt) {
+			h->sliders[sl].v -= amt;
+			logic_common_output(me, 2);
+		}
+	}
+}
+
 static void logic_inner(ent *me, int32_t mode) {
 	if (logic_common_input(me, mode)) {
-		logic_common_output(me);
+		logic_common_output(me, 1);
 	}
 }
 
@@ -179,6 +203,13 @@ static void cmdAdjust(gamestate *gs, ent *e) {
 	e->push = pushHandlers.get(PUSH_LOGIC);
 }
 
+static void cmdDeplete(gamestate *gs, ent *e) {
+	basicTypeCommand(gs, e, 0, 3);
+	e->tick = tickHandlers.get(TICK_DEPLETE);
+	e->tickHeld = tickHandlers.get(TICK_DEPLETE);
+	e->push = pushHandlers.get(PUSH_LOGIC);
+}
+
 static void cmdDemolish(gamestate *gs, ent *e) {
 	basicTypeCommand(gs, e, 0, 0);
 	e->tick = tickHandlers.get(TICK_DEMOLISH);
@@ -191,6 +222,7 @@ void module_logic() {
 	tickHandlers.reg(TICK_RAND, randomazzo_tick);
 	tickHandlers.reg(TICK_TIMER, timer_tick);
 	tickHandlers.reg(TICK_ADJUST, adjust_tick);
+	tickHandlers.reg(TICK_DEPLETE, deplete_tick);
 	tickHandlers.reg(TICK_DEMOLISH, demolish_tick);
 	pushHandlers.reg(PUSH_LOGIC, logic_push);
 	addEditHelp(&ent::tickHeld, logic_tick, "logic", M_LOGIC_HELP);
@@ -198,10 +230,13 @@ void module_logic() {
 	addEditHelp(&ent::tickHeld, randomazzo_tick, "rand", M_LOGIC_HELP);
 	addEditHelp(&ent::tickHeld, timer_tick, "timer", M_TIMER_HELP);
 	addEditHelp(&ent::tickHeld, adjust_tick, "adjust", M_ADJUST_HELP);
+	addEditHelp(&ent::tickHeld, deplete_tick, "deplete", M_DEPLETE_HELP);
+	addEditHelp(&ent::tickHeld, demolish_tick, "demolish", M_DEMOLISH_HELP);
 	addEntCommand("logic", cmdLogic);
 	addEntCommand("logic_debug", cmdLogicDebug);
 	addEntCommand("rand", cmdRand);
 	addEntCommand("timer", cmdTimer);
 	addEntCommand("adjust", cmdAdjust);
+	addEntCommand("deplete", cmdDeplete);
 	addEntCommand("demolish", cmdDemolish);
 }

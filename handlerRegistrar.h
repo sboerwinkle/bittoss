@@ -129,6 +129,7 @@ enum {
 	TICK_LOADBLOCK,
 	TICK_PUDDLEJUMP,
 	TICK_BOTTLE,
+	TICK_DEPLETE,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

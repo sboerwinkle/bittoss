@@ -13,6 +13,9 @@ char const * const * const M_BOTTLE_HELP = (char const * const[]){
 	NULL
 };
 
+#define C_JUICE 0x40FFFF
+#define C_FUEL 0x80FF80
+
 void bottleUpdate(gamestate *gs, ent *e) {
 	// I had meant for the bottles to shrink as they held less stuff,
 	// but it looks like I don't currently support resizing. Oh well.
@@ -31,6 +34,7 @@ static void bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		if (myType == -1) {
 			me->sliders[0].v = hisType;
 			myType = hisType;
+			me->color = myType ? C_FUEL : C_JUICE;
 		}
 		if (myType == hisType) {
 			int capacity = me->sliders[2].v - me->sliders[1].v;
@@ -44,12 +48,12 @@ static void bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 }
 
 static void cmdBottle(gamestate *gs, ent *e) {
-	basicTypeCommand(gs, e, 0, 2);
+	basicTypeCommand(gs, e, T_EQUIP_SM, 2);
 	e->tick = tickHandlers.get(TICK_BOTTLE);
 }
 
 static void cmdBottle2(gamestate *gs, ent *e) {
-	basicTypeCommand(gs, e, 0, 3);
+	basicTypeCommand(gs, e, T_EQUIP_SM, 3);
 	e->tick = tickHandlers.get(TICK_BOTTLE);
 	e->push = pushHandlers.get(PUSH_BOTTLE);
 }
