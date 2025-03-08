@@ -6,6 +6,7 @@
 #include "util.h"
 #include "list.h"
 #include "ent.h"
+#include "entGetters.h"
 #include "main.h"
 #include "gamestring.h"
 #include "graphics.h"
@@ -879,6 +880,8 @@ void finishStep(gamestate *gs) {
 	clearDeads(gs);
 }
 
+// TODO All this drawing stuff maybe goes into a new file? The import for entGetters.h could probably go with.
+
 static void drawEnt(ent *e, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const ratio) {
 	if (e->holdRoot == inhabit) {
 		if (e->typeMask & T_NO_DRAW_SELF) return;
@@ -928,6 +931,31 @@ void drawSign(ent *e, char const *text, int size, int32_t const *const oldPos, i
 	drawTag(text, pos, size, whiteColor);
 }
 
+static void drawEntTag(ent *e, int32_t const *const oldPos, int32_t const *const newPos, float const interpRatio) {
+	// We know these items have at least 2 sliders, as that's a prerequisite for being in this list.
+	int32_t index = e->sliders[0].v;
+	int32_t textSize = e->sliders[1].v;
+	int32_t signType = 0; // The ent may not have a 3rd slider, defaulting to 0 is fine
+	if (e->numSliders > 2) {
+		signType = e->sliders[2].v;
+	}
+	const char *str;
+	if (signType == 0) {
+		str = gamestring_get(index);
+	} else { // Assuming == 1
+		char buf[11];
+		str = buf;
+		if (e->wires.num) {
+			// IDK what to do if there are multiple wires, for now just take the first
+			snprintf(buf, 11, "%d", getSlider(e->wires[0], index));
+		} else {
+			buf[0] = '\0';
+		}
+
+	}
+	drawSign(e, str, textSize, oldPos, newPos, interpRatio);
+}
+
 void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *const oldPos, int32_t const *const newPos, float const interpRatio) {
 	// We'll add things to this list in `drawEnt` if it should be stippled instead
 	stippleList.num = 0;
@@ -946,11 +974,7 @@ void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *con
 
 	setupTags();
 	for (int i = 0; i < taggedList.num; i++) {
-		// We know these items have at least 2 sliders, as that's a prerequisite for being in this list.
-		ent *e = taggedList[i];
-		int32_t textIdx = e->sliders[0].v;
-		int32_t size = e->sliders[1].v;
-		drawSign(e, gamestring_get(textIdx), size, oldPos, newPos, interpRatio);
+		drawEntTag(taggedList[i], oldPos, newPos, interpRatio);
 	}
 }
 

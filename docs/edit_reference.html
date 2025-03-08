@@ -412,8 +412,12 @@ Makes the block act as a control point for vehicles. Players connect on contact 
 Most of the <a href="#_slider">slider</a>s are just used for representing the player's inputs, and are not worth documenting; however, the final 2 control the horizontal distance and elevation (respectively) of the third-person camera.
 <br/><br/>
 <b id="_sign">/sign</b><br/>
-The block shows some text above it, like a player nametag. The text to show is controlled by a slider; see also <a href="#_str">/str</a>. More details in-game with <a href="#_i">/i</a>.
-<br/><br/>
+The block shows some text above it, like a player nametag. There are 3 <a href="#_slider">sliders</a> that control this; if they seem a little out of order it's because they are haha.
+<ul>
+	<li><pre>/sl 2</pre> is the type of sign - either 0 for one that displays text from <a href="#_str">/str</a>, or 1 for one that displays the value of a slider on a <a href="#_wire">wired</a> block.</li>
+	<li><pre>/sl 0</pre> controls either which /str or which slider (depending on the type).</li>
+	<li><pre>/sl 1</pre> controls the size of the text.</li>
+</ul><br/>
 <b id="_respawn">/respawn</b><br/>
 Makes the block respawn players. This is inhibited if the block is receiving a "1" <a href="#_logic">/logic</a> sigal. Note there is a <a href="#_rule">/rule</a> which respawns players as well, though the /rule version is older and just assigns team and location based on player index.
 <div class="para"></div>

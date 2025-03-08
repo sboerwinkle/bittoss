@@ -101,8 +101,8 @@ static char drawEquipUi(ent *e) {
 			// Progress bar (w/out arrow) for partial charge
 			d(offset, 0, reload*5*unit, unit, hudColor);
 		} else if (e->tick == bottle_tick) {
-			int bottleType = getSlider(e, 0);
-			int32_t amt = getSlider(e, 1);
+			int32_t bottleType = getSlider(e, BOTTLE_TYPE_SLIDER);
+			int32_t amt = getSlider(e, BOTTLE_AMT_SLIDER);
 			// This little bit of work could be a function maybe
 			char multiple;
 			if (amt >= 10'000) {
