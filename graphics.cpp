@@ -226,7 +226,14 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 	float mat_a[16];
 	mat4x4fromQuat(mat_quat, quat);
 	mat4x4Transf(mat_quat, 0, up, forward);
-	perspective(mat_a, 1, (float)displayWidth/displayHeight, nearPlane, farPlane);
+	float fovThingIdk = 1/0.7;
+	perspective(
+		mat_a,
+		fovThingIdk*displayHeight/displayWidth,
+		fovThingIdk,
+		nearPlane,
+		farPlane
+	);
 	mat4x4Multf(camera_uniform_mat, mat_a, mat_quat);
 
 	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, camera_uniform_mat);
