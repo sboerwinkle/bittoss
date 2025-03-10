@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <locale.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <arpa/inet.h>
@@ -1621,6 +1622,9 @@ static void cleanupThread(pthread_t thread, char const * const descr) {
 
 int main(int argc, char **argv) {
 	puts("init 1...");
+	// Currently just to get pretty numbers on signs (1000 -> 1,000).
+	// Might change to do the formatting manually at some point? IDK.
+	setlocale(LC_NUMERIC, "");
 	velbox_init();
 	rootState = mkGamestate();
 

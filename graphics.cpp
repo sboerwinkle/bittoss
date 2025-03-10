@@ -278,8 +278,11 @@ void drawTag(const char* str, int32_t *pos, double scale, float *color) {
 	// Not sure what this makes the units on the incoming `scale`,
 	// but it would feel wrong to ignore `fontSizePx` altogether.
 	scale *= fontSizePx;
-	float fontMultX = scale / displayWidth;
-	float fontMultY = scale * myfont.invaspect / displayHeight;
+	// The `500` here is a magic number. It was the default window
+	// height, and so entered this logic when tags started scaling
+	// with the window (instead of keeping their absolute height).
+	float fontMultX = scale * displayHeight / displayWidth / 500;
+	float fontMultY = scale * myfont.invaspect / 500;
 
 	float fpos[3] = {(float)pos[0], (float)pos[1], (float)pos[2]};
 	glUniform3fv(u_tag_loc_id, 1, fpos);
