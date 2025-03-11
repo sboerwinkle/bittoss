@@ -51,6 +51,9 @@ static void seat_tick(gamestate *gs, ent *me) {
 		range(i, 5) {
 			uSlider(me, i, getSlider(w, i));
 		}
+		range(i, 4) {
+			if (getButton(w, i)) pushBtn(me, i);
+		}
 	}
 }
 

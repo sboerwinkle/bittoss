@@ -41,7 +41,7 @@ static const int32_t bulletSize[3] = {100, 100, 100};
 static void gun_tick_held(gamestate *gs, ent *me) {
 	// Doesn't do anything unless held by a person (or similar)
 	ent *h = me->holder;
-	if (!(type(h) & T_INPUTS)) return;
+	if (!(type(h) & T_INPUTS) || h->holder) return;
 
 	int32_t cooldown = getSlider(me, s_cooldown);
 	int32_t ammo = getSlider(me, s_ammo);

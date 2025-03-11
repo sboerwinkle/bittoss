@@ -33,7 +33,7 @@ static const int32_t dust_r = 400;
 static void blink_tick_held(gamestate *gs, ent *me) {
 	// Doesn't do anything unless held by a person (or similar)
 	ent *h = me->holder;
-	if (!(type(h) & T_INPUTS)) return;
+	if (!(type(h) & T_INPUTS) || h->holder) return;
 
 	int32_t cooldown = getSlider(me, s_cooldown);
 	if (cooldown > 0) {

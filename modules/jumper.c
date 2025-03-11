@@ -39,7 +39,7 @@ static int32_t const dustArea[3] = {500, 500, 0};
 static void jumper_tick_held(gamestate *gs, ent *me) {
 	// Doesn't do anything unless held by a person (or similar)
 	ent *h = me->holder;
-	if (!(type(h) & T_INPUTS)) return;
+	if (!(type(h) & T_INPUTS) || h->holder) return;
 
 	int32_t ammo = getSlider(me, s_ammo);
 	if (ammo < getSlider(me, s_ammo_max)) {

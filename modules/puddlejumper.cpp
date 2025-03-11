@@ -67,7 +67,7 @@ static void pj_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int di
 }
 
 static void pj_tick(gamestate *gs, ent *me) {
-	int32_t dvel[3] = {0, 0, 4};
+	int32_t dvel[3] = {0, 0, 16};
 
 	char flying = !getSlider(me, s_grounded);
 	uSlider(me, s_grounded, 0);
@@ -99,7 +99,7 @@ static void pj_tick(gamestate *gs, ent *me) {
 
 	int32_t fuel = getSlider(me, s_fuel);
 	if (fuel) {
-		if (thrust) dvel[2] = -4;
+		if (thrust) dvel[2] = -8;
 		if (flying) uSlider(me, s_fuel, fuel-1);
 	}
 
