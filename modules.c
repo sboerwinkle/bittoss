@@ -32,6 +32,7 @@
 #include "modules/puddlejumper.h"
 #include "modules/respawn.h"
 #include "modules/seat.h"
+#include "modules/spacetrash.h"
 #include "modules/thrust.h"
 #include "modules/factory.h"
 #include "modules/gun.h"
@@ -42,7 +43,10 @@
 #include "modules/teleport.h"
 #include "modules/sign.h"
 
-void initMods() {
+list<void (*) ()> moduleDestroyHooks;
+
+void modules_init() {
+	moduleDestroyHooks.init();
 	module_common();
 	module_bottle();
 	module_explosion();
@@ -63,6 +67,7 @@ void initMods() {
 	module_puddlejumper();
 	module_respawn();
 	module_seat();
+	module_spacetrash();
 	module_thrust();
 	module_factory();
 	module_gun();
@@ -72,4 +77,11 @@ void initMods() {
 	module_scoreboard();
 	module_teleport();
 	module_sign();
+}
+
+void modules_destroy() {
+	range(i, moduleDestroyHooks.num) {
+		(*moduleDestroyHooks[i])();
+	}
+	moduleDestroyHooks.destroy();
 }

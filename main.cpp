@@ -1694,7 +1694,7 @@ int main(int argc, char **argv) {
 	gamestring_init();
 	colors_init();
 	edit_init();
-	initMods(); //Set up modules
+	modules_init();
 	ent_init();
 	hud_init();
 	outboundTextQueue.init();
@@ -1830,6 +1830,7 @@ int main(int argc, char **argv) {
 	destroy_registrar();
 	hud_destroy();
 	ent_destroy();
+	modules_destroy();
 	edit_destroy();
 	colors_destroy();
 	gamestring_destroy();
