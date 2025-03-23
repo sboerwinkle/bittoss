@@ -10,6 +10,7 @@
 #define axisMaxis 64
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
 #define wiresAnyOrder(var, who) ent *var; for (int __i = 0; __i < who->wires.num && ((var = who->wires[__i]) || 1); __i++)
+#define NUM_CTRL_BTN 4
 // Despite the name, the iteration order is very much deterministic and boring.
 // However, it is a reminder that it is against the spirit of the game to treat
 // things differently for no visible reason - thus you shouldn't depend on
@@ -64,7 +65,8 @@ typedef struct {
 	int32_t v, min, max;
 } slider;
 
-typedef struct ent {
+// Later this might only contain some of the fields, for now it's everything
+typedef struct ent_blueprint {
 
 	//// Things related to collisions ////
 	// If set, means it should be tested for collisions. Once it passes a single iteration w/o collisions, this is turned off.
@@ -102,7 +104,7 @@ typedef struct ent {
 	struct {
 		struct {
 			char v, v2;
-		} btns[4];
+		} btns[NUM_CTRL_BTN];
 	} ctrl;
 
 	//TODO: Orientation
@@ -157,15 +159,14 @@ typedef struct ent {
 	//TODO: These can't access holder / holdee information for any external references they might have.
 	entPair_t onPickUp;
 	entPair_t onPickedUp;
-	//void (*onDrop)(struct ent *me, int holdee);
-	//void (*onDropped)(struct ent *me);
-	char (*okayFumble)(struct ent *me, struct ent *him);
-	char (*okayFumbleHim)(struct ent *me, struct ent *him);
 
 	union {
 		ent *ref;
 		int32_t ix;
 	} clone;
+} ent_blueprint;
+
+typedef struct ent : ent_blueprint {
 } ent;
 
 // Maybe later we'll do something fancier with dynamic allocation.

@@ -269,41 +269,44 @@ static void checksum(const list<const char> *data, int *ix, int expected) {
 static void handleButtons(const list<const char> *data, int *ix, ent *e) {
 	if (version == 0) return; // We didn't encode active buttons in version 0, since logic wasn't a thing then!
 	char c = read8(data, ix);
-	range(i, 4) {
+	range(i, 4) { // NUM_CTRL_BTN, except any changes here have to be careful not to break backwards compatibility
 		if (c & (1 << i)) pushBtn(e, i);
 	}
 }
 
 static void deserializeEnt(gamestate *gs, ent** ents, int numEnts, ent *e, const list<const char> *data, int *ix, const int32_t *c_offset, const int32_t *v_offset) {
-	int32_t c[3], v[3], r[3];
-
 #define check(x) checksum(data, ix, x)
 #define i32(x) x = read32(data, ix)
 #define handler(x, y, i) if (handlersBitfield & (1 << i)) x = y.get(read32(data, ix))
 	check(128);
-	range(i, 3) c[i] = read32(data, ix) + c_offset[i];
-	range(i, 3) v[i] = read32(data, ix) + v_offset[i];
-	range(i, 3) i32(r[i]);
+	range(i, 3) e->center[i] = read32(data, ix) + c_offset[i];
+	range(i, 3) e->vel[i] = read32(data, ix) + v_offset[i];
+	range(i, 3) i32(e->radius[i]);
 	check(129);
-	int32_t numSliders = read32(data, ix);
-	int32_t typeMask = read32(data, ix);
-	int32_t collideMask = read32(data, ix);
+	i32(e->numSliders);
+	// We populate values for these later
+	e->sliders = (slider*)calloc(e->numSliders, sizeof(slider));
 
-	char equipFix = (version < 7) && ((typeMask & EQUIP_MASK) == T_EQUIP);
-	if (equipFix) numSliders++;
+	i32(e->typeMask);
+	i32(e->collideMask);
 
-	initEnt(e, gs, NULL, c, v, r, numSliders, typeMask, collideMask);
+	char equipFix = (version < 7) && ((e->typeMask & EQUIP_MASK) == T_EQUIP);
+	if (equipFix) e->numSliders++;
 
 	int32_t numWires;
 	i32(numWires);
-	e->wires.setMaxUp(numWires);
 
 	check(130);
 	i32(e->color);
 	handleButtons(data, ix, e);
-	// When `equipFix` is set, skip the first slider
-	range(i, e->numSliders) if (!equipFix || i) i32(e->sliders[i].v);
+	range(i, e->numSliders) {
+		// When `equipFix` is set, skip the first slider
+		if (!equipFix || i) i32(e->sliders[i].v);
+	}
+	initBlueprintedEnt(e, gs, NULL);
+
 	check(131);
+	e->wires.setMaxUp(numWires);
 	range(i, numWires) {
 		int32_t entIx = read32(data, ix);
 		if (entIx >= 0 && entIx < numEnts) e->wires.add(ents[entIx]);
@@ -389,7 +392,8 @@ void deserialize(gamestate *gs, const list<const char> *data, char fullState) {
 		// A bunch of ent-sized spaces in memory.
 		// We fill them in later, but it's helpful to have a valid pointer
 		// so we can set stuff up to point to the ent before it's initialized.
-		ents[i] = (ent*) calloc(1, sizeof(ent));
+		ents[i] = (ent*) malloc(sizeof(ent));
+		initEntBlueprint(ents[i]);
 	}
 	range(i, numEnts) {
 		deserializeEnt(gs, ents, numEnts, ents[i], data, ix, zeroVec, zeroVec);
@@ -441,7 +445,8 @@ void deserializeSelected(gamestate *gs, const list<const char> *data, const int3
 
 	ent** ents = new ent*[numEnts];
 	range(i, numEnts) {
-		ents[i] = (ent*) calloc(1, sizeof(ent));
+		ents[i] = (ent*) malloc(sizeof(ent));
+		initEntBlueprint(ents[i]);
 	}
 	range(i, numEnts) {
 		deserializeEnt(gs, ents, numEnts, ents[i], data, ix, c_offset, v_offset);

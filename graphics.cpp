@@ -33,6 +33,7 @@ static GLint u_flat_scale_id = -1;
 static GLint u_flat_color_id = -1;
 static GLuint stream_buffer_id;
 static GLfloat camera_uniform_mat[16];
+static float rotation_mat[16];
 
 static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? IDK
 static void printGLProgErrors(GLuint prog, const char *name){
@@ -222,10 +223,9 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 	quat_rotX(quat, NULL, pitch);
 	quat_norm(quat);
 
-	float mat_quat[16];
 	float mat_a[16];
-	mat4x4fromQuat(mat_quat, quat);
-	mat4x4Transf(mat_quat, 0, up, forward);
+	mat4x4fromQuat(rotation_mat, quat);
+	mat4x4Transf(rotation_mat, 0, up, forward);
 	float fovThingIdk = 1/0.7;
 	perspective(
 		mat_a,
@@ -234,7 +234,7 @@ void setupFrame(float pitch, float yaw, float up, float forward) {
 		nearPlane,
 		farPlane
 	);
-	mat4x4Multf(camera_uniform_mat, mat_a, mat_quat);
+	mat4x4Multf(camera_uniform_mat, mat_a, rotation_mat);
 
 	glUniformMatrix4fv(u_camera_id, 1, GL_FALSE, camera_uniform_mat);
 	cerr("End of frame setup");
@@ -268,8 +268,9 @@ void flatCamDefault() {
 
 void flatCamRotated(float scale, float x, float y) {
 	float mat[9];
-	// Conveniently, camera X unit vector (horizontal screen space) will be flat and that's great for us I guess
-	mat3_squared(mat, scale, x, y, camera_uniform_mat[0], camera_uniform_mat[4]);
+	// The camera X unit vector (horizontal screen space) will be conveniently flat (not up or down),
+	// so we can use that to get the cos/sin for our look direction (yaw) without recalculating them.
+	mat3_squared(mat, scale, x, y, rotation_mat[0], rotation_mat[4]);
 	glUniformMatrix3fv(u_flat_camera_id, 1, GL_FALSE, mat);
 }
 

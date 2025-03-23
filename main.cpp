@@ -35,6 +35,7 @@
 #include "raycast.h"
 #include "controlBuffer.h"
 
+#include "cdump.h"
 #include "entFuncs.h"
 #include "entUpdaters.h"
 #include "entGetters.h"
@@ -819,6 +820,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/setstr", edit_string_set(gs, chatBuffer+7, verbose));
 
 	cmd("/b", edit_create(gs, me, chatBuffer + 2, verbose));
+	cmd("/cdump", edit_cdump(gs, me, verbose));
 	cmd("/p", edit_push(gs, me, chatBuffer + 2));
 	cmd("/center", edit_center(gs, me));
 	cmd("/s", edit_stretch(gs, me, chatBuffer + 2, verbose));
@@ -1630,6 +1632,7 @@ int main(int argc, char **argv) {
 
 	init_registrar();
 	init_entFuncs();
+	cdump_init();
 
 	puts("init GLFW...");
 	if (!glfwInit()) {
@@ -1827,7 +1830,6 @@ int main(int argc, char **argv) {
 	outboundTextQueue.destroy();
 	net2_destroy();
 	destroyFont();
-	destroy_registrar();
 	hud_destroy();
 	ent_destroy();
 	modules_destroy();
@@ -1836,6 +1838,8 @@ int main(int argc, char **argv) {
 	gamestring_destroy();
 	config_destroy();
 	file_destroy();
+	cdump_destroy();
+	destroy_registrar();
 	velbox_destroy();
 	puts("Done.");
 	puts("Cleaning up GLFW...");

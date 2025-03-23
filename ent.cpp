@@ -485,17 +485,6 @@ static void clearDeads(gamestate *gs) {
 	}
 }
 
-static ent* getPreferredFumble(ent *leaf, ent *root) {
-	while (leaf != root) {
-		ent *p = leaf->holder;
-		if (leaf->okayFumble(leaf, p) || p->okayFumbleHim(p, leaf)) {
-			return leaf;
-		}
-		leaf = p;
-	}
-	return NULL;
-}
-
 static ent* pinch(gamestate *gs, ent *e, byte axis, ent *o) {
 	ent *leaf1 = e;
 	while (leaf1->forcedHoldees[axis]) leaf1 = leaf1->forcedHoldees[axis];
@@ -505,20 +494,6 @@ static ent* pinch(gamestate *gs, ent *e, byte axis, ent *o) {
 		while (leaf2->forcedHoldees[axis]) leaf2 = leaf2->forcedHoldees[axis];
 	} else {
 		leaf2 = e;
-	}
-	ent *f1 = getPreferredFumble(leaf1, e);
-	ent *f2 = getPreferredFumble(leaf2, e);
-	if (f1) {
-		fumble(gs, f1);
-		if (f2) {
-			fumble(gs, f2);
-			return f2;
-		}
-		return e;
-	}
-	if (f2) {
-		fumble(gs, f2);
-		return f2;
 	}
 	if (leaf1 != e) {
 		fumble(gs, leaf1);

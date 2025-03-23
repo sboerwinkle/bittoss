@@ -22,8 +22,9 @@ public:
 	void add(const T &itm);
 	void s_add(const T &itm);
 	T& ins(const T &itm, int ix);
-	char has(const T &itm);
-	char s_has(const T &itm);
+	char has(const T &itm) const;
+	char s_has(const T &itm) const;
+	int find(const T &itm) const;
 	int s_find(const T &itm) const;
 	int s_find(const T &itm, int lo, int hi) const;
 	int s_find(const T &itm, Comparator<T> &comp) const;
@@ -106,14 +107,20 @@ T& list<T>::ins(const T &itm, int ix) {
 }
 
 template <typename T>
-char list<T>::has(const T &itm) {
+char list<T>::has(const T &itm) const {
 	for (int i = num-1; i >= 0; i--) if (items[i] == itm) return 1;
 	return 0;
 }
 
 template <typename T>
-char list<T>::s_has(const T &itm) {
+char list<T>::s_has(const T &itm) const {
 	return s_find(itm) >= 0;
+}
+
+template <typename T>
+int list<T>::find(const T &itm) const {
+	for (int i = 0; i < num; i++) if (items[i] == itm) return i;
+	return -1;
 }
 
 template <typename T>

@@ -16,8 +16,8 @@ template <typename T> struct catalog {
 	void destroy();
 
 	void reg(int ix, T handler);
-	T get(int ix);
-	int reverseLookup(T handler);
+	T get(int ix) const;
+	int reverseLookup(T handler) const;
 
 	private:
 	int num;
@@ -46,7 +46,7 @@ void catalog<T>::reg(int ix, T handler) {
 }
 
 template <typename T>
-T catalog<T>::get(int ix) {
+T catalog<T>::get(int ix) const {
 	if (ix < 0 || ix >= num) {
 		fprintf(stderr, "ERROR - Invalid catalog index %d, there are only %d\n", ix, num);
 		if (num) {
@@ -59,7 +59,7 @@ T catalog<T>::get(int ix) {
 }
 
 template <typename T>
-int catalog<T>::reverseLookup(T handler) {
+int catalog<T>::reverseLookup(T handler) const {
 	range(i, num) {
 		if (items[i] == handler) return i;
 	}

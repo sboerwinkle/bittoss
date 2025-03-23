@@ -9,6 +9,7 @@
 #include "entGetters.h"
 #include "entUpdaters.h"
 #include "entFuncs.h"
+#include "cdump.h"
 #include "colors.h"
 #include "gamestring.h"
 #include "handlerRegistrar.h"
@@ -231,6 +232,12 @@ void edit_info(ent *e) {
 		if (endl) putchar('\n');
 	}
 	printf("Selected %d, %d\n", aNum, bNum);
+}
+
+void edit_cdump(gamestate *gs, ent *e, char verbose) {
+	if (!e || !verbose) return;
+	getLists(e);
+	cdump(a, b[0]);
 }
 
 int32_t edit_color(ent *e, const char *colorStr, char priviledged) {
