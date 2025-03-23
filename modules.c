@@ -26,6 +26,7 @@
 #include "modules/logic.h"
 #include "modules/door.h"
 #include "modules/dust.h"
+#include "modules/incinerate.h"
 #include "modules/legg.h"
 #include "modules/loadblock.h"
 #include "modules/material.h"
@@ -61,6 +62,7 @@ void modules_init() {
 	module_logic();
 	module_door();
 	module_dust();
+	module_incinerate();
 	module_legg();
 	module_loadblock();
 	module_material();

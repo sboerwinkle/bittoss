@@ -10,7 +10,6 @@
 #include "../random.h"
 #include "../entGetters.h"
 #include "../handlerRegistrar.h"
-#include "../modules.h"
 
 #include "../compounds/refuelIslands.h"
 

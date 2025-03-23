@@ -28,13 +28,13 @@ char getTrigger(ent *e, int i) {
 	return e->ctrl.btns[i+2].v;
 }
 
-void getPos(int *dest, ent *a, ent *b) {
+void getPos(int32_t *dest, ent *a, ent *b) {
 	range(i, 3) {
 		dest[i] = b->center[i] - a->center[i];
 	}
 }
 
-void getVel(int *dest, ent *a, ent *b) {
+void getVel(int32_t *dest, ent *a, ent *b) {
 	range(i, 3) {
 		dest[i] = b->vel[i] - a->vel[i];
 	}
