@@ -11,14 +11,17 @@ struct bctx_hold {
 	int32_t holdFlags;
 };
 
+struct spaceFacts {
+	int32_t pos[3];
+	int32_t vel[3];
+	int indices[3];
+	int32_t signs[3];
+};
+
 struct builderContext {
 	gamestate *gs;
 	ent_blueprint bp;
-	int32_t posOffset[3];
-	int32_t velOffset[3];
-	// Will I need an inverse?
-	int transformIndices[3];
-	int32_t transformSigns[3];
+	spaceFacts space;
 	list<ent*> createdEnts;
 	list<bctx_wire> wires;
 	list<bctx_hold> holds;
@@ -38,6 +41,7 @@ struct builderContext {
 	void wireTo(int dest);
 	void build();
 	void finish();
+	void restart();
 
 	// Eventually some stuff about transforms here, as well as probably some form of `copy`
 	private:

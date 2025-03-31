@@ -27,11 +27,7 @@ struct handler_info {
 
 static list<handler_info> handlerInfos;
 
-static ent_blueprint _baselineBlueprint = {0};
-// Me being clumsy! I want access to _baselineBlueprint that's guaranteed to be RO,
-// but I also do need to modify it during `cdump_init`. This is a `const` reference
-// (which most access will be through) that I hope the compiler will optimize away.
-static ent_blueprint const & baselineBlueprint = _baselineBlueprint;
+static ent_blueprint baselineBlueprint;
 
 #define f(a,b,c,d) handlerInfos.add((handler_info){\
 	(catalog<void(*)(void)> const *) &a,\
@@ -40,7 +36,7 @@ static ent_blueprint const & baselineBlueprint = _baselineBlueprint;
 	d\
 })
 void cdump_init() {
-	initEntBlueprint(&_baselineBlueprint);
+	initEntBlueprint(&baselineBlueprint);
 	handlerInfos.init();
 	f(tickHandlers, ent::tick, "tickHandlers", "tick");
 	f(tickHandlers, ent::tickHeld, "tickHandlers", "tickHeld");
@@ -56,11 +52,8 @@ void cdump_init() {
 #undef f
 
 void cdump_destroy() {
-	// TODO teardown _baselineBlueprint.
-	// We shouldn't actually need to, no allocations or anything,
-	// but it should be valid (and therefore valid to tear down).
-	// Consistency is key with such stuff - plus it's cheap here.
 	handlerInfos.destroy();
+	destroyEntBlueprint(&baselineBlueprint);
 }
 
 static char vec3differ(int32_t const *a, int32_t const *b) {
@@ -73,12 +66,12 @@ static void vec3sub(int32_t *dest, int32_t const *a, int32_t const *b) {
 }
 
 static void emitVec3(char const *pfx, int32_t const *v) {
-	printf("ctx.%s(%d, %d, %d);\n", pfx, v[0], v[1], v[2]);
+	printf("ctx->%s(%d, %d, %d);\n", pfx, v[0], v[1], v[2]);
 }
 
 static void simpleProp(char const *name, int32_t a, int32_t b) {
 	if (a == b) return;
-	printf("ctx.bp.%s = %d;\n", name, b);
+	printf("ctx->bp.%s = %d;\n", name, b);
 }
 
 static void emitComparison(ent_blueprint const * prev, ent const * curr, ent const * relativeTo) {
@@ -98,12 +91,12 @@ static void emitComparison(ent_blueprint const * prev, ent const * curr, ent con
 	simpleProp("collideMask", prev->collideMask, curr->collideMask);
 	simpleProp("friction", prev->friction, curr->friction);
 	if (prev->color != curr->color) {
-		printf("ctx.bp.color = 0x%06X;\n", curr->color);
+		printf("ctx->bp.color = 0x%06X;\n", curr->color);
 	}
 	// buttons reset between ents by convention
 	range(i, NUM_CTRL_BTN) {
 		if (curr->ctrl.btns[i].v) {
-			printf("ctx.btn(%d);\n", i);
+			printf("ctx->btn(%d);\n", i);
 		}
 	}
 
@@ -115,13 +108,13 @@ static void emitComparison(ent_blueprint const * prev, ent const * curr, ent con
 		if (handler != baselineBlueprint.*(h.field)) baselineEdits++;
 	}
 
-	// This logic might change later. Doesn't much matter,
-	// these are both valid ways to describe the handlers.
 	ent_blueprint const * handlerBase;
-	if (prevEdits < baselineEdits || prevEdits == 0) {
+	// This condition keeps changing. Doesn't much matter,
+	// these are both valid ways to describe the handlers.
+	if (prevEdits <= baselineEdits) {
 		handlerBase = prev;
 	} else {
-		puts("ctx.resetHandlers();");
+		puts("ctx->resetHandlers();");
 		handlerBase = &baselineBlueprint;
 	}
 
@@ -131,7 +124,7 @@ static void emitComparison(ent_blueprint const * prev, ent const * curr, ent con
 		if (handler == handlerBase->*(h.field)) continue;
 		int ix = h.cat->reverseLookup(handler);
 		// TODO Names here would be somewhere between "very nice" and "necessary"
-		printf("ctx.bp.%s = %s.get(%d);\n", h.fieldName, h.catalogName, ix);
+		printf("ctx->bp.%s = %s.get(%d);\n", h.fieldName, h.catalogName, ix);
 	}
 
 	char needsSliders = 0;
@@ -147,7 +140,7 @@ static void emitComparison(ent_blueprint const * prev, ent const * curr, ent con
 	}
 	if (needsSliders) {
 		// Space after arg is to set it off visually, idk if I'll keep it
-		printf("ctx.sl(%d ", curr->numSliders);
+		printf("ctx->sl(%d ", curr->numSliders);
 		range(i, curr->numSliders) {
 			printf(", %d", curr->sliders[i].v);
 		}
@@ -158,6 +151,8 @@ static void emitComparison(ent_blueprint const * prev, ent const * curr, ent con
 // Passing this `list` in by value is probably fine? Saves us some
 // hassle dereferencing it, and it's `const` so it should be safe.
 void cdump(list<ent*> const items, ent const * relativeTo) {
+	memcpy(baselineBlueprint.center, relativeTo->center, sizeof(relativeTo->center));
+	memcpy(baselineBlueprint.vel, relativeTo->vel, sizeof(relativeTo->vel));
 	ent_blueprint const *prev = &baselineBlueprint;
 
 	// If stuff like "/inside" preserves iteration order, and if sequential "build()"s add things
@@ -170,16 +165,16 @@ void cdump(list<ent*> const items, ent const * relativeTo) {
 
 		int ix;
 		if (e->holder && (ix = items.find(e->holder)) != -1) {
-			printf("ctx.heldBy(%d, %X);\n", end-ix, e->holdFlags);
+			printf("ctx->heldBy(%d, %X);\n", end-ix, e->holdFlags);
 		}
 		range(j, e->wires.num) {
 			if ((ix = items.find(e->wires[j])) != -1) {
-				printf("ctx.wireTo(%d);\n", end-ix);
+				printf("ctx->wireTo(%d);\n", end-ix);
 			}
 		}
 
-		puts("ctx.build();");
+		puts("ctx->build();");
 		prev = e;
 	}
-	puts("ctx.finish();");
+	puts("ctx->finish();");
 }

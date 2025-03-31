@@ -8,7 +8,7 @@
 void builderContext::init(gamestate *_gs) {
 	gs = _gs;
 	range(i, 3) {
-		posOffset[i] = velOffset[i] = 0;
+		space.pos[i] = space.vel[i] = 0;
 	}
 	initEntBlueprint(&bp);
 	createdEnts.init();
@@ -16,8 +16,8 @@ void builderContext::init(gamestate *_gs) {
 	holds.init();
 	// Initialize transform to the identity
 	range(i, 3) {
-		transformIndices[i] = i;
-		transformSigns[i] = 1;
+		space.indices[i] = i;
+		space.signs[i] = 1;
 	}
 }
 
@@ -31,41 +31,41 @@ void builderContext::destroy() {
 void builderContext::withOffset(int32_t *dest, int32_t *offset, int32_t const x, int32_t const y, int32_t const z) {
 	int32_t const input[3] = {x, y, z};
 	range(i, 3) {
-		int j = transformIndices[i];
-		int32_t flip = transformSigns[i]; // `i` or `j`? IDK, figure this out later
+		int j = space.indices[i];
+		int32_t flip = space.signs[i]; // `i` or `j`? IDK, figure this out later
 		dest[j] = flip*input[i] + offset[j];
 	}
 }
 
 void builderContext::adjOffset(int32_t *dest, int32_t *offset, int32_t const * input) {
 	range(i, 3) {
-		int j = transformIndices[i];
-		int32_t flip = transformSigns[i]; // `i` or `j`? IDK, figure this out later
+		int j = space.indices[i];
+		int32_t flip = space.signs[i];
 		dest[j] += flip*input[i];
 		offset[j] += flip*input[i];
 	}
 }
 
 void builderContext::center(int32_t x, int32_t y, int32_t z) {
-	withOffset(bp.center, posOffset, x, y, z);
+	withOffset(bp.center, space.pos, x, y, z);
 }
 
 void builderContext::vel(int32_t x, int32_t y, int32_t z) {
-	withOffset(bp.vel, velOffset, x, y, z);
+	withOffset(bp.vel, space.vel, x, y, z);
 }
 
 void builderContext::offsetCenter(int32_t const * input) {
-	adjOffset(bp.center, posOffset, input);
+	adjOffset(bp.center, space.pos, input);
 }
 
 void builderContext::offsetVel(int32_t const * input) {
-	adjOffset(bp.vel, velOffset, input);
+	adjOffset(bp.vel, space.vel, input);
 }
 
 void builderContext::radius(int32_t x, int32_t y, int32_t z) {
-	bp.radius[transformIndices[0]] = x;
-	bp.radius[transformIndices[1]] = y;
-	bp.radius[transformIndices[2]] = z;
+	bp.radius[space.indices[0]] = x;
+	bp.radius[space.indices[1]] = y;
+	bp.radius[space.indices[2]] = z;
 }
 
 void builderContext::btn(int ix) {
@@ -78,6 +78,7 @@ void builderContext::resetHandlers() {
 
 void builderContext::sl(int num, ...) {
 	free(bp.sliders);
+	bp.numSliders = num;
 	bp.sliders = (slider*)calloc(num, sizeof(slider));
 	va_list args;
 	va_start(args, num);
@@ -130,4 +131,13 @@ void builderContext::finish() {
 		bctx_hold &h = holds[i];
 		pickupNoHandlers(gs, createdEnts[h.holder], createdEnts[h.holdee], h.holdFlags);
 	}
+}
+
+// The problem this method solves might eventually be a solved by some kind of "copy" method, IDK
+void builderContext::restart() {
+	createdEnts.num = wires.num = holds.num = 0;
+	destroyEntBlueprint(&bp);
+	initEntBlueprint(&bp);
+	memcpy(bp.center, space.pos, sizeof(space.pos));
+	memcpy(bp.vel, space.vel, sizeof(space.vel));
 }
