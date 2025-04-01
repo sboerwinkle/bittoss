@@ -228,7 +228,7 @@ static plat const shapes[] = {
 static int const numShapes = sizeof(shapes) / sizeof(shapes[0]);
 
 static void getWeights(builderContext *ctx, int weights[numToppings+1]) {
-	int tmp[numToppings+1] = {9,4,1,3,1}; // Sum, followed by weights for each topping
+	int tmp[numToppings+1] = {9,4,1,1,3}; // Sum, followed by weights for each topping
 /*
 	topping_none,
 	topping_bigChungus,

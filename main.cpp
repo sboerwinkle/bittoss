@@ -1737,7 +1737,11 @@ int main(int argc, char **argv) {
 	{
 		timespec now;
 		clock_gettime(CLOCK_MONOTONIC_RAW, &now);
-		rootState->rand = now.tv_sec;
+		uint32_t r = now.tv_sec;
+		// Number of seconds is easy to get, but it can also be pretty small.
+		// Our dirt-cheap random algorithm sometimes produces ugly results if
+		// starting from such a seed, so we apply our "nicer" algorithm once.
+		rootState->rand = splitmix32(&r) % randomMax;
 
 		list<char> data;
 		data.init();
