@@ -116,8 +116,8 @@ static void moveRecursive(ent *who, int32_t *dc, int32_t *dv) {
 	who->needsPhysUpdate = 1;
 	int i;
 	for (i = 0; i < 3; i++) {
-		who->center2[i] = who->center[i] + dc[i];
-		who->vel2[i] = who->vel[i] + dv[i];
+		who->center[i] += dc[i];
+		who->vel[i] += dv[i];
 	}
 	ent *e;
 	for (e = who->holdee; e; e = e->LL.n) {
@@ -421,16 +421,11 @@ static byte checkCollision(ent *a, ent *b) {
 	//We throw in the 3^ to flip MOVE_ME and MOVE_HIM, but the only problem is that this injures the MOVE_NONE and MOVE_BOTH symbols, so we can't just check for equality here.
 	if (movee & 8) return 0; // MOVE_NONE
 	if (movee & 4) { // MOVE_BOTH
-		/*
-		//In this case we need to test the forced values and possibly change movee...
-		if ((a->forced[axis] == -dir) ^ (b->forced[axis] == dir)) {
-			movee = MOVE_ME + (a->forced[axis] == -dir);
-		} else {
-		*/
-			byte ret = tryCollide(a, b, axis, dir, 1);
-			ret |= tryCollide(b, a, axis, -dir, 1);
-			return ret;
-		//}
+		// Previously we checked any existing forcing (`a->forced`, `b->forced`),
+		// but not anymore. Probably it was too unpredictable and/or order-based.
+		byte ret = tryCollide(a, b, axis, dir, 1);
+		ret |= tryCollide(b, a, axis, -dir, 2);
+		return ret;
 	}
 	if (movee == MOVE_ME) {
 		return tryCollide(a, b, axis, dir, 0);
@@ -529,12 +524,8 @@ static char push_helper(gamestate *gs, ent *e, ent *prev, byte axis, int dir) {
 	return 0;
 }
 
-static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
-	int displacement = (o->center[axis] - e->center[axis])*dir + e->radius[axis] + o->radius[axis];
-	if (displacement < 0) printf("Shouldn't get a negative displacement!\n");
-
+static void getPushDv(int32_t dv[3], ent *e, ent *o, byte axis, int dir, int32_t accel) {
 	// Friction
-	int32_t dv[3];
 	dv[axis] = 0;
 	int i = (axis+1)%3;
 	dv[i] = o->vel[i] - e->vel[i];
@@ -545,21 +536,20 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	// probably isn't worth the effort
 	boundVec(dv, e->friction, 3);
 
-	// Velocity transfer in the direction of the collision
-	int32_t accel = (o->vel[axis] - e->vel[axis])*dir;
-	if (accel < 0) accel = 0;
 	dv[axis] = accel*dir;
+}
 
-	//TODO: This guy should get to know the person who was moved, and how.
-	//Does it matter that this guy might get called twice, if the other guy gets crushed? Shouldn't matter if he's told the other guy got crushed.
-	//I think we need it to be called twice, so the other guy gets to know that he was pushed while not being held.
-	o->push(gs, o, e, axis, dir, displacement, accel);
+static void doPushPickup(gamestate *gs, ent *e, ent *holder) {
+	puts("Unimplemented!");
+}
 
+static void doPushRegular(gamestate *gs, ent *e, ent *o, byte axis, int dir, int32_t displacement, int32_t dv[3]) {
 	ent *prev = NULL;
 	while (1) {
 		if (push_helper(gs, e, prev, axis, dir)) break;
-		
+
 		if (e->pushed) {
+			int32_t accel = dv[axis]*dir;
 			if ((*e->pushed)(gs, e, o, axis, dir, displacement, accel)) {
 				crushEnt(gs, e);
 				break;
@@ -581,6 +571,56 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir) {
 	}
 }
 
+static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir, char mutual) {
+	int32_t displacement = (o->center[axis] - e->center[axis])*dir + e->radius[axis] + o->radius[axis];
+	if (displacement < 0) printf("Shouldn't get a negative displacement!\n");
+
+	int32_t accel = (o->vel[axis] - e->vel[axis])*dir;
+	// Velocity transfer in the direction of the collision
+	if (accel < 0) accel = 0;
+
+	// I think the push handler can actually get called twice with same subject.
+	// Like maybe if it gets pushed and fumbled, and then pushed later? IDK, the
+	// notes I'm working from are a bit old.
+
+	if (mutual) {
+		// This is the hairy bit, have to orchestrate 2x pushes
+		// (p1,p2 are both 0 or 1)
+		char p1 = o->push(gs, o, e, axis,  dir, displacement, accel);
+		char p2 = e->push(gs, e, o, axis, -dir, displacement, accel);
+		if (p1 != p2) {
+			// We only want to handle one case, so maybe we flip e/o.
+			// This is a goofy (but branchless!) way to achieve that.
+			uintptr_t e1 = (uintptr_t)e, e2 = (uintptr_t)o;
+			e = (ent*)(e1*p2 + e2*p1);
+			o = (ent*)(e1*p1 + e2*p2);
+			dir *= (p2-p1);
+
+			int32_t dv[3];
+			getPushDv(dv, e, o, axis, dir, accel);
+			doPushRegular(gs, e, o, axis, dir, displacement, dv);
+			doPushPickup(gs, o, e);
+		} else {
+			// If they both try to pickup, they both just push.
+			// Same if they both actually want to just push.
+			int32_t dv1[3], dv2[3];
+			getPushDv(dv1, e, o, axis,  dir, accel);
+			getPushDv(dv2, o, e, axis, -dir, accel);
+			doPushRegular(gs, e, o, axis,  dir, displacement, dv1);
+			doPushRegular(gs, o, e, axis, -dir, displacement, dv2);
+		}
+	} else {
+		char p1 = o->push(gs, o, e, axis, dir, displacement, accel);
+		if (p1) {
+			doPushPickup(gs, e, o);
+		} else {
+			int32_t dv[3];
+			getPushDv(dv, e, o, axis, dir, accel);
+			doPushRegular(gs, e, o, axis, dir, displacement, dv);
+		}
+	}
+}
+
 static char shouldResolveCollision(gamestate *gs, ent *e) {
 	// Ents can be pushed by ents that are being pushed by other ents,
 	// in a chain or potentially a cycle.
@@ -592,7 +632,10 @@ static char shouldResolveCollision(gamestate *gs, ent *e) {
 	while (1) {
 		otherRoot = otherRoot->collisionBuddy->holdRoot;
 		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) {
-			return 1;
+			// In the special case of `collisionMutual == 2`,
+			// we don't resolve the collision b/c our partner
+			// will coordinate resolving both halves at once.
+			return e->collisionMutual != 2;
 		}
 		if (collisionBetter(
 			e,
@@ -816,7 +859,7 @@ void doPhysics(gamestate *gs) {
 		}
 		for (int j = 0; j < entList.num; j++) {
 			ent *e = entList[j];
-			push(gs, e->collisionLeaf, e->collisionBuddy, e->collisionAxis, e->collisionDir);
+			push(gs, e->collisionLeaf, e->collisionBuddy, e->collisionAxis, e->collisionDir, e->collisionMutual);
 		}
 		for (int j = 0; j < realNum; j++) {
 			ent *e = entList[j];
@@ -824,15 +867,12 @@ void doPhysics(gamestate *gs) {
 			requireCollisionRecursive(e);
 		}
 
+		// This loop was from back when push updates were done separately,
+		// after push computations. There's a chance it could be improved.
 		entList.num = 0;
 		for (i = gs->ents; i; i = i->ll.n) {
 			if (i->needsPhysUpdate) {
 				i->needsPhysUpdate = 0;
-				// Todo I'm not sure if `memcpy` or an easily-optimized loop is faster here,
-				//      and as of right now I haven't bothered to figure it out and don't use
-				//      either consistently
-				memcpy(i->center, i->center2, sizeof(i->center));
-				memcpy(i->vel, i->vel2, sizeof(i->vel));
 				if (i->myBox) {
 					range(j, 3) {
 						i->myBox->p2[j] = i->center[j];

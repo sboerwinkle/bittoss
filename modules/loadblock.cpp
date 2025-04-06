@@ -14,8 +14,8 @@ char const * const * const M_LOADBLOCK_HELP = (char const * const[]){
 	NULL
 };
 
-static void loadblock_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
-	if (getSlider(me, 1) > 0) return;
+static char loadblock_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+	if (getSlider(me, 1) > 0) return 0;
 
 	list<player> &ps = gs->players;
 	range(i, ps.num) {
@@ -27,6 +27,7 @@ static void loadblock_push(gamestate *gs, ent *me, ent *him, byte axis, int dir,
 			me->sliders[1].v = 15;
 		}
 	}
+	return 0;
 }
 
 static void loadblock_tick(gamestate *gs, ent *me) {

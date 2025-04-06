@@ -40,7 +40,7 @@ static void bottleRecolor(ent *e, int32_t btype) {
 static void bottle_tick(gamestate *gs, ent *me) {
 }
 
-static void bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+static char bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	// bottle_push is only set for "bottle2" blocks.
 	// It will fill itself from bottles of a compatible type.
 	if (him->tick == bottle_tick) {
@@ -50,7 +50,7 @@ static void bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 			int32_t capacity = me->sliders[s_max].v - me->sliders[s_amt].v;
 			int32_t hisAmt = him->sliders[s_amt].v;
 			if (hisAmt < capacity) capacity = hisAmt;
-			if (capacity <= 0) return; // Skip updating him and setting my type
+			if (capacity <= 0) return 0; // Skip updating him and setting my type
 
 			him->sliders[s_amt].v -= capacity;
 			me->sliders[s_amt].v += capacity;
@@ -63,6 +63,7 @@ static void bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 			bottleRecolor(me, myType);
 		}
 	}
+	return 0;
 }
 
 void bottleUpdate(gamestate *gs, ent *e) {

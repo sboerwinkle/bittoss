@@ -13,7 +13,9 @@ catalog<pushed_t> pushedHandlers;
 catalog<push_t> pushHandlers;
 catalog<entPair_t> entPairHandlers;
 
-static void onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {}
+static char onPushDefault(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+	return 0;
+}
 
 static void entPairDefault(gamestate *gs, ent *me, ent *him) {}
 

@@ -7,11 +7,12 @@
 #include "../handlerRegistrar.h"
 #include "../edit.h"
 
-static void seat_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
-	if (me->wires.num) return;
+static char seat_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+	if (me->wires.num) return 0;
 	if ((type(him) & T_INPUTS) && !getButton(him, 0)) {
 		uPickup(gs, me, him, HOLD_DROP + HOLD_FREEZE + HOLD_SINGLE);
 	}
+	return 0;
 }
 
 static void seat_fumble_old(gamestate *gs, ent *me, ent *him) {

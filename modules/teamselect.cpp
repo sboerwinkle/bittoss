@@ -33,7 +33,7 @@ static void updatePlayer(ent *me, player *p) {
 	p->data = (value & mask) + (p->data & ~mask);
 }
 
-static void teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+static char teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	list<player> &ps = gs->players;
 	range(i, ps.num) {
 		player *p = &ps[i];
@@ -41,6 +41,7 @@ static void teamselect_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 			updatePlayer(me, p);
 		}
 	}
+	return 0;
 }
 
 static void cmdTeamselect(gamestate *gs, ent *e) {

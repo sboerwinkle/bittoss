@@ -57,7 +57,7 @@ struct gamestate;
 typedef int (*whoMoves_t)(struct ent*, struct ent*, int, int);
 typedef void (*tick_t)(struct gamestate *gs, struct ent*);
 typedef void (*crush_t)(struct gamestate *gs, struct ent*);
-typedef void (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
+typedef char (*push_t)(struct gamestate *gs, struct ent*, struct ent*, byte, int, int, int);
 typedef char (*pushed_t)(struct gamestate *gs, struct ent*, struct ent*, int, int, int, int);
 typedef void (*entPair_t)(struct gamestate *gs, struct ent*, struct ent*);
 
@@ -91,12 +91,9 @@ typedef struct ent_blueprint {
 	uint32_t newTypeMask, newCollideMask;
 	// Relative to the world even when held.
 	int32_t center[3], d_center[3];
-	// Where the center will be at the end of this iteration
-	int32_t center2[3];
 	// Center at the beginning of this tick
 	int32_t old[3];
 	int32_t vel[3], d_vel[3];
-	int32_t vel2[3];
 	int32_t radius[3];
 	// Thing for custom R Tree impl
 	box *myBox;

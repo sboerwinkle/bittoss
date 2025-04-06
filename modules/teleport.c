@@ -9,7 +9,7 @@
 #include "../handlerRegistrar.h"
 #include "../edit.h"
 
-static void teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+static char teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// All kinds of stuff can be pushed, some of it invisible or otherwise not "real".
 	// This should be good enough to not have phantom activations
 	if (type(him) & (T_TERRAIN | T_OBSTACLE | T_DEBRIS)) pushBtn(me, 0);
@@ -19,11 +19,11 @@ static void teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, 
 			if (dest == NULL) dest = w;
 			else {
 				puts("Behavior with multiple teleport destinations active is undefined!");
-				return;
+				return 0;
 			}
 		}
 	}
-	if (dest == NULL) return;
+	if (dest == NULL) return 0;
 	int32_t v[3];
 	range(i, 3) {
 		v[i] = dest->center[i] - me->center[i];
@@ -33,6 +33,7 @@ static void teleport_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, 
 		v[i] = dest->vel[i] - me->vel[i];
 	}
 	uVel(him->holdRoot, v);
+	return 0;
 }
 
 static void cmdTeleport(gamestate *gs, ent *e) {

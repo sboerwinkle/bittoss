@@ -16,9 +16,9 @@ enum {
 };
 static_assert(s_num == M_SCOREBOARD_NUM_SLIDERS);
 
-static void scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+static char scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// We're only interested in collisions with other scoreboards
-	if (me->tick != him->tick) return;
+	if (me->tick != him->tick) return 0;
 
 	// This makes it so that it won't "wake up" until at least one person is alive,
 	// so any level initialization mechanics can run.
@@ -31,6 +31,7 @@ static void scoreboard_push(gamestate *gs, ent *me, ent *him, byte axis, int dir
 	uSlider(me, s_team_red, getSlider(him, s_team_red));
 	// Signal start of a new round (if we're connected to anything);
 	wiresAnyOrder(w, me) { pushBtn(w, 0); }
+	return 0;
 }
 
 static void scoreboard_tick(gamestate *gs, ent *me) {

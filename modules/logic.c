@@ -41,10 +41,11 @@ char const * const * const M_DEMOLISH_HELP = (char const * const[]) {
 	NULL // no sliders at all here actually
 };
 
-static void logic_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
+static char logic_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int dx, int dv) {
 	// All kinds of stuff can be pushed, some of it invisible or otherwise not "real".
 	// This should be good enough to not have phantom activations
 	if (type(him) & (T_TERRAIN | T_OBSTACLE | T_DEBRIS)) pushBtn(me, 0);
+	return 0;
 }
 
 static char logic_common_input(ent *me, int32_t mode) {

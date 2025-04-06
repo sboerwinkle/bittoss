@@ -54,7 +54,7 @@ static char pj_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int d
 	return 0;
 }
 
-static void pj_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+static char pj_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (him->tick == bottleTick && getSlider(him, BOTTLE_TYPE_SLIDER) == BOTTLE_FUEL) {
 		int32_t capacity = me->sliders[s_fuel_max].v - me->sliders[s_fuel].v;
 		int32_t avail = him->sliders[BOTTLE_AMT_SLIDER].v;
@@ -64,6 +64,7 @@ static void pj_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int di
 		me->sliders[s_fuel].v += capacity;
 		bottleUpdate(gs, him);
 	}
+	return 0;
 }
 
 static void pj_tick(gamestate *gs, ent *me) {

@@ -100,7 +100,7 @@ static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, i
 	return 0;
 }
 
-static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
+static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
 	if (
 		(type(him) & EQUIP_MASK)
 		&& !getButton(me, 1) // May change this later, but for now 'shift' inhibits pickups
@@ -121,16 +121,16 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 				// or both require the primary hand,
 				// or we're also holding an offhand item,
 				// we can't pickup.
-				if (heldEquipSm || tEquip || existingEquipment) return;
+				if (heldEquipSm || tEquip || existingEquipment) return 0;
 				// Otherwise, we're primary and they're offhand, so no issue yet
 				existingEquipment = h;
 			} else if (heldEquipSm) {
 				// If this is our second piece of equipment,
 				// we can't pickup.
-				if (existingEquipment) return;
+				if (existingEquipment) return 0;
 				// If the new equip is 2-handed,
 				// we can't pickup.
-				if (tEquip && tEquipSm) return;
+				if (tEquip && tEquipSm) return 0;
 				// Otherwise, no issue yet
 				existingEquipment = h;
 			}
@@ -152,6 +152,7 @@ static void player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		me->sliders[s_equip_processed].v |= 1;
 
 	}
+	return 0;
 }
 
 static void player_pickup(gamestate *gs, ent *me, ent *him) {
