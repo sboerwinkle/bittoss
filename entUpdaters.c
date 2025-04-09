@@ -90,3 +90,25 @@ void uMyCollideMask(ent *e, uint32_t mask) {
 }
 
 //TODO: Requests to update orientation
+
+
+// Hoo boy.
+// This little number is meant to update ents to match after a pickup,
+// and is supposed to work even in the middle of a round of collision
+// resolution. If I also want it to work outside of collision resolution
+// I'd probably have to include dx and dv (or whatever they're really called).
+// As-is it'll be susceptible to other pending updates not getting cleared,
+// assuming you consider that to be a bad thing.
+void updateTrajectory(ent *who, int32_t *old, int32_t *center, int32_t *vel) {
+	who->needsPhysUpdate = 1;
+	int i;
+	for (i = 0; i < 3; i++) {
+		who->old[i] += old[i];
+		who->center[i] += center[i];
+		who->vel[i] += vel[i];
+	}
+	ent *e;
+	for (e = who->holdee; e; e = e->LL.n) {
+		updateTrajectory(e, old, center, vel);
+	}
+}

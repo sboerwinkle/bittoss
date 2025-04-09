@@ -144,12 +144,15 @@ static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 			uSlider(him, 0, hand);
 		}
 
-		uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
 		// Direct slider update. We absolutely don't want to examine another equipment before
 		// this pickup processes, and we don't really care which equipment gets handled if two
 		// are touched in the same frame.
 		// (it's not a desync risk, just "arbitrary" from the player's view)
 		me->sliders[s_equip_processed].v |= 1;
+
+		// We added the ability to do an immediate pickup in response to a push, so just ask for that instead
+		// uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
+		return 1;
 
 	}
 	return 0;
@@ -157,9 +160,14 @@ static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 
 static void player_pickup(gamestate *gs, ent *me, ent *him) {
 	if (type(him) & EQUIP_MASK) {
-		int32_t offset[3];
-		getPos(offset, him, me);
-		uCenter(him, offset);
+		int32_t old[3], center[3], vel[3];
+		range(i, 3) {
+			old[i] = me->old[i] - him->old[i];
+			center[i] = me->center[i] - him->center[i];
+			vel[i] = me->vel[i] - him->vel[i];
+		}
+		updateTrajectory(him, old, center, vel);
+		him->holdFlags |= HOLD_DROP;
 	}
 }
 

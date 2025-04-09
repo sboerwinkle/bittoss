@@ -10,3 +10,4 @@ extern void uWire(ent *e, ent *w);
 extern void uUnwire(ent *e, ent *w);
 extern void uMyTypeMask(ent *e, uint32_t mask);
 extern void uMyCollideMask(ent *e, uint32_t mask);
+extern void updateTrajectory(ent *who, int32_t *old, int32_t *center, int32_t *vel);

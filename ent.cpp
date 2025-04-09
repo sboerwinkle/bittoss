@@ -182,9 +182,9 @@ void pickupNoHandlers(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
 }
 
 static void pickup(gamestate *gs, ent *x, ent *y, int32_t holdFlags) {
+	pickupNoHandlers(gs, x, y, holdFlags);
 	x->onPickUp(gs, x, y);
 	y->onPickedUp(gs, y, x);
-	pickupNoHandlers(gs, x, y, holdFlags);
 }
 
 static void killEntNoHandlers(gamestate *gs, ent *e) {
@@ -540,7 +540,12 @@ static void getPushDv(int32_t dv[3], ent *e, ent *o, byte axis, int dir, int32_t
 }
 
 static void doPushPickup(gamestate *gs, ent *e, ent *holder) {
-	puts("Unimplemented!");
+	if (e->holder || holder->holdRoot == e) {
+		puts("Bad pickup during collision, you should get that fixed");
+		crushEnt(gs, e);
+		return;
+	}
+	pickup(gs, holder, e, 0);
 }
 
 static void doPushRegular(gamestate *gs, ent *e, ent *o, byte axis, int dir, int32_t displacement, int32_t dv[3]) {
@@ -836,6 +841,7 @@ void doPhysics(gamestate *gs) {
 			velbox_step(b, i->old, i->center);
 		}
 		i->needsCollision = 1;
+		i->needsPhysUpdate = 0;
 	}
 
 	velbox_refresh(gs->rootBox);
