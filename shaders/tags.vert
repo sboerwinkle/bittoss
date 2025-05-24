@@ -1,6 +1,5 @@
 #version 430
 layout(location=0) uniform mat4 u_camera;
-layout(location=1) uniform sampler2D u_tex;
 uniform vec3 u_loc;
 uniform vec3 u_color;
 uniform vec2 u_scale;

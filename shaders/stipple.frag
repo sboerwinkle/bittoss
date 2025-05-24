@@ -1,8 +1,8 @@
 #version 430 core
 layout(location=1) uniform sampler2D u_tex;
 
-in vec3 v_color;
-in vec2 v_uv;
+layout(location=0) in vec3 v_color;
+layout(location=1) in vec2 v_uv;
 
 layout(location = 0) out vec4 out_color;
 

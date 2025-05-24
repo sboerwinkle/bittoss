@@ -14,14 +14,20 @@
 int displayWidth = 0;
 int displayHeight = 0;
 
-// Might improve this later, for now we just send the updated coords to the graphics card
-// once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 8 attributes/vertex (XYZRGBUV)
-static GLfloat boxData[288];
+static void populateCubeVertexData();
 
+// Might improve this later, for now we just send the updated coords to the graphics card
+// once per box being drawn. Each box has 6 faces * 2 triangles/face * 3 vertices/triangle * 10 attributes/vertex (XYZBuvuvuv)
+static GLfloat boxData[360];
+
+static char startupFailed = 0;
 static GLuint main_prog, stipple_prog, tag_prog, flat_prog;
 static GLuint vaos[2];
 
 static GLint u_camera_id = -1;
+static GLint u_main_offset_id = -1;
+static GLint u_main_scale_id = -1;
+static GLint u_main_color_id = -1;
 static GLint u_tag_camera_id = -1;
 static GLint u_tag_loc_id = -1;
 static GLint u_tag_color_id = -1;
@@ -31,7 +37,7 @@ static GLint u_flat_camera_id = -1;
 static GLint u_flat_offset_id = -1;
 static GLint u_flat_scale_id = -1;
 static GLint u_flat_color_id = -1;
-static GLuint stream_buffer_id;
+static GLuint cube_vtx_buffer_id;
 static GLfloat camera_uniform_mat[16];
 static float rotation_mat[16];
 
@@ -41,7 +47,10 @@ static char glMsgBuf[3000]; // Is allocating all of this statically a bad idea? 
 static void printGLProgErrors(GLuint prog, const char *name){
 	GLint ret = 0;
 	glGetProgramiv(prog, GL_LINK_STATUS, &ret);
-	if (ret != GL_TRUE) printf("Link status for program \"%s\": %d\n", name, ret);
+	if (ret != GL_TRUE) {
+		printf("Link status for program \"%s\": %d\n", name, ret);
+		startupFailed = 1;
+	}
 	//glGetProgramiv(prog, GL_ATTACHED_SHADERS, &ret);
 	//printf("Attached Shaders: %d\n", ret);
 
@@ -54,10 +63,13 @@ static void printGLShaderErrors(GLuint shader, const char *path) {
 	// If the returned string is non-empty, print it
 	if (glMsgBuf[0]) printf("GL Info Log for shader at %s:\n%s\n", path, glMsgBuf);
 }
-static char progFailed(GLuint prog) {
-	GLint out;
-	glGetProgramiv(prog, GL_LINK_STATUS, &out);
-	return out != GL_TRUE;
+static GLint attrib(GLuint prog, char const *name) {
+	GLint ret = glGetAttribLocation(prog, name);
+	if (ret == -1) {
+		printf("GL reports no attribute \"%s\" in requested program\n", name);
+		startupFailed = 1;
+	}
+	return ret;
 }
 
 static void cerr(const char* msg){
@@ -133,23 +145,28 @@ void initGraphics() {
 	glAttachShader(flat_prog, fragShader);
 	glLinkProgram(flat_prog);
 	cerr("Post link");
+
 	/* TODO:
 	 * / Offset is handled in CPU code (ints are fun)
 	 * / set u_camera appropriately (ExternLinAlg.h is big friend-o here)
 	 * / Populate drawing buffer
-	 * - Consider putting cube-drawing instructions in a static buffer which we then scale and shift? IDK
+	 * / Consider putting cube-drawing instructions in a static buffer which we then scale and shift? IDK
 	 * - Maybe even a geometry shader??? Not sure if that would have a significant improvement or not.
-	 * - As a third option, leverage the indexing thingy for a slight reduction in vertex data needing to be written?
+	 * ! As a third option, leverage the indexing thingy for a slight reduction in vertex data needing to be written?
 	 */
 	// These will be the same attrib locations as stipple_prog, since they use the same vertex shader
-	GLint a_loc_id = glGetAttribLocation(main_prog, "a_loc");
-	GLint a_color_id = glGetAttribLocation(main_prog, "a_color");
-	GLint a_uv_id = glGetAttribLocation(main_prog, "a_uv");
+	GLint a_loc_id = attrib(main_prog, "a_loc");
+	GLint a_bright_id = attrib(main_prog, "a_bright");
+	// This will be 3 contiguous attributes, since it's a mat3x2
+	GLint a_tex_mat_id = attrib(main_prog, "a_tex_mat");
 	u_camera_id = glGetUniformLocation(main_prog, "u_camera");
+	u_main_offset_id = glGetUniformLocation(main_prog, "u_offset");
+	u_main_scale_id = glGetUniformLocation(main_prog, "u_scale");
+	u_main_color_id = glGetUniformLocation(main_prog, "u_color");
 
 	if (u_camera_id != glGetUniformLocation(stipple_prog, "u_camera")) {
 		puts("Camera uniform not co-located for 'main' / 'stipple' GLSL programs. Possibly a GLSL error?");
-		exit(1);
+		startupFailed = 1;
 	}
 
 	u_tag_camera_id = glGetUniformLocation(tag_prog, "u_camera");
@@ -167,7 +184,7 @@ void initGraphics() {
 
 	if (a_tag_offset_id != a_flat_loc_id) {
 		puts("Input attributes not co-located for 'tag' / 'flat' GLSL programs. Possibly a GLSL error?");
-		exit(1);
+		startupFailed = 1;
 	}
 
 	printGLProgErrors(main_prog, "main");
@@ -175,8 +192,8 @@ void initGraphics() {
 	printGLProgErrors(tag_prog, "tag");
 	printGLProgErrors(flat_prog, "flat");
 
-	if (progFailed(main_prog) || progFailed(stipple_prog) || progFailed(tag_prog) || progFailed(flat_prog)) {
-		puts("Shaders failed, not proceeding further.");
+	if (startupFailed) {
+		puts("Aborting due to one or more GL startup issues");
 		exit(1);
 	}
 
@@ -185,32 +202,37 @@ void initGraphics() {
 	//glFrontFace(GL_CW); // Apparently I'm bad at working out windings in my head, easier to flip this than fix everything else
 	glGenVertexArrays(2, vaos);
 	cerr("After GenVertexArrays");
-	{// prepare va 0
+
+	// prepare va 0
 	glBindVertexArray(vaos[0]);
 	glEnableVertexAttribArray(a_loc_id);
-	glEnableVertexAttribArray(a_color_id);
-	glEnableVertexAttribArray(a_uv_id);
-	glGenBuffers(1, &stream_buffer_id);
-	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
+	glEnableVertexAttribArray(a_bright_id);
+	glEnableVertexAttribArray(a_tex_mat_id+0);
+	glEnableVertexAttribArray(a_tex_mat_id+1);
+	glEnableVertexAttribArray(a_tex_mat_id+2);
+	glGenBuffers(1, &cube_vtx_buffer_id);
+	glBindBuffer(GL_ARRAY_BUFFER, cube_vtx_buffer_id);
+	populateCubeVertexData();
 	// Position data is first
-	glVertexAttribPointer(a_loc_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) 0);
+	glVertexAttribPointer(a_loc_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 10, (void*) 0);
 	// Followed by color data
-	glVertexAttribPointer(a_color_id, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) (sizeof(GLfloat) * 3));
+	glVertexAttribPointer(a_bright_id, 1, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 10, (void*) (sizeof(GLfloat) * 3));
 	// Followed by uv data
-	glVertexAttribPointer(a_uv_id, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 8, (void*) (sizeof(GLfloat) * 6));
-	}
+	glVertexAttribPointer(a_tex_mat_id+0, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 10, (void*) (sizeof(GLfloat) * 4));
+	glVertexAttribPointer(a_tex_mat_id+1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 10, (void*) (sizeof(GLfloat) * 6));
+	glVertexAttribPointer(a_tex_mat_id+2, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 10, (void*) (sizeof(GLfloat) * 8));
 	cerr("End of vao 0 prep");
-	{// prepare va 1
+
+	// prepare va 1
 	glBindVertexArray(vaos[1]);
 	glEnableVertexAttribArray(a_flat_loc_id);
 	initFont();
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
-	}
 	cerr("End of vao 1 prep");
 
 	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
 	// so we can leave it bound for the main_prog.
-	glBindBuffer(GL_ARRAY_BUFFER, stream_buffer_id);
+	glBindBuffer(GL_ARRAY_BUFFER, cube_vtx_buffer_id);
 	// (Further note: Unlike GL_ELEMENT_ARRAY_BUFFER, the GL_ARRAY_BUFFER binding is _NOT_ part of VAO state.
 	//  Its value is written to VAO state when glVertexAttribPointer (and kin) are called, though.)
 
@@ -380,86 +402,85 @@ void drawHudRect(double x, double y, double w, double h, float *color) {
 	glDrawElements(GL_TRIANGLES, myfont.letterLen[94], GL_UNSIGNED_SHORT, (void*)(sizeof(short)*myfont.letterStart[94]));
 }
 
-void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
-	// TODO This could be improved in a number of ways, see other TODO higher in this file
-	GLfloat L = (float)(p[0] - r[0]);
-	GLfloat R = (float)(p[0] + r[0]);
-	GLfloat F = (float)(p[1] - r[1]);
-	GLfloat B = (float)(p[1] + r[1]);
-	GLfloat U = (float)(p[2] - r[2]);
-	GLfloat D = (float)(p[2] + r[2]);
-	GLfloat r1 = red;
-	GLfloat g1 = grn;
-	GLfloat b1 = blu;
-	GLfloat r2 = red * 0.85;
-	GLfloat g2 = grn * 0.85;
-	GLfloat b2 = blu * 0.85;
-	GLfloat r3 = red * 0.75;
-	GLfloat g3 = grn * 0.75;
-	GLfloat b3 = blu * 0.75;
-	GLfloat r4 = red * 0.65;
-	GLfloat g4 = grn * 0.65;
-	GLfloat b4 = blu * 0.65;
-	GLfloat r5 = red * 0.50;
-	GLfloat g5 = grn * 0.50;
-	GLfloat b5 = blu * 0.50;
-	GLfloat xuv = ((float)(r[0]*2)) * MOTTLE_TEX_SCALE;
-	GLfloat yuv = ((float)(r[1]*2)) * MOTTLE_TEX_SCALE;
-	GLfloat zuv = ((float)(r[2]*2)) * MOTTLE_TEX_SCALE;
-	// Hopefully the compiler will optimize the counter out.
-	// As previously stated, needs work.
+static void populateCubeVertexData() {
+	GLfloat L = -1;
+	GLfloat R =  1;
+	GLfloat F = -1;
+	GLfloat B =  1;
+	GLfloat U = -1;
+	GLfloat D =  1;
+	GLfloat bright1 = 1.00;
+	GLfloat bright2 = 0.85;
+	GLfloat bright3 = 0.75;
+	GLfloat bright4 = 0.65;
+	GLfloat bright5 = 0.50;
+	// The vertex positions basically go from [-1,1],
+	// but our texture coords instead go from [0, 2].
+	// No particular reason for this, but that's what
+	// the 2x multiplier below is related to.
+	GLfloat t = 2 * MOTTLE_TEX_SCALE;
 	int counter = 0;
-#define vtx(x, y, z, r, g, b, u, v) \
+	// Note that we shuffle row-major vs column-major for the texture matrix
+#define vtx(x, y, z, bright, xu, yu, zu, xv, yv, zv) \
 	boxData[counter++] = x; \
 	boxData[counter++] = y; \
 	boxData[counter++] = z; \
-	boxData[counter++] = r; \
-	boxData[counter++] = g; \
-	boxData[counter++] = b; \
-	boxData[counter++] = u; \
-	boxData[counter++] = v; \
-	// END vtx
+	boxData[counter++] = bright; \
+	boxData[counter++] = xu; \
+	boxData[counter++] = xv; \
+	boxData[counter++] = yu; \
+	boxData[counter++] = yv; \
+	boxData[counter++] = zu; \
+	boxData[counter++] = zv; \
+// END vtx
 	// Top is full color
-	vtx(L,F,U,r1,g1,b1,0.0,0.0);
-	vtx(L,B,U,r1,g1,b1,0.0,yuv);
-	vtx(R,F,U,r1,g1,b1,xuv,0.0);
-	vtx(L,B,U,r1,g1,b1,0.0,yuv);
-	vtx(R,B,U,r1,g1,b1,xuv,yuv);
-	vtx(R,F,U,r1,g1,b1,xuv,0.0);
+	vtx(L,F,U,bright1,0,0,0,0,0,0);
+	vtx(L,B,U,bright1,0,0,0,0,t,0);
+	vtx(R,F,U,bright1,t,0,0,0,0,0);
+	vtx(L,B,U,bright1,0,0,0,0,t,0);
+	vtx(R,B,U,bright1,t,0,0,0,t,0);
+	vtx(R,F,U,bright1,t,0,0,0,0,0);
 	// Front is dimmer
-	vtx(L,F,U,r2,g2,b2,0.0,0.0);
-	vtx(R,F,U,r2,g2,b2,0.0,xuv);
-	vtx(L,F,D,r2,g2,b2,zuv,0.0);
-	vtx(R,F,U,r2,g2,b2,0.0,xuv);
-	vtx(R,F,D,r2,g2,b2,zuv,xuv);
-	vtx(L,F,D,r2,g2,b2,zuv,0.0);
+	vtx(L,F,U,bright2,0,0,0,0,0,0);
+	vtx(R,F,U,bright2,0,0,0,t,0,0);
+	vtx(L,F,D,bright2,0,0,t,0,0,0);
+	vtx(R,F,U,bright2,0,0,0,t,0,0);
+	vtx(R,F,D,bright2,0,0,t,t,0,0);
+	vtx(L,F,D,bright2,0,0,t,0,0,0);
 	// Sides are a bit dimmer
-	vtx(L,B,U,r3,g3,b3,0.0,0.0);
-	vtx(L,F,U,r3,g3,b3,0.0,yuv);
-	vtx(L,B,D,r3,g3,b3,zuv,0.0);
-	vtx(L,F,U,r3,g3,b3,0.0,yuv);
-	vtx(L,F,D,r3,g3,b3,zuv,yuv);
-	vtx(L,B,D,r3,g3,b3,zuv,0.0);
-	vtx(R,F,D,r3,g3,b3,0.0,0.0);
-	vtx(R,F,U,r3,g3,b3,0.0,zuv);
-	vtx(R,B,D,r3,g3,b3,yuv,0.0);
-	vtx(R,F,U,r3,g3,b3,0.0,zuv);
-	vtx(R,B,U,r3,g3,b3,yuv,zuv);
-	vtx(R,B,D,r3,g3,b3,yuv,0.0);
+	vtx(L,B,U,bright3,0,0,0,0,0,0);
+	vtx(L,F,U,bright3,0,0,0,0,-t,0);
+	vtx(L,B,D,bright3,0,0,t,0,0,0);
+	vtx(L,F,U,bright3,0,0,0,0,-t,0);
+	vtx(L,F,D,bright3,0,0,t,0,-t,0);
+	vtx(L,B,D,bright3,0,0,t,0,0,0);
+	vtx(R,F,D,bright3,0,0,0,0,0,0);
+	vtx(R,F,U,bright3,0,0,0,0,0,-t);
+	vtx(R,B,D,bright3,0,t,0,0,0,0);
+	vtx(R,F,U,bright3,0,0,0,0,0,-t);
+	vtx(R,B,U,bright3,0,t,0,0,0,-t);
+	vtx(R,B,D,bright3,0,t,0,0,0,0);
 	// Back is dimmer still
-	vtx(L,B,U,r4,g4,b4,0.0,0.0);
-	vtx(L,B,D,r4,g4,b4,0.0,zuv);
-	vtx(R,B,U,r4,g4,b4,xuv,0.0);
-	vtx(L,B,D,r4,g4,b4,0.0,zuv);
-	vtx(R,B,D,r4,g4,b4,xuv,zuv);
-	vtx(R,B,U,r4,g4,b4,xuv,0.0);
+	vtx(L,B,U,bright4,0,0,0,0,0,0);
+	vtx(L,B,D,bright4,0,0,0,0,0,t);
+	vtx(R,B,U,bright4,t,0,0,0,0,0);
+	vtx(L,B,D,bright4,0,0,0,0,0,t);
+	vtx(R,B,D,bright4,t,0,0,0,0,t);
+	vtx(R,B,U,bright4,t,0,0,0,0,0);
 	// Bottom is dimmest
-	vtx(L,F,D,r5,g5,b5,0.0,0.0);
-	vtx(R,F,D,r5,g5,b5,0.0,xuv);
-	vtx(L,B,D,r5,g5,b5,yuv,0.0);
-	vtx(R,F,D,r5,g5,b5,0.0,xuv);
-	vtx(R,B,D,r5,g5,b5,yuv,xuv);
-	vtx(L,B,D,r5,g5,b5,yuv,0.0);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*288, boxData, GL_STREAM_DRAW);
+	vtx(L,F,D,bright5,0,0,0,0,0,0);
+	vtx(R,F,D,bright5,0,0,0,t,0,0);
+	vtx(L,B,D,bright5,0,t,0,0,0,0);
+	vtx(R,F,D,bright5,0,0,0,t,0,0);
+	vtx(R,B,D,bright5,0,t,0,t,0,0);
+	vtx(L,B,D,bright5,0,t,0,0,0,0);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*360, boxData, GL_STATIC_DRAW);
+}
+
+void rect(int32_t *p, int32_t *r, float red, float grn, float blu) {
+	glUniform3f(u_main_offset_id, p[0], p[1], p[2]);
+	glUniform3f(u_main_scale_id, r[0], r[1], r[2]);
+	glUniform3f(u_main_color_id, red, grn, blu);
+	// 6 faces * 2 tris/face * 3 vtx/tri = 36 vertexes to draw
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 }

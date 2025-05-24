@@ -15,6 +15,7 @@
 // is 16/sqrt(2) = approx 11.3
 #define nearPlane (11*PTS_PER_PX)
 // Pretty arbitrary; remember that increasing the ratio of far/near decreases z-buffer accuracy
+// (Actually, after more research, the above is misleading. Near buffer matters far more, especially once the far buffer is crazy far away like we have it.)
 #define farPlane (1500000*PTS_PER_PX)
 
 extern int displayWidth;
