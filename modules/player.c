@@ -107,6 +107,7 @@ static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		&& !(1 & getSlider(me, s_equip_processed))
 		&& !getSlider(me, s_editmode)
 		&& !him->holder
+		&& !me->holder
 	) {
 		int32_t tEquip = him->typeMask & T_EQUIP;
 		int32_t tEquipSm = him->typeMask & T_EQUIP_SM;
