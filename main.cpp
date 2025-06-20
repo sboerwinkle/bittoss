@@ -96,6 +96,7 @@ gamestate *renderedState;
 long renderStartNanos = 0;
 char manualGlFinish = 1;
 char showFps = 0;
+int specialRenderMode = 0;
 
 static int typingLen = -1;
 
@@ -463,6 +464,11 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 			const char *c = text + 5;
 			if (getNum(&c, &x)) wheelIncr = x;
 			else printf("incr: %d\n", wheelIncr);
+		} else if (isCmd(text, "/srm")) {
+			int32_t x;
+			const char *c = text + 4;
+			if (getNum(&c, &x)) specialRenderMode = x;
+			else printf("special render mode: %d\n", specialRenderMode);
 		} else if (isCmd(text, "/perf")) {
 			performanceFrames = PERF_FRAMES_MAX;
 			performanceIters = 10;
@@ -1488,9 +1494,11 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	unlock(renderMutex);
 }
 
-static void checkRenderData() {
+static char checkRenderData() {
+	char updated = 0;
 	lock(renderMutex);
 	if (renderData.pickup) {
+		updated = 1;
 		renderData.dropoff = renderedState;
 		renderedState = renderData.pickup;
 		renderData.pickup = NULL;
@@ -1498,6 +1506,7 @@ static void checkRenderData() {
 	}
 	updateResolution();
 	unlock(renderMutex);
+	return updated;
 }
 
 static void* renderThreadFunc(void *_arg) {
@@ -1509,7 +1518,8 @@ static void* renderThreadFunc(void *_arg) {
 	long totalNanos = 0;
 	long time0 = nowNanos();
 	while (globalRunning) {
-		checkRenderData();
+		char updated = checkRenderData();
+		if (specialRenderMode && updated) applySpecialRender(renderedState, specialRenderMode);
 
 		// Todo would this be better with STEP_NANOS, FASTER_NANOS, or something in between (like the idealized server frame nanos)?
 		float interpRatio = (float)(time0 - renderStartNanos) / STEP_NANOS;

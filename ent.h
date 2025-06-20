@@ -213,6 +213,7 @@ extern void doPhysics(gamestate *gs);
 extern void finishStep(gamestate *gs);
 extern void drawSign(ent *e, char const *text, int size, int32_t const *const oldPos, int32_t const *const newPos, float const ratio);
 extern void doDrawing(gamestate *gs, ent *inhabit, char thirdPerson, int32_t const *oldPos, int32_t const *newPos, float interpRatio);
+extern void applySpecialRender(gamestate *gs, int mode);
 extern void doCleanup(gamestate *gs);
 extern gamestate* mkGamestate();
 extern void resetGamestate(gamestate *gs);

@@ -211,6 +211,10 @@ void initGraphics() {
 	glEnableVertexAttribArray(a_tex_mat_id+1);
 	glEnableVertexAttribArray(a_tex_mat_id+2);
 	glGenBuffers(1, &cube_vtx_buffer_id);
+	// `glVertexAttribPointer` and kin read the current `GL_ARRAY_BUFFER` binding
+	// and record it as part of their attribute information (in the VAO).
+	// However, the GL_ARRAY_BUFFER binding itself isn't in the VAO
+	// (and during rendering, attributes won't care about that binding either).
 	glBindBuffer(GL_ARRAY_BUFFER, cube_vtx_buffer_id);
 	populateCubeVertexData();
 	// Position data is first
@@ -229,12 +233,6 @@ void initGraphics() {
 	initFont();
 	glVertexAttribPointer(a_flat_loc_id, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), (void*) 0);
 	cerr("End of vao 1 prep");
-
-	// This could really be in setupFrame, but it turns out the text processing never actually writes this again,
-	// so we can leave it bound for the main_prog.
-	glBindBuffer(GL_ARRAY_BUFFER, cube_vtx_buffer_id);
-	// (Further note: Unlike GL_ELEMENT_ARRAY_BUFFER, the GL_ARRAY_BUFFER binding is _NOT_ part of VAO state.
-	//  Its value is written to VAO state when glVertexAttribPointer (and kin) are called, though.)
 
 	// Generate a random texture for mottling
 	uint8_t tex_noise_data[MOTTLE_TEX_RESOLUTION*MOTTLE_TEX_RESOLUTION];
