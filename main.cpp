@@ -1,3 +1,4 @@
+#include <dlfcn.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
@@ -87,12 +88,20 @@ struct {
 	char changed;
 } framebuffer;
 
+// This render stuff should really live in another file...
+// Yet another improvement to keep in mind for retoss, I guess.
+// Perhaps `graphics2`, the same way I've got `net2`.
 static struct {
 	gamestate *pickup, *dropoff;
 	long nanos;
+	// dl = dynamic load, srm = special render mode (/srm command)
+	void *dl_srm_pickup;
 } renderData = {0};
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
 gamestate *renderedState;
+void *dl_srm_active;
+typedef void (*srm_fn_t)(gamestate *g, int mode);
+srm_fn_t srm_fn = &applySpecialRender;
 long renderStartNanos = 0;
 char manualGlFinish = 1;
 char showFps = 0;
@@ -169,6 +178,12 @@ static long nowNanos() {
 	timespec now;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
 	return BILLION * (now.tv_sec - startSec) + now.tv_nsec;
+}
+
+static void printDlError(char const *prefix) {
+	char const *msg = dlerror();
+	if (!msg) msg = "[dlerror returned NULL]";
+	printf("%s: %s\n", prefix, msg);
 }
 
 static void outerSetupFrame(list<player> *ps, gamestate *gs, int32_t *oldPos, int32_t *newPos, float interpRatio) {
@@ -516,7 +531,12 @@ static void serializeControls(int32_t frame, list<char> *_out) {
 				*(int32_t*)(out.items + initial) = htonl(out.num - initial - 4);
 				numCmds++;
 			}
-		} else if (isCmd(text, "/save") || isCmd(text, "/export") || isCmd(text, "/sync")) {
+		} else if (
+			isCmd(text, "/save")
+			|| isCmd(text, "/export")
+			|| isCmd(text, "/sync")
+			|| isCmd(text, "/dlreload")
+		) {
 			// Commands that don't get roundtripped to the server.
 			// Some - like /save and /export - we partly do this because they write to the filesystem
 			// and we don't want to listen to the server about what we should write and where
@@ -778,6 +798,21 @@ static void processLoopbackCommand(gamestate *gs) {
 		syncData.num = 0;
 		syncData.add(BIN_CMD_SYNC);
 		serialize(rootState, &syncData);
+	} else if (isCmd(c, "/dlreload")) {
+		lock(renderMutex);
+		if (renderData.dl_srm_pickup) {
+			if (dlclose(renderData.dl_srm_pickup)) {
+				printDlError("Couldn't close obsolete pickup handle");
+			}
+		}
+		char const *path = "../dl_srm/srm.so";
+		if (c[9] == ' ') path = &c[10];
+		renderData.dl_srm_pickup = dlopen(path, RTLD_NOW);
+		if (!renderData.dl_srm_pickup) {
+			printDlError("Couldn't open handle to dynamic-link lib");
+		}
+		unlock(renderMutex);
+
 	} else {
 		printf("Unknown loopback command: %s\n", c);
 	}
@@ -1504,6 +1539,23 @@ static char checkRenderData() {
 		renderData.pickup = NULL;
 		renderStartNanos = renderData.nanos;
 	}
+	if (renderData.dl_srm_pickup) {
+		// dl (dynamic load) stuff doesn't have to be super performant rn,
+		// since it's intended for in-game dev work (not networked, and
+		// not during normal play). That's why it's inside the mutex here.
+		if (dl_srm_active) {
+			if (dlclose(dl_srm_active)) {
+				printDlError("Failed to close dynamic-load handle");
+			}
+		}
+		dl_srm_active = renderData.dl_srm_pickup;
+		renderData.dl_srm_pickup = NULL;
+		srm_fn = (srm_fn_t) dlsym(dl_srm_active, "dl_applySpecialRender");
+		if (!srm_fn) {
+			srm_fn = &applySpecialRender;
+			printDlError("Failed to load srm symbol");
+		}
+	}
 	updateResolution();
 	unlock(renderMutex);
 	return updated;
@@ -1519,7 +1571,7 @@ static void* renderThreadFunc(void *_arg) {
 	long time0 = nowNanos();
 	while (globalRunning) {
 		char updated = checkRenderData();
-		if (specialRenderMode && updated) applySpecialRender(renderedState, specialRenderMode);
+		if (specialRenderMode && updated) (*srm_fn)(renderedState, specialRenderMode);
 
 		// Todo would this be better with STEP_NANOS, FASTER_NANOS, or something in between (like the idealized server frame nanos)?
 		float interpRatio = (float)(time0 - renderStartNanos) / STEP_NANOS;
