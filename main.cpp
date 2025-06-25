@@ -23,6 +23,8 @@
 #include "modules.h"
 #include "net.h"
 #include "net2.h"
+#include "watch.h"
+#include "mypoll.h"
 #include "handlerRegistrar.h"
 #include "effects.h"
 #include "map.h"
@@ -50,7 +52,7 @@
 
 typedef bloc<char, TEXT_BUF_LEN> strbuf;
 
-char globalRunning = 1;
+volatile char globalRunning = 1;
 
 static int myPlayer;
 
@@ -94,12 +96,12 @@ struct {
 static struct {
 	gamestate *pickup, *dropoff;
 	long nanos;
-	// dl = dynamic load, srm = special render mode (/srm command)
-	void *dl_srm_pickup;
 } renderData = {0};
 pthread_mutex_t renderMutex = PTHREAD_MUTEX_INITIALIZER;
 gamestate *renderedState;
-void *dl_srm_active;
+// dl = dynamic load, srm = special render mode (/srm command)
+void *dl_srm_active = NULL;
+volatile char dl_srm_ready;
 typedef void (*srm_fn_t)(gamestate *g, int mode);
 srm_fn_t srm_fn = &applySpecialRender;
 long renderStartNanos = 0;
@@ -799,20 +801,7 @@ static void processLoopbackCommand(gamestate *gs) {
 		syncData.add(BIN_CMD_SYNC);
 		serialize(rootState, &syncData);
 	} else if (isCmd(c, "/dlreload")) {
-		lock(renderMutex);
-		if (renderData.dl_srm_pickup) {
-			if (dlclose(renderData.dl_srm_pickup)) {
-				printDlError("Couldn't close obsolete pickup handle");
-			}
-		}
-		char const *path = "../dl_srm/srm.so";
-		if (c[9] == ' ') path = &c[10];
-		renderData.dl_srm_pickup = dlopen(path, RTLD_NOW);
-		if (!renderData.dl_srm_pickup) {
-			printDlError("Couldn't open handle to dynamic-link lib");
-		}
-		unlock(renderMutex);
-
+		dl_srm_ready = 1;
 	} else {
 		printf("Unknown loopback command: %s\n", c);
 	}
@@ -942,13 +931,13 @@ static void processCmd(gamestate *gs, player *p, char const *data, int chars, ch
 		char wasCommand = 1;
 		if (isCmd(chatBuffer, "/data")) {
 			const char* c = chatBuffer + 5;
-			int32_t data;
-			if (getNum(&c, &data)) {
+			int32_t x;
+			if (getNum(&c, &x)) {
 				int32_t tmp;
 				while (getNum(&c, &tmp)) {
-					data = data * 0x100 + tmp;
+					x = x * 0x100 + tmp;
 				}
-				p->data = data;
+				p->data = x;
 			} else {
 				if (isMe && isReal) {
 					printf("data: 0x%X\n", p->data);
@@ -1539,7 +1528,8 @@ static char checkRenderData() {
 		renderData.pickup = NULL;
 		renderStartNanos = renderData.nanos;
 	}
-	if (renderData.dl_srm_pickup) {
+	if (dl_srm_ready) {
+		dl_srm_ready = 0;
 		// dl (dynamic load) stuff doesn't have to be super performant rn,
 		// since it's intended for in-game dev work (not networked, and
 		// not during normal play). That's why it's inside the mutex here.
@@ -1548,12 +1538,16 @@ static char checkRenderData() {
 				printDlError("Failed to close dynamic-load handle");
 			}
 		}
-		dl_srm_active = renderData.dl_srm_pickup;
-		renderData.dl_srm_pickup = NULL;
-		srm_fn = (srm_fn_t) dlsym(dl_srm_active, "dl_applySpecialRender");
-		if (!srm_fn) {
+		dl_srm_active = dlopen("../dl_srm/srm.so", RTLD_NOW);
+		if (!dl_srm_active) {
+			printDlError("Couldn't open handle to dynamic-link lib");
 			srm_fn = &applySpecialRender;
-			printDlError("Failed to load srm symbol");
+		} else {
+			srm_fn = (srm_fn_t) dlsym(dl_srm_active, "dl_applySpecialRender");
+			if (!srm_fn) {
+				srm_fn = &applySpecialRender;
+				printDlError("Failed to load srm symbol");
+			}
 		}
 	}
 	updateResolution();
@@ -1794,7 +1788,9 @@ int main(int argc, char **argv) {
 	config_setHost(host);
 	config_setPort(port);
 
-	net2_init(numPlayers);
+	net2_init(numPlayers, startFrame);
+	watch_init();
+	mypoll_init(); // This has to be after init for "net" and "watch" since it uses their fd's
 
 	{
 		timespec now;
@@ -1837,7 +1833,7 @@ int main(int argc, char **argv) {
 
 	//Main loop
 	pthread_t gameThread;
-	pthread_t netThread;
+	pthread_t pollThread;
 	pthread_t renderThread;
 	{
 		int ret = pthread_create(&gameThread, NULL, gameThreadFunc, &startFrame);
@@ -1845,9 +1841,9 @@ int main(int argc, char **argv) {
 			printf("pthread_create returned %d for gameThread\n", ret);
 			return 1;
 		}
-		ret = pthread_create(&netThread, NULL, netThreadFunc, &startFrame);
+		ret = pthread_create(&pollThread, NULL, mypoll_threadFunc, NULL);
 		if (ret) {
-			printf("pthread_create returned %d for netThread\n", ret);
+			printf("pthread_create returned %d for pollThread\n", ret);
 			pthread_cancel(gameThread); // No idea if this works, this is a failure case anyway
 			return 1;
 		}
@@ -1855,7 +1851,7 @@ int main(int argc, char **argv) {
 		if (ret) {
 			printf("pthread_create returned %d for renderThread\n", ret);
 			pthread_cancel(gameThread); // No idea if this works, this is a failure case anyway
-			pthread_cancel(netThread);
+			pthread_cancel(pollThread);
 			return 1;
 		}
 	}
@@ -1874,10 +1870,10 @@ int main(int argc, char **argv) {
 	config_write();
 	puts("Done.");
 	puts("Beginning cleanup.");
-	closeSocket();
-	cleanupThread(netThread, "network");
+	cleanupThread(pollThread, "poll");
 	cleanupThread(gameThread, "game");
 	cleanupThread(renderThread, "render");
+	closeSocket();
 	puts("Cleaning up game objects...");
 	int32_t rand = rootState->rand;
 	doCleanup(rootState);
@@ -1894,6 +1890,8 @@ int main(int argc, char **argv) {
 	syncData.destroy();
 	outboundData.destroy();
 	outboundTextQueue.destroy();
+	mypoll_destroy();
+	watch_destroy();
 	net2_destroy();
 	destroyFont();
 	hud_destroy();

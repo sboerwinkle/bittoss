@@ -81,7 +81,7 @@ static void factory_wires_tick(gamestate *gs, ent *me) {
 		if (h && h->wires.num == 1) {
 			ent *e = h->wires[0];
 			wiresAnyOrder(w, me) {
-				wiresAnyOrder(w2, w) {
+				_wiresAnyOrder(__j, w2, w) {
 					uWire(e, w2);
 				}
 			}

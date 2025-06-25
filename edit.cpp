@@ -61,10 +61,10 @@ static void fixNewBaubles(gamestate *gs) {
 // TODO We can get away with a lot less if we're just e.g. turning the ent,
 //      since we know it won't change position in the heirarchy.
 static void radiusFix(ent *e) {
-	box *b = e->myBox;
-	if (!b) return;
-	assignVelbox(e, b);
-	velbox_remove(b);
+	box *myBox = e->myBox;
+	if (!myBox) return;
+	assignVelbox(e, myBox);
+	velbox_remove(myBox);
 }
 
 static void setNumSliders(gamestate *gs, ent *e, int sliders) {
@@ -110,10 +110,10 @@ static char getLists(ent *e) {
 	return ret;
 }
 
-static void parseArgs(const char *a) {
+static void parseArgs(const char *str) {
 	args.num = 0;
 	int32_t x;
-	while (getNum(&a, &x)) args.add(x);
+	while (getNum(&str, &x)) args.add(x);
 }
 
 static void getExtents(list<ent*> *L, int axis, int32_t *min_out, int32_t *max_out) {

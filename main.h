@@ -12,5 +12,6 @@ void showMessage(gamestate const * const gs, char const * const msg);
 void requestReload(gamestate const * const gs);
 void requestLoad(gamestate const * gs, int playerIx, int gameStrIx);
 
-extern char globalRunning;
+extern volatile char globalRunning;
+extern volatile char dl_srm_ready;
 extern gamestate *rootState;

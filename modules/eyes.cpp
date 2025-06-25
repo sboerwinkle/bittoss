@@ -51,7 +51,7 @@ static void vehicle_eye_tick_held(gamestate *gs, ent *me) {
 	int32_t tmp[3];
 	// It's assumed we're wired to a seat, which is wired to (at most) an ent w/ an axis
 	wiresAnyOrder(w, me) {
-		wiresAnyOrder(e, w) {
+		_wiresAnyOrder(__j, e, w) {
 			getAxis(tmp, e);
 			range(i, 2) vec[i] += tmp[i];
 		}

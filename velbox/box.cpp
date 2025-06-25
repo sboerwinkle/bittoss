@@ -470,11 +470,11 @@ static void stepContainers(box *root) {
 
 			b->validity--;
 
-			range(i, DIMS) {
-				INT tmp = b->p1[i];
-				b->p1[i] = b->p2[i];
+			range(d, DIMS) {
+				INT tmp = b->p1[d];
+				b->p1[d] = b->p2[d];
 				// This feels wacky, but I think it's fine?
-				b->p2[i] = b->p2[i]*2 - tmp;
+				b->p2[d] = b->p2[d]*2 - tmp;
 			}
 
 			if (!b->validity) clearIntersects(b);
@@ -512,8 +512,8 @@ void velbox_refresh(box *root) {
 			setIntersects_refresh(b);
 			if (isWhale(b)) {
 				int x = b->intersects.num;
-				for (int i = 1; i < x; i++) {
-					addWhale(b, &b->intersects[i].b->kids);
+				for (int j = 1; j < x; j++) {
+					addWhale(b, &b->intersects[j].b->kids);
 				}
 			}
 		}

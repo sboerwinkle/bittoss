@@ -72,15 +72,15 @@ void config_setPort(char const* str) {
 
 ///// Logic for the on-disk config file /////
 
-static void consumeString(jsonValue *root, char const *name, char *destBuf) {
-	jsonValue *v = root->get(name);
+static void consumeString(jsonValue *root, char const *key, char *destBuf) {
+	jsonValue *v = root->get(key);
 	if (!v) return;
 	if (v->type != J_STR) {
-		fprintf(stderr, "Config value for key '%s' should have type J_STR but is %s\n", name, typeStr(v->type));
+		fprintf(stderr, "Config value for key '%s' should have type J_STR but is %s\n", key, typeStr(v->type));
 		return;
 	}
 	snprintf(destBuf, BUF_LEN, "%s", v->getString());
-	root->rm(name);
+	root->rm(key);
 }
 
 void config_init() {

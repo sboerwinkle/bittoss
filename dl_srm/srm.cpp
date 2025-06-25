@@ -2,9 +2,7 @@
 #include "../ent.h"
 #include "../handlerRegistrar.h"
 
-extern "C" void dl_applySpecialRender(gamestate *gs, int mode) {
-	// We can assume `mode` is non-zero.
-	// At present there's only one non-zero mode, so we don't even check `mode` hahahh
+static void srmHoldy(gamestate *gs) {
 	tick_t cursed = tickHandlers.get(TICK_CURSED);
 	for (ent *i = gs->ents; i; i = i->ll.n) {
 		int32_t hf = i->holdFlags;
@@ -26,10 +24,37 @@ extern "C" void dl_applySpecialRender(gamestate *gs, int mode) {
 			}
 		} else {
 			if (hf == HOLD_PASS) {
-				i->color = 0xC0C080;
+				i->color = 0x808080;
 			} else {
 				i->color = 0xA060A0;
 			}
 		}
 	}
+}
+
+static void srmMaterial(gamestate *gs) {
+	for (ent *i = gs->ents; i; i = i->ll.n) {
+		uint32_t t = i->typeMask & (T_OBSTACLE | T_TERRAIN | T_HEAVY | T_DECOR);
+		if      (t == T_OBSTACLE)
+			i->color = 0xFF0000;
+		else if (t == T_OBSTACLE + T_HEAVY)
+			i->color = 0xFFFF00;
+		else if (t == T_TERRAIN)
+			i->color = 0x00FF00;
+		else if (t == T_TERRAIN + T_HEAVY)
+			i->color = 0x00FFFF; // TODO wall vs metal
+		else if (t == T_DECOR)
+			i->color = 0xFF8080;
+		else if (t == 0)
+			i->color = 0xFFFFFF;
+		else
+			i->color = 0xFF00FF;
+		if (!(i->typeMask & T_WEIGHTLESS)) i->color = (i->color/2) & 0x7F7F7F;
+	}
+}
+
+extern "C" void dl_applySpecialRender(gamestate *gs, int mode) {
+	// We can assume `mode` is non-zero.
+	if (mode == 1) srmHoldy(gs);
+	else if (mode == 2) srmMaterial(gs);
 }

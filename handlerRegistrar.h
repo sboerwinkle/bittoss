@@ -24,8 +24,8 @@ template <typename T> struct catalog {
 };
 
 template <typename T>
-void catalog<T>::init(int num) {
-	this->num = num;
+void catalog<T>::init(int _num) {
+	num = _num;
 	items = new T[num];
 	range(i, num) items[i] = NULL;
 }

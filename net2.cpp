@@ -25,7 +25,8 @@ char asleep = 0;
 
 // ============= End mutex lock ==============
 
-static int numPlayers;
+static int numPlayers, maxPlayers;
+static int32_t expectedFrame;
 static list<list<char>> availBuffers;
 static const list<char> dummyBuffer = {.items = NULL, .num = 0, .max = 1};
 
@@ -59,161 +60,187 @@ static void supplyBuffer(list<char> *buf) {
 	}
 }
 
-void* netThreadFunc(void *startFrame) {
-	int32_t expectedFrame = *(int32_t*)startFrame;
-	availBuffers.init();
-	pendingMessages.init();
-	int maxPlayers = numPlayers;
 
-	while (1) {
-		int32_t frame;
-		if (readData(&frame, 4)) break;
-		frame = ntohl(frame);
-		if (frame != expectedFrame) {
-			printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
-			break;
+/*
+TODO:
+Need to refactor this to be called once per "data to read" event.
+Then, add `mypoll.cpp`, which handles dispatching to net2.cpp and watch.cpp.
+(We're okay with it blocking if all the data isn't here yet, but maybe mention that)
+We'll need to move some state that's outside the loop to be file-level state.
+We'll also want timout and periodic `globalRunning` check in `mypoll.cpp`, since
+we have a chance to do that properly now.
+
+Finally, we probably want that same structure in retoss, as putting all the fd-reading stuff
+on one thread feels nicer than spinning up a thread per fd.
+(edit: it's not as clear-cut as that, but unless I'm doing a bunch of cacheable work (and maybe mess with CPU pinning),
+ it seems like the overhead from threads and maybe caching the same region (?) makes polling worth it,
+ even before I consider that it's easier to stop all fd-related operations at the end of the program this way.)
+*/
+
+char net2_read() {
+	int32_t frame;
+	if (readData(&frame, 4)) return 1;
+	frame = ntohl(frame);
+	if (frame != expectedFrame) {
+		printf("Didn't get right frame value, expected %d but got %d\n", expectedFrame, frame);
+		return 1;
+	}
+	expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
+
+	int mostAhead = 0;
+
+	{
+		unsigned char tmp;
+		readData(&tmp, 1);
+		numPlayers = tmp;
+	}
+	if (numPlayers != maxPlayers) {
+		if (numPlayers > maxPlayers) {
+			maxPlayers = numPlayers;
+		} else {
+			printf("Number of players dropped (%d -> %d). This is unexpected and could cause bad memory reads, so we're aborting now.\n", maxPlayers, numPlayers);
+			// Would be tricky to make happen, but e.g. if we're looking at a buffer group for the first time this
+			// frame and initialize it to a lower number of players, the game thread (some frames behind)
+			// might still be reading it based on a higher number of players.
+			return 1;
 		}
-		expectedFrame = (expectedFrame + 1) % FRAME_ID_MAX;
+	}
+	range(i, numPlayers) {
+		// Server will send -1 here if it doesn't have a connected client at all for this player index.
+		// For the moment we don't differentiate that case from a silent client (0 messages).
+		char numMessages;
+		if (readData(&numMessages, 1)) return 1;
+		range(j, numMessages) {
 
-		int mostAhead = 0;
-
-		{
-			unsigned char tmp;
-			readData(&tmp, 1);
-			numPlayers = tmp;
-		}
-		if (numPlayers != maxPlayers) {
-			if (numPlayers > maxPlayers) {
-				maxPlayers = numPlayers;
-			} else {
-				printf("Number of players dropped (%d -> %d). This is unexpected and could cause bad memory reads, so we're aborting now.\n", maxPlayers, numPlayers);
-				// Would be tricky to make happen, but e.g. if we're looking at a buffer group for the first time this
-				// frame and initialize it to a lower number of players, the game thread (some frames behind)
-				// might still be reading it based on a higher number of players.
-				goto done;
+			byte size;
+			if (readData(&size, 1)) return 1;
+			// We are expecting exactly 6 bytes here
+			if (size != 6) {
+				fprintf(stderr, "Fatal error, player net input should declare size 6, not %d\n", size);
+				return 1;
 			}
-		}
-		for (int i = 0; i < numPlayers; i++) {
-			// Server will send -1 here if it doesn't have a connected client at all for this player index.
-			// For the moment we don't differentiate that case from a silent client (0 messages).
-			char numMessages;
-			if (readData(&numMessages, 1)) goto done;
-			range(j, numMessages) {
 
-				byte size;
-				if (readData(&size, 1)) goto done;
-				// We are expecting exactly 6 bytes here
-				if (size != 6) {
-					fprintf(stderr, "Fatal error, player net input should declare size 6, not %d\n", size);
-					goto done;
-				}
+			int32_t msgFrame;
+			if (readData(&msgFrame, 4)) return 1;
+			msgFrame = ntohl(msgFrame);
 
-				int32_t msgFrame;
-				if (readData(&msgFrame, 4)) goto done;
-				msgFrame = ntohl(msgFrame);
-
-				// Todo: Server has the ability to rewrite absolute frames into frame offsets on its end,
-				//       might actually be more natural that way.
-				int32_t frameOffset = (msgFrame - frame + FRAME_ID_MAX) % FRAME_ID_MAX;
+			// Todo: Server has the ability to rewrite absolute frames into frame offsets on its end,
+			//       might actually be more natural that way.
+			int32_t frameOffset = (msgFrame - frame + FRAME_ID_MAX) % FRAME_ID_MAX;
 #ifdef DEBUG
-				if (frameOffset < 0 || frameOffset > MAX_AHEAD) {
-					printf("Invalid frame offset %d (%d - %d)\n", frameOffset, msgFrame, frame);
-				}
+			if (frameOffset < 0 || frameOffset > MAX_AHEAD) {
+				printf("Invalid frame offset %d (%d - %d)\n", frameOffset, msgFrame, frame);
+			}
 #endif
-				if (frameOffset > mostAhead) mostAhead = frameOffset;
+			if (frameOffset > mostAhead) mostAhead = frameOffset;
 
-				message *m = &pendingMessages.add();
-				supplyBuffer(&m->data);
-				list<char> &data = m->data;
-				m->player = i;
-				m->frameOffset = frameOffset;
+			message *m = &pendingMessages.add();
+			supplyBuffer(&m->data);
+			list<char> &data = m->data;
+			m->player = i;
+			m->frameOffset = frameOffset;
 
-				data.setMaxUp(size);
-				if (readData(data.items, size)) goto done;
-				data.num = size;
+			data.setMaxUp(size);
+			if (readData(data.items, size)) return 1;
+			data.num = size;
 
-				// Now read in any commands
-				if (readData(&size, 1)) goto done;
-				data.add(size);
-				while (size--) {
-					int32_t netCmdLen;
-					if (readData(&netCmdLen, 4)) goto done;
-					int32_t cmdLen = ntohl(netCmdLen);
-					int end = data.num + cmdLen + 4;
-					data.setMaxUp(end);
-					*(int32_t*)(data.items + data.num) = netCmdLen;
-					if (readData(data.items + data.num + 4, cmdLen)) goto done;
-					data.num = end;
-				}
+			// Now read in any commands
+			if (readData(&size, 1)) return 1;
+			data.add(size);
+			while (size--) {
+				int32_t netCmdLen;
+				if (readData(&netCmdLen, 4)) return 1;
+				int32_t cmdLen = ntohl(netCmdLen);
+				int end = data.num + cmdLen + 4;
+				data.setMaxUp(end);
+				*(int32_t*)(data.items + data.num) = netCmdLen;
+				if (readData(data.items + data.num + 4, cmdLen)) return 1;
+				data.num = end;
 			}
 		}
+	}
 
-		// Now putting all that info into mutex'd vars for the game thread to make use of.
-		lock(netMutex);
+	// Now putting all that info into mutex'd vars for the game thread to make use of.
+	lock(netMutex);
 
-		int size = frameData.size();
-		int reqdSize = finalizedFrames + 1 + mostAhead;
-		// Make sure we have enough buffer groups for everything we need to write down.
-		if (reqdSize > size) {
-			frameData.setSize(reqdSize);
-			// If we put more buffer groups on the queue,
-			// reclaim any buffers that were in them from last time.
-			// (The queue is circular and recycles entries)
-			for (int i = size; i < reqdSize; i++) {
-				list<list<char>> &players = frameData.peek(i);
-				range(j, players.num) {
-					if (players[j].items) {
-						reclaimBuffer(&players[j]);
-						players[j] = dummyBuffer;
-					}
-				}
-			}
-			size = reqdSize;
-		}
-		// Make sure each buffer group from here on has enough buffers,
-		// partly because we're about to write to them,
-		// but also partly because the game thread doesn't like worrying
-		// about whether they exist or not when reading them.
-		for (int i = finalizedFrames; i < size; i++) {
+	int size = frameData.size();
+	int reqdSize = finalizedFrames + 1 + mostAhead;
+	// Make sure we have enough buffer groups for everything we need to write down.
+	if (reqdSize > size) {
+		frameData.setSize(reqdSize);
+		// If we put more buffer groups on the queue,
+		// reclaim any buffers that were in them from last time.
+		// (The queue is circular and recycles entries)
+		for (int i = size; i < reqdSize; i++) {
 			list<list<char>> &players = frameData.peek(i);
-			if (players.num < numPlayers) {
-				players.setMaxUp(numPlayers);
-				for (int j = players.num; j < numPlayers; j++) {
+			range(j, players.num) {
+				if (players[j].items) {
+					reclaimBuffer(&players[j]);
 					players[j] = dummyBuffer;
 				}
-				players.num = numPlayers;
 			}
 		}
-
-		// Now that we've guaranteed enough space along both dimensions, put our stuff in.
-		range(i, pendingMessages.num) {
-			message &m = pendingMessages[i];
-			list<char> *dest = &frameData.peek(finalizedFrames + m.frameOffset)[m.player];
-
-			// At present, anything in `frameData` when we unlock the mutex may be read and held onto by
-			// the game thread, until the game thread removes it from the queue. This means we can't
-			// overwrite / reclaim any of these buffers (excepting the dummy buffer, which is never invalid).
-			//
-			// We also can't base an overwrite decision on any kind of information from the game thread,
-			// since that could be ahead/behind on other clients and we don't want desync.
-			if (!dest->items) {
-				*dest = m.data;
-			} else {
-				fputs("Not an issue, but this case shouldn't happen with the new server rules?\n", stderr);
-				reclaimBuffer(&m.data);
-			}
-		}
-		pendingMessages.num = 0;
-
-		finalizedFrames++;
-
-		if (asleep) {
-			signal(netCond);
-		}
-		unlock(netMutex);
+		size = reqdSize;
 	}
-	done:;
+	// Make sure each buffer group from here on has enough buffers,
+	// partly because we're about to write to them,
+	// but also partly because the game thread doesn't like worrying
+	// about whether they exist or not when reading them.
+	for (int i = finalizedFrames; i < size; i++) {
+		list<list<char>> &players = frameData.peek(i);
+		if (players.num < numPlayers) {
+			players.setMaxUp(numPlayers);
+			for (int j = players.num; j < numPlayers; j++) {
+				players[j] = dummyBuffer;
+			}
+			players.num = numPlayers;
+		}
+	}
 
+	// Now that we've guaranteed enough space along both dimensions, put our stuff in.
+	range(i, pendingMessages.num) {
+		message &m = pendingMessages[i];
+		list<char> *dest = &frameData.peek(finalizedFrames + m.frameOffset)[m.player];
+
+		// At present, anything in `frameData` when we unlock the mutex may be read and held onto by
+		// the game thread, until the game thread removes it from the queue. This means we can't
+		// overwrite / reclaim any of these buffers (excepting the dummy buffer, which is never invalid).
+		//
+		// We also can't base an overwrite decision on any kind of information from the game thread,
+		// since that could be ahead/behind on other clients and we don't want desync.
+		if (!dest->items) {
+			*dest = m.data;
+		} else {
+			fputs("Not an issue, but this case shouldn't happen with the new server rules?\n", stderr);
+			reclaimBuffer(&m.data);
+		}
+	}
+	pendingMessages.num = 0;
+
+	finalizedFrames++;
+
+	if (asleep) {
+		signal(netCond);
+	}
+	unlock(netMutex);
+
+	return 0;
+}
+
+void net2_init(int _numPlayers, int _frame) {
+	maxPlayers = numPlayers = _numPlayers;
+	expectedFrame = _frame;
+	// Don't need mutex lock here since this is before multithreading happens
+	frameData.init();
+	list<list<char>> &starterFrame = frameData.add();
+	range(i, numPlayers) starterFrame.add(dummyBuffer);
+	finalizedFrames = 1;
+
+	availBuffers.init();
+	pendingMessages.init();
+}
+
+void net2_destroy() {
 	range(i, pendingMessages.num) {
 		reclaimBuffer(&pendingMessages[i].data);
 	}
@@ -224,21 +251,6 @@ void* netThreadFunc(void *startFrame) {
 	}
 	availBuffers.destroy();
 
-	return NULL;
-}
-
-
-
-void net2_init(int _numPlayers) {
-	numPlayers = _numPlayers;
-	// Don't need mutex lock here since this is before multithreading happens
-	frameData.init();
-	list<list<char>> &starterFrame = frameData.add();
-	range(i, numPlayers) starterFrame.add(dummyBuffer);
-	finalizedFrames = 1;
-}
-
-void net2_destroy() {
 	range(i, frameData.max) {
 		list<list<char>> &players = frameData.items[i];
 		range(j, players.num) {

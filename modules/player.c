@@ -234,17 +234,19 @@ static void player_tick(gamestate *gs, ent *me) {
 	sliders[0] = getSlider(me, s_vel);
 	sliders[1] = getSlider(me, s_vel1);
 
-	int vel[3];
-	vel[2] = getButton(me, 0) && grounded ? -384 : 0;
-	range(i, 2) {
-		vel[i] = (PLAYER_SPD/axisMaxis)*axis[i] - sliders[i];
+	{
+		int32_t vel[3];
+		vel[2] = getButton(me, 0) && grounded ? -384 : 0;
+		range(i, 2) {
+			vel[i] = (PLAYER_SPD/axisMaxis)*axis[i] - sliders[i];
+		}
+		// Can't push as hard in the air
+		boundVec(vel, grounded ? 56 : 16, 2);
+		range(i, 2) {
+			uSlider(me, s_vel + i, sliders[i] + vel[i]);
+		}
+		uVel(me, vel);
 	}
-	// Can't push as hard in the air
-	boundVec(vel, grounded ? 56 : 16, 2);
-	range(i, 2) {
-		uSlider(me, s_vel + i, sliders[i] + vel[i]);
-	}
-	uVel(me, vel);
 
 	// "shooting" and grabbing
 

@@ -99,10 +99,10 @@ static void timer_tick(gamestate *gs, ent *me) {
 
 static void adjust_tick(gamestate *gs, ent *me) {
 	if (getButton(me, 0) ^ getButton(me, 1)) {
-		int32_t slider = getSlider(me, 0);
+		int32_t sl = getSlider(me, 0);
 		int32_t value = getSlider(me, 1);
 		wiresAnyOrder(w, me) {
-			uSlider(w, slider, value);
+			uSlider(w, sl, value);
 		}
 	}
 }

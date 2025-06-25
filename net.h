@@ -1,3 +1,4 @@
+extern int net_fd;
 
 extern char initSocket(const char *srvAddr, const char *port);
 extern char readData(void *dst, int len);

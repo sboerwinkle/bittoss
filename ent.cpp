@@ -322,8 +322,6 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	int dirs[] = {dir, root->collisionDir};
 	char mutuals[] = {mutual, root->collisionMutual};
 	int32_t vals[2];
-	int i;
-#define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
 	// Criteria for ranking collisions:
 
 	// Minimize time to impact.
@@ -346,6 +344,8 @@ static char collisionBetter(ent *root, ent *leaf, ent *n, byte axis, int dir, ch
 	}
 	if (v64s[0] != v64s[1]) return v64s[0] < v64s[1];
 
+	int i;
+#define cb_helper(func) for (i = 0; i < 2; i++) vals[i] = func; if (vals[0]!=vals[1]) return vals[0]>vals[1]
 	// Prefer non-mutual collisions.
 	// Previously this was reversed, to avoid only one ent processing that collision.
 	// However, with collisions now being skipped if the pushee has a more pressing collision,

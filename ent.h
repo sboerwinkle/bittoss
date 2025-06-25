@@ -10,6 +10,8 @@
 #define axisMaxis 64
 #define holdeesAnyOrder(var, who) for (ent *var = who->holdee; var; var = var->LL.n)
 #define wiresAnyOrder(var, who) ent *var; for (int __i = 0; __i < who->wires.num && ((var = who->wires[__i]) || 1); __i++)
+// `_wiresAnyOrder` is like `wiresAnyOrder`, but helps with -Wshadow getting angry about "__i" if you have to nest them
+#define _wiresAnyOrder(iter, var, who) ent *var; for (int iter = 0; iter < who->wires.num && ((var = who->wires[iter]) || 1); iter++)
 #define NUM_CTRL_BTN 4
 // Despite the name, the iteration order is very much deterministic and boring.
 // However, it is a reminder that it is against the spirit of the game to treat
