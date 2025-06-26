@@ -37,6 +37,7 @@
 #include "hud.h"
 #include "raycast.h"
 #include "controlBuffer.h"
+#include "dl_srm/srm.h"
 
 #include "cdump.h"
 #include "entFuncs.h"
@@ -103,7 +104,7 @@ gamestate *renderedState;
 void *dl_srm_active = NULL;
 volatile char dl_srm_ready;
 typedef void (*srm_fn_t)(gamestate *g, int mode);
-srm_fn_t srm_fn = &applySpecialRender;
+srm_fn_t srm_fn = &dl_applySpecialRender;
 long renderStartNanos = 0;
 char manualGlFinish = 1;
 char showFps = 0;
@@ -1541,11 +1542,11 @@ static char checkRenderData() {
 		dl_srm_active = dlopen("../dl_srm/srm.so", RTLD_NOW);
 		if (!dl_srm_active) {
 			printDlError("Couldn't open handle to dynamic-link lib");
-			srm_fn = &applySpecialRender;
+			srm_fn = &dl_applySpecialRender;
 		} else {
 			srm_fn = (srm_fn_t) dlsym(dl_srm_active, "dl_applySpecialRender");
 			if (!srm_fn) {
-				srm_fn = &applySpecialRender;
+				srm_fn = &dl_applySpecialRender;
 				printDlError("Failed to load srm symbol");
 			}
 		}

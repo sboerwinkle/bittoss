@@ -49,7 +49,7 @@ static void srmMaterial(gamestate *gs) {
 			i->color = 0xFFFFFF;
 		else
 			i->color = 0xFF00FF;
-		if (!(i->typeMask & T_WEIGHTLESS)) i->color = (i->color/2) & 0x7F7F7F;
+		if (!(i->typeMask & T_WEIGHTLESS)) i->color = 3*((i->color/4) & 0x3F3F3F);
 	}
 }
 

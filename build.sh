@@ -10,5 +10,5 @@ L_GLFW3="`pkg-config --libs glfw3` -ldl"
 #     which is just so I can load .so files that use symbols from the main executable.
 g++ -fdiagnostics-color -Wall -Wno-switch -Wno-format-truncation -Wshadow -O2 -g "$@" \
 	-rdynamic \
-	*.cpp *.c modules/*.{c,cpp} compounds/*.{c,cpp} \
+	*.cpp *.c modules/*.{c,cpp} compounds/*.{c,cpp} dl_srm/*.{c,cpp} \
 	$L_GLFW3 -pthread -lm -lGL -ldl -o game
