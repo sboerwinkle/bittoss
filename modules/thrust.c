@@ -25,7 +25,7 @@ static void thrust_tick(gamestate *gs, ent *me) {
 
 	int32_t offset[3] = {0, 0, 0}, tmp[3];
 	wiresAnyOrder(w, me) {
-		if (getButton(w, 0)) {
+		if (getButton(w, 2)) {
 			getPos(tmp, w, me);
 			range(i, 3) offset[i] += tmp[i];
 		}
