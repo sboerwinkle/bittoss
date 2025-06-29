@@ -17,10 +17,7 @@ void gamestring_init() {
 }
 
 void gamestring_destroy() {
-	range(i, GAMESTR_NUM) {
-		// Explicitly remove `const` if we know it's not our special `empty` string
-		if (strings[i] != empty) free((char*)strings[i]);
-	}
+	gamestring_reset();
 }
 
 char const *gamestring_get(int ix) {
@@ -60,6 +57,7 @@ void gamestring_set(gamestate *gs, int ix, char const *src) {
 void gamestring_reset() {
 	range(i, GAMESTR_NUM) {
 		if (strings[i] != empty) {
+			// Explicitly remove `const` if we know it's not our special `empty` string
 			free((char*)strings[i]);
 			strings[i] = empty;
 		}

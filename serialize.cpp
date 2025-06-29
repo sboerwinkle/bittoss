@@ -371,6 +371,7 @@ int verifyHeader(const list<const char> *data, int *ix) {
 }
 
 static void deserializeGamestrings(gamestate *gs, const list<const char> *data, int *ix) {
+	gamestring_reset();
 	if (version < 6) return;
 
 	unsigned char count = read8(data, ix);
