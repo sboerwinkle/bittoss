@@ -42,7 +42,11 @@ static void srmMaterial(gamestate *gs) {
 		else if (t == T_TERRAIN)
 			i->color = 0x00FF00;
 		else if (t == T_TERRAIN + T_HEAVY)
-			i->color = 0x00FFFF; // TODO wall vs metal
+			if (i->collideMask) {
+				i->color = 0x00FFFF;
+			} else {
+				i->color = 0x0000FF;
+			}
 		else if (t == T_DECOR)
 			i->color = 0xFF8080;
 		else if (t == 0)
