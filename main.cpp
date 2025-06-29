@@ -1529,6 +1529,7 @@ static char checkRenderData() {
 		renderData.pickup = NULL;
 		renderStartNanos = renderData.nanos;
 	}
+#ifdef DYN_LOAD
 	if (dl_srm_ready) {
 		dl_srm_ready = 0;
 		// dl (dynamic load) stuff doesn't have to be super performant rn,
@@ -1551,6 +1552,7 @@ static char checkRenderData() {
 			}
 		}
 	}
+#endif
 	updateResolution();
 	unlock(renderMutex);
 	return updated;
