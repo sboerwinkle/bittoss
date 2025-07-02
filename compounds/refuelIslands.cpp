@@ -74,7 +74,9 @@ static int pullTopping(builderContext *ctx, int weights[numToppings+1]) {
 
 static void addTopping(builderContext *ctx, int weights[numToppings+1], int32_t const pos[3]) {
 	int32_t offset[3];
-	range(i, 3) offset[i] = pos[i] - 800 + (random(ctx->gs) % 1601);
+	offset[0] = pos[0] - 800 + (random(ctx->gs) % 1601);
+	offset[1] = pos[1] - 800 + (random(ctx->gs) % 1601);
+	offset[2] = pos[2];
 
 	spaceFacts origSpace = ctx->space;
 	ctx->offsetCenter(offset);
