@@ -578,7 +578,9 @@ static void doPushRegular(gamestate *gs, ent *e, ent *o, byte axis, int dir, int
 
 static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir, char mutual) {
 	int32_t displacement = (o->center[axis] - e->center[axis])*dir + e->radius[axis] + o->radius[axis];
-	if (displacement < 0) printf("Shouldn't get a negative displacement!\n");
+	if (displacement < 0) {
+		printf("Shouldn't get a negative displacement!\n");
+	}
 
 	int32_t accel = (o->vel[axis] - e->vel[axis])*dir;
 	// Velocity transfer in the direction of the collision
@@ -629,32 +631,32 @@ static void push(gamestate *gs, ent *e, ent *o, byte axis, int dir, char mutual)
 static char shouldResolveCollision(gamestate *gs, ent *e) {
 	// Ents can be pushed by ents that are being pushed by other ents,
 	// in a chain or potentially a cycle.
-	// If there is a collision in this chain that is definitively better than ours,
-	// we'll skip processing our collision for now.
-	ent *otherRoot = e;
-	ent *loopDetector = e;
-	char flip = 0;
+	// We typically yield to such collisions, unless we're part of the cycle.
+
+	// Early exit in this case, we know our partner will coordinate
+	// resolving both halves at once.
+	if (e->collisionMutual == 2) return 0;
+	// If our collisionBuddy isn't being pushed, we know we can resolve.
+	ent *otherRoot = e->collisionBuddy->holdRoot;
+	if (!otherRoot->collisionBuddy) return 1;
+
+	// Otherwise we probably won't, unless we're in a cycle.
+	// The case where we *are* in a cycle is a bit unfortunate,
+	// and might result in warnings about negative displacement.
+	// Not a big deal though, I'm reimplementing this whole
+	// thing anyway!
+	ent *loopDetector = otherRoot;
 	while (1) {
 		otherRoot = otherRoot->collisionBuddy->holdRoot;
-		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) {
-			// In the special case of `collisionMutual == 2`,
-			// we don't resolve the collision b/c our partner
-			// will coordinate resolving both halves at once.
-			return e->collisionMutual != 2;
-		}
-		if (collisionBetter(
-			e,
-			otherRoot->collisionLeaf,
-			otherRoot->collisionBuddy,
-			otherRoot->collisionAxis,
-			otherRoot->collisionDir,
-			otherRoot->collisionMutual
-		)) {
-			return 0;
-		}
+		if (otherRoot == e) return 1;
+		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) return 0;
 
-		if (flip) loopDetector = loopDetector->collisionBuddy->holdRoot;
-		flip = !flip;
+		otherRoot = otherRoot->collisionBuddy->holdRoot;
+		if (otherRoot == e) return 1;
+		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) return 0;
+
+		// loopDetector moves every other time.
+		loopDetector = loopDetector->collisionBuddy->holdRoot;
 	}
 }
 
