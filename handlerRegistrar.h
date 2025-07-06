@@ -132,6 +132,7 @@ enum {
 	TICK_DEPLETE,
 	TICK_SPACETRASH,
 	TICK_INCINERATE,
+	TICK_BOTTLE_HELD,
 	TICK_NUM
 };
 // Did you include your module in "modules.c"?

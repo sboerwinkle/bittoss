@@ -7,6 +7,8 @@
 #include "../edit.h"
 
 #include "bottle.h"
+#include "common.h"
+#include "player.h"
 
 char const * const * const M_BOTTLE_HELP = (char const * const[]){
 	"hand - internal use",
@@ -38,6 +40,53 @@ static void bottleRecolor(ent *e, int32_t btype) {
 }
 
 static void bottle_tick(gamestate *gs, ent *me) {
+}
+
+// Pretty similar to door logic.
+// Bottle tries to hover at player's altitude, in the direction they're looking.
+static void bottle_tick_held(gamestate *gs, ent *me) {
+	// Doesn't do anything unless held by a person (or similar)
+	ent *h = me->holder;
+	if (!(type(h) & T_INPUTS)) return;
+
+	// We never move on Z axis, so all our math is w/ 2D vectors here.
+	int32_t dest[3];
+	dest[2] = 0; // We'll need this at the end, but it's always 0.
+	int32_t hand = getSlider(me, s_hand);
+	if (!h->holder && getTrigger(h, hand)) {
+		int32_t look[3];
+		getLook(look, h);
+		// Multiplier here affects how far up or down you can be looking and still get maximum extension.
+		// This is pretty aggressive. Bear in mind that `look` is usually going to be in [-64, 64]
+		// (bounds = the value of `axisMaxis`)
+		dest[0] = look[0] * 30;
+		dest[1] = look[1] * 30;
+		boundVec(dest, 1000, 2);
+	} else {
+		dest[0] = dest[1] = 0;
+	}
+	// `dest` is our desired position (relative to holder)
+
+	int32_t accel = 40;
+	int32_t tmp[3];
+	getPos(tmp, h, me);
+	dest[0] -= tmp[0];
+	dest[1] -= tmp[1];
+	// `dest` is our desired displacement (from current position)
+	int32_t mag = getMagnitude(dest, 2);
+	// `mag` is the distance to target
+	mag = getApproachSpeed(mag, accel);
+	// `mag` is the approach speed to target
+	boundVec(dest, mag, 2);
+	// `dest` is our desired velocity (relative to holder)
+
+	getVel(tmp, h, me);
+	dest[0] -= tmp[0];
+	dest[1] -= tmp[1];
+	// `dest` is our desired acceleration
+	boundVec(dest, accel, 2);
+	// `dest` is our acceleration to actually apply
+	uVel(me, dest);
 }
 
 static char bottle_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, int displacement, int dv) {
@@ -83,17 +132,20 @@ void bottleUpdate(gamestate *gs, ent *e) {
 static void cmdBottle(gamestate *gs, ent *e) {
 	basicTypeCommand(gs, e, T_EQUIP_SM, s_num-1); // Regular bottles don't have the last slider (max amount)
 	e->tick = tickHandlers.get(TICK_BOTTLE);
+	e->tickHeld = tickHandlers.get(TICK_BOTTLE_HELD);
 }
 
 static void cmdBottle2(gamestate *gs, ent *e) {
 	basicTypeCommand(gs, e, T_EQUIP_SM, s_num);
 	e->tick = tickHandlers.get(TICK_BOTTLE);
+	e->tickHeld = tickHandlers.get(TICK_BOTTLE_HELD);
 	e->push = pushHandlers.get(PUSH_BOTTLE);
 	bottleRecolor(e, getSlider(e, s_type));
 }
 
 void module_bottle() {
 	tickHandlers.reg(TICK_BOTTLE, bottle_tick);
+	tickHandlers.reg(TICK_BOTTLE_HELD, bottle_tick_held);
 	pushHandlers.reg(PUSH_BOTTLE, bottle_push);
 	// Register "bottle2" help first, since those ents would also trip the "bottle" check.
 	addEditHelp(&ent::push, bottle_push, "bottle2", M_BOTTLE_HELP);

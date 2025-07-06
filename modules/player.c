@@ -28,11 +28,17 @@ enum {
 	s_grounded,
 	s_charge,
 	s_cooldown,
-	s_equip_processed,
+	s_equip_processed, // This became a kitchen sink of equipment-themed flags
 	s_editmode,
 	s_buttons,
 	s_num
 };
+
+#define EQUIP_FLAG_PICKUP 1
+#define EQUIP_FLAG_DROP1 2
+#define EQUIP_FLAG_DROP2 4
+#define EQUIP_FLAG_USE1 8
+#define EQUIP_FLAG_USE2 16
 
 static_assert(s_editmode == PLAYER_EDIT_SLIDER);
 static_assert(s_charge == PLAYER_CHARGE_SLIDER);
@@ -104,7 +110,7 @@ static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 	if (
 		(type(him) & EQUIP_MASK)
 		&& !getButton(me, 1) // May change this later, but for now 'shift' inhibits pickups
-		&& !(1 & getSlider(me, s_equip_processed))
+		&& !(EQUIP_FLAG_PICKUP & getSlider(me, s_equip_processed))
 		&& !getSlider(me, s_editmode)
 		&& !him->holder
 		&& !me->holder
@@ -149,7 +155,7 @@ static char player_push(gamestate *gs, ent *me, ent *him, byte axis, int dir, in
 		// this pickup processes, and we don't really care which equipment gets handled if two
 		// are touched in the same frame.
 		// (it's not a desync risk, just "arbitrary" from the player's view)
-		me->sliders[s_equip_processed].v |= 1;
+		me->sliders[s_equip_processed].v |= EQUIP_FLAG_PICKUP;
 
 		// We added the ability to do an immediate pickup in response to a push, so just ask for that instead
 		// uPickup(gs, me, him, HOLD_DROP | HOLD_FREEZE);
@@ -296,22 +302,37 @@ static void player_tick(gamestate *gs, ent *me) {
 
 		// Update s_equip_processed. This tracks equipment actions, namely pickups, Shift+LMB, Shift+RMB.
 		int32_t equipProcessed = getSlider(me, s_equip_processed);
-		equipProcessed &= ~1; // Clear the 'item picked up' flag, we can process one per frame.
+		equipProcessed &= ~EQUIP_FLAG_PICKUP; // Clear the 'item picked up' flag, we can process one per frame.
 		if (altfire) {
-			if (!(equipProcessed & 2)) {
-				equipProcessed |= 2;
+			if (!(equipProcessed & EQUIP_FLAG_DROP1)) {
+				equipProcessed |= EQUIP_FLAG_DROP1;
 				drops |= 1;
 			}
 		} else {
-			equipProcessed &= ~2;
+			equipProcessed &= ~EQUIP_FLAG_DROP1;
 		}
 		if (altfire2) {
-			if (!(equipProcessed & 4)) {
-				equipProcessed |= 4;
+			if (!(equipProcessed & EQUIP_FLAG_DROP2)) {
+				equipProcessed |= EQUIP_FLAG_DROP2;
 				drops |= 2;
 			}
 		} else {
-			equipProcessed &= ~4;
+			equipProcessed &= ~EQUIP_FLAG_DROP2;
+		}
+		// This prevents "default" behavior for mouse buttons if they were
+		// first pressed while an equipment was in that slot. We don't currently
+		// prevent the opposite (no equip -> equip), that's a little more involved
+		// since the logic for when to fire currently exists separately in
+		// each equipment module.
+		if (fire) {
+			if (hands & 1) equipProcessed |= EQUIP_FLAG_USE1;
+		} else {
+			equipProcessed &= ~EQUIP_FLAG_USE1;
+		}
+		if (fire2) {
+			if (hands & 2) equipProcessed |= EQUIP_FLAG_USE2;
+		} else {
+			equipProcessed &= ~EQUIP_FLAG_USE2;
 		}
 		uSlider(me, s_equip_processed, equipProcessed);
 
@@ -350,7 +371,12 @@ static void player_tick(gamestate *gs, ent *me) {
 		if (hands == 3) return;
 
 		if (cooldown >= 5 && charge >= 60) {
-			if (fire && !(hands & 1) && !(gs->gamerules & EFFECT_NO_BLOCK)) {
+			if (
+				fire
+				&& !(hands & 1)
+				&& !(equipProcessed & EQUIP_FLAG_USE1)
+				&& !(gs->gamerules & EFFECT_NO_BLOCK)
+			) {
 				charge -= 60;
 				cooldown = 0;
 				getLook(look, me);
@@ -374,7 +400,13 @@ static void player_tick(gamestate *gs, ent *me) {
 				}
 				ent* stackem = mkStackem(gs, me, offset);
 				uVel(stackem, look);
-			} else if (charge >= 180 && fire2 && !(hands & 2) && !(gs->gamerules & EFFECT_NO_PLATFORM)) {
+			} else if (
+				charge >= 180
+				&& fire2
+				&& !(hands & 2)
+				&& !(equipProcessed & EQUIP_FLAG_USE2)
+				&& !(gs->gamerules & EFFECT_NO_PLATFORM)
+			) {
 				charge -= 180;
 				cooldown = 0;
 				getLook(look, me);

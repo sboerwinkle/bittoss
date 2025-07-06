@@ -640,23 +640,34 @@ static char shouldResolveCollision(gamestate *gs, ent *e) {
 	ent *otherRoot = e->collisionBuddy->holdRoot;
 	if (!otherRoot->collisionBuddy) return 1;
 
-	// Otherwise we probably won't, unless we're in a cycle.
-	// The case where we *are* in a cycle is a bit unfortunate,
+	// Otherwise we probably won't, unless we're in a cycle and have the best collision
+	// (or are tied for first). The "tied" case is a bit unfortunate,
 	// and might result in warnings about negative displacement.
-	// Not a big deal though, I'm reimplementing this whole
-	// thing anyway!
+	// Not a big deal though, I'm reimplementing this whole thing anyway!
 	ent *loopDetector = otherRoot;
+	char flip = 0;
 	while (1) {
-		otherRoot = otherRoot->collisionBuddy->holdRoot;
-		if (otherRoot == e) return 1;
-		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) return 0;
+		// For mutual collisions, making them re-evaluate all this against themselves
+		// (just to determine it is, in fact, a tie) is a bit silly. I could probably
+		// improve that somehow, but I'm not sure it's worth the effort.
+		if (collisionBetter(
+			e,
+			otherRoot->collisionLeaf,
+			otherRoot->collisionBuddy,
+			otherRoot->collisionAxis,
+			otherRoot->collisionDir,
+			otherRoot->collisionMutual
+		)) {
+			return 0;
+		}
 
 		otherRoot = otherRoot->collisionBuddy->holdRoot;
 		if (otherRoot == e) return 1;
 		if (!otherRoot->collisionBuddy || otherRoot == loopDetector) return 0;
 
 		// loopDetector moves every other time.
-		loopDetector = loopDetector->collisionBuddy->holdRoot;
+		if (flip) loopDetector = loopDetector->collisionBuddy->holdRoot;
+		flip = !flip;
 	}
 }
 

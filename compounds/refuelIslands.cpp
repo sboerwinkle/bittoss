@@ -5,15 +5,20 @@
 static void topping_none(builderContext *ctx) {
 }
 
+static void setupBottle(builderContext *ctx) {
+	ctx->bp.typeMask = 8196;
+	ctx->bp.collideMask = 6;
+	ctx->resetHandlers();
+	ctx->bp.tick = tickHandlers.get(37);
+	ctx->bp.tickHeld = tickHandlers.get(41);
+	ctx->bp.whoMoves = whoMovesHandlers.get(8);
+}
+
 static void topping_bigChungus(builderContext *ctx) {
 	ctx->center(0, 0, -200);
 	ctx->radius(400, 400, 400);
-	ctx->bp.typeMask = 8196;
-	ctx->bp.collideMask = 6;
 	ctx->bp.color = 0x40FFFF;
-	ctx->resetHandlers();
-	ctx->bp.tick = tickHandlers.get(37);
-	ctx->bp.whoMoves = whoMovesHandlers.get(8);
+	setupBottle(ctx);
 	ctx->sl(3 , 0, 0, 3600);
 	ctx->build();
 	ctx->finish();
@@ -22,12 +27,8 @@ static void topping_bigChungus(builderContext *ctx) {
 static void topping_fuelChunk(builderContext *ctx) {
 	ctx->center(0, 0, -100);
 	ctx->radius(300, 300, 300);
-	ctx->bp.typeMask = 8196;
-	ctx->bp.collideMask = 6;
 	ctx->bp.color = 0x80FF80;
-	ctx->resetHandlers();
-	ctx->bp.tick = tickHandlers.get(37);
-	ctx->bp.whoMoves = whoMovesHandlers.get(8);
+	setupBottle(ctx);
 	ctx->sl(3 , 0, 1, 1000);
 	ctx->build();
 	ctx->finish();
@@ -36,12 +37,8 @@ static void topping_fuelChunk(builderContext *ctx) {
 static void topping_kibbles(builderContext *ctx) {
 	ctx->center(0, 1700, 0);
 	ctx->radius(200, 200, 200);
-	ctx->bp.typeMask = 8196;
-	ctx->bp.collideMask = 6;
 	ctx->bp.color = 0x40FFFF;
-	ctx->resetHandlers();
-	ctx->bp.tick = tickHandlers.get(37);
-	ctx->bp.whoMoves = whoMovesHandlers.get(8);
+	setupBottle(ctx);
 	ctx->sl(3 , 0, 0, 225);
 	ctx->build();
 	ctx->center(2200, -100, 0);
