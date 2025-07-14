@@ -10,7 +10,7 @@
 #include "modules/player.h"
 #include "modules/bottle.h"
 
-static tick_t gun_tick_held, blink_tick_held, jumper_tick_held, bottle_tick;
+static tick_t gun_tick_held, blink_tick_held, jumper_tick_held, bottle_tick, pj_tick;
 static pushed_t flag_pushed;
 
 void hud_init() {
@@ -18,6 +18,7 @@ void hud_init() {
 	blink_tick_held = tickHandlers.get(TICK_HELD_BLINK);
 	jumper_tick_held = tickHandlers.get(TICK_HELD_JUMPER);
 	bottle_tick = tickHandlers.get(TICK_BOTTLE);
+	pj_tick = tickHandlers.get(TICK_PUDDLEJUMP);
 	flag_pushed = pushedHandlers.get(PUSHED_FLAG);
 }
 
@@ -194,6 +195,31 @@ static void drawToolsCursor(ent *p) {
 	}
 }
 
+static void drawHeldCursor(ent *p) {
+	drawHudRect(0.5-1.0/128, 0.5-1.0/128, 1.0/64, 1.0/64, hudColor);
+	if (p->holdRoot->tick == pj_tick) {
+		int displayPx = displayHeight / 128;
+		float x_unit = (float)displayPx / displayWidth;
+		float y_unit = (float)displayPx / displayHeight;
+		// Up-facing arrow (on the left)
+		double offset = 0.45;
+		// Arrow stem
+		drawHudRect(offset-2*x_unit, 0.5           ,   x_unit, 2*y_unit, hudColor);
+		// Arrow head (base)
+		drawHudRect(offset-3*x_unit, 0.5-1.5*y_unit, 3*x_unit,   y_unit, hudColor);
+		// Arrow head (tip)
+		drawHudRect(offset-2*x_unit, 0.5-2.5*y_unit,   x_unit,   y_unit, hudColor);
+		// Right-facing arrow (on the right)
+		offset = 0.55;
+		// Arrow stem
+		drawHudRect(offset           , 0.5-0.5*y_unit, 2*x_unit,   y_unit, hudColor);
+		// Arrow head (base)
+		drawHudRect(offset+2.5*x_unit, 0.5-1.5*y_unit,   x_unit, 3*y_unit, hudColor);
+		// Arrow head (tip)
+		drawHudRect(offset+3.5*x_unit, 0.5-0.5*y_unit,   x_unit,   y_unit, hudColor);
+	}
+}
+
 static void drawVeloceter(ent *p) {
 	// Integer truncation is maybe helpful here.
 	// If we were to allow fractional number of pixels, it could come out different
@@ -204,8 +230,10 @@ static void drawVeloceter(ent *p) {
 	float x = width*2;
 	float y = 1 - 1.0/64 - height*2;
 
-	float o_x = (float)getSlider(p, 5)/PLAYER_SPD;
-	float o_y = (float)getSlider(p, 6)/PLAYER_SPD;
+	int32_t v[2] = {getSlider(p, 5), getSlider(p, 6)};
+	boundVec(v, PLAYER_SPD*1.25, 2);
+	float o_x = (float)v[0]/PLAYER_SPD;
+	float o_y = (float)v[1]/PLAYER_SPD;
 
 	flatCamRotated(displayPx, x, y);
 	drawHudRect(o_x - 0.5, o_y - 0.5, 1, 1, hudColor);
@@ -216,7 +244,7 @@ static void drawVeloceter(ent *p) {
 void drawHud(ent *p) {
 	if (!p) return;
 	if (p->holder) {
-		drawHudRect(0.5-1.0/128, 0.5-1.0/128, 1.0/64, 1.0/64, hudColor);
+		drawHeldCursor(p);
 	} else {
 		if (getSlider(p, PLAYER_EDIT_SLIDER)) {
 			drawEditCursor(p);

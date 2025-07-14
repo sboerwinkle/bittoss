@@ -858,6 +858,7 @@ static char editCmds(gamestate *gs, ent *me, char verbose) {
 	cmd("/d", edit_rm(gs, me));
 	cmd("/slider", edit_slider(gs, me, chatBuffer + 7, verbose));
 	cmd("/sl", edit_slider(gs, me, chatBuffer + 3, verbose));
+	cmd("/slnum", edit_numSliders(gs, me, chatBuffer + 6));
 	cmd("/hl", edit_highlight(gs, me));
 	cmd("/m", if (verbose) edit_measure(gs, me));
 	cmd("/i", if (verbose) edit_info(me));

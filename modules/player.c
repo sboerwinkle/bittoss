@@ -11,6 +11,7 @@
 #include "../colors.h"
 #include "../effects.h"
 
+#include "common.h"
 #include "stackem.h"
 #include "platform.h"
 #include "edittool.h"
@@ -86,10 +87,8 @@ static int player_whoMoves(ent *a, ent *b, int axis, int dir) {
 
 static char player_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int dx, int dv) {
 	int32_t vel[3];
-	getVel(vel, him, me);
 	// Reset what "stationary" is, according to ground speed
-	vel[0] = bound(vel[0], PLAYER_SPD);
-	vel[1] = bound(vel[1], PLAYER_SPD);
+	getVel(vel, him, me);
 	if (axis == 2) {
 		if (dir < 0) {
 			// Indicate that we can jump
@@ -233,18 +232,37 @@ static void player_tick(gamestate *gs, ent *me) {
 	char grounded = getSlider(me, s_grounded) > 0;
 	uSlider(me, s_grounded, 0);
 
-	int axis[2];
-	getAxis(axis, me);
-
-	int sliders[2];
-	sliders[0] = getSlider(me, s_vel);
-	sliders[1] = getSlider(me, s_vel1);
-
 	{
+		int32_t axis[2];
+		getAxis(axis, me);
+		int32_t sliders[2];
+		sliders[0] = getSlider(me, s_vel);
+		sliders[1] = getSlider(me, s_vel1);
+		int32_t speed;
+		if (!grounded) {
+			boundVec(sliders, PLAYER_SPD, 2);
+			speed = PLAYER_SPD;
+		} else {
+			// The behavior in the `!grounded` branch is conceptually what we want.
+			// However, let's say we're grounded and going really fast.
+			// We'd scale down `sliders`, calculate our acceleration vector
+			// (if we're turning, this will be a push to the side),
+			// and then next frame immediately make `sliders` big again
+			// since we're still in contact with the ground (but aimed
+			// slightly more towards our heading vector, due to the acceleration).
+			// This just means the last bit of lining up to our desired vector
+			// takes a long time, since the scaled-down version makes it look like
+			// we can do it in one frame, and we apply less than our full acceleration.
+			// Instead, scaling both vectors *up* (instead of down) gets us basically the
+			// same behavior, but minus the weird slow approach on the final little bit.
+			speed = getMagnitude(sliders, 2);
+			if (speed < PLAYER_SPD) speed = PLAYER_SPD;
+		}
+
 		int32_t vel[3];
 		vel[2] = getButton(me, 0) && grounded ? -384 : 0;
 		range(i, 2) {
-			vel[i] = (PLAYER_SPD/axisMaxis)*axis[i] - sliders[i];
+			vel[i] = speed*axis[i]/axisMaxis - sliders[i];
 		}
 		// Can't push as hard in the air
 		boundVec(vel, grounded ? 56 : 16, 2);

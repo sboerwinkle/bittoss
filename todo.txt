@@ -1,4 +1,6 @@
 TODO:
+- pj's still feel bad
+/ skewey slippy friction feel
 / Revert platform spawning change so it's less bad
 - Rehabilitate shipping.gam (not in git yet)
 / Add "icon" for remaining lobby levels (arena.sav, one other?)

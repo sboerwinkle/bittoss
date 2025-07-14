@@ -652,6 +652,16 @@ void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	}
 }
 
+void edit_numSliders(gamestate *gs, ent *me, const char *argsStr) {
+	if (!me) return;
+	getLists(me);
+	parseArgs(argsStr);
+	if (!args.num || args[0] < 0) return;
+	range(i, a.num) {
+		setNumSliders(gs, a[i], args[0]);
+	}
+}
+
 static int32_t adjustRadius(int32_t input, char verbose) {
 	if (input <= 0) {
 		if (verbose) fprintf(stderr, "Input width %d isn't positive!\n", input);
