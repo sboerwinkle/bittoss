@@ -652,11 +652,18 @@ void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	}
 }
 
-void edit_numSliders(gamestate *gs, ent *me, const char *argsStr) {
+void edit_numSliders(gamestate *gs, ent *me, const char *argsStr, char verbose) {
 	if (!me) return;
 	getLists(me);
 	parseArgs(argsStr);
-	if (!args.num || args[0] < 0) return;
+	if (!args.num) {
+		if (verbose) printf("slnum = %d\n", a[0]->numSliders);
+		return;
+	}
+	if (args[0] < 0) {
+		if (verbose) printf("Bad arg %d\n", args[0]);
+		return;
+	}
 	range(i, a.num) {
 		setNumSliders(gs, a[i], args[0]);
 	}

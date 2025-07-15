@@ -9,6 +9,7 @@
 
 #include "modules/player.h"
 #include "modules/bottle.h"
+#include "modules/puddlejumper.h"
 
 static tick_t gun_tick_held, blink_tick_held, jumper_tick_held, bottle_tick, pj_tick;
 static pushed_t flag_pushed;
@@ -196,27 +197,32 @@ static void drawToolsCursor(ent *p) {
 }
 
 static void drawHeldCursor(ent *p) {
-	drawHudRect(0.5-1.0/128, 0.5-1.0/128, 1.0/64, 1.0/64, hudColor);
-	if (p->holdRoot->tick == pj_tick) {
-		int displayPx = displayHeight / 128;
-		float x_unit = (float)displayPx / displayWidth;
-		float y_unit = (float)displayPx / displayHeight;
-		// Up-facing arrow (on the left)
-		double offset = 0.45;
+	int displayPx = displayHeight / 128;
+	float x_unit = (float)displayPx / displayWidth;
+	float y_unit = (float)displayPx / displayHeight;
+	drawHudRect(0.5-x_unit, 0.5-y_unit, 2*x_unit, 2*y_unit, hudColor);
+	ent *root = p->holdRoot;
+	if (root->tick == pj_tick) {
+		// Draw some additional notches to indicate horizontal engine power output
+		if (root->numSliders > PJ_POWER_SLIDER) {
+			int power = root->sliders[PJ_POWER_SLIDER].v;
+			if (power) {
+				drawHudRect(0.5-0.5*x_unit, 0.5-3*y_unit, x_unit, y_unit, hudColor);
+				if (power > 1) {
+					drawHudRect(0.5-0.5*x_unit, 0.5-5*y_unit, x_unit, y_unit, hudColor);
+				}
+			}
+		}
+
+		// Up-facing arrow (on the left) - a hint that LMB is for thrust
+		double offset = 0.5 - 6*x_unit;
 		// Arrow stem
 		drawHudRect(offset-2*x_unit, 0.5           ,   x_unit, 2*y_unit, hudColor);
 		// Arrow head (base)
 		drawHudRect(offset-3*x_unit, 0.5-1.5*y_unit, 3*x_unit,   y_unit, hudColor);
 		// Arrow head (tip)
 		drawHudRect(offset-2*x_unit, 0.5-2.5*y_unit,   x_unit,   y_unit, hudColor);
-		// Right-facing arrow (on the right)
-		offset = 0.55;
-		// Arrow stem
-		drawHudRect(offset           , 0.5-0.5*y_unit, 2*x_unit,   y_unit, hudColor);
-		// Arrow head (base)
-		drawHudRect(offset+2.5*x_unit, 0.5-1.5*y_unit,   x_unit, 3*y_unit, hudColor);
-		// Arrow head (tip)
-		drawHudRect(offset+3.5*x_unit, 0.5-0.5*y_unit,   x_unit,   y_unit, hudColor);
+		// Used to be something on the right, but we no longer have RMB bound to anything
 	}
 }
 

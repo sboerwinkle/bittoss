@@ -25,7 +25,7 @@ extern void edit_m_t_veh_eye(gamestate *gs, ent *me);
 extern void basicTypeCommand(gamestate *gs, ent *e, int32_t typeflags, int numSliders);
 extern char tryOtherCommand(gamestate *gs, ent *me, const char *text);
 extern void edit_slider(gamestate *gs, ent *me, const char *argsStr, char verbose);
-extern void edit_numSliders(gamestate *gs, ent *me, const char *argsStr);
+extern void edit_numSliders(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_create(gamestate *gs, ent *me, const char *argsStr, char verbose);
 extern void edit_push(gamestate *gs, ent *me, const char *argsStr);
 extern void edit_center(gamestate *gs, ent *me);

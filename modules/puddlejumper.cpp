@@ -8,12 +8,14 @@
 #include "../handlerRegistrar.h"
 #include "../edit.h"
 
-#include "common.h"
 #include "bottle.h"
 #include "player.h"
 #include "dust.h"
 
+#include "puddlejumper.h"
+
 #define PJ_SPD 200
+#define PJ_ACCEL 20
 
 enum {
 	s_fuel,
@@ -21,10 +23,11 @@ enum {
 	s_vel,
 	s_vel1,
 	s_grounded,
-	s_axis,
-	s_axis1,
+	s_power_indicator,
 	s_num
 };
+
+static_assert(s_power_indicator == PJ_POWER_SLIDER);
 
 static char const * const * const HELP = (char const * const[]) {
 	"fuel",
@@ -32,8 +35,7 @@ static char const * const * const HELP = (char const * const[]) {
 	"velocity tracker X",
 	"velocity tracker Y",
 	"grounded (like is it on the ground)",
-	"input lock X",
-	"input lock Y",
+	"power indicator (for use by HUD)",
 	NULL
 };
 
@@ -43,6 +45,10 @@ static char pj_pushed(gamestate *gs, ent *me, ent *him, int axis, int dir, int d
 	int32_t vel[3];
 	getVel(vel, him, me);
 	// Reset what "stationary" is, according to ground speed
+	// For now we bound this as a vector, like player.c does.
+	// Movement logic's a little different for us though,
+	// so I'm not sure if bounding it component-wise would be better?
+	boundVec(vel, PJ_SPD, 2);
 	if (axis == 2) {
 		if (dir < 0) {
 			uSlider(me, s_grounded, 1);
@@ -85,22 +91,6 @@ static void verticalDust(gamestate *gs, ent *me) {
 	mkDust(gs, me, pos, vel, drift, 200, 0x808080);
 }
 
-static void horizDust(gamestate *gs, ent *me, int32_t thrustDir[2]) {
-	int32_t pos[3];
-	int32_t vel[3];
-	memcpy(pos, me->center, sizeof(pos));
-	memcpy(vel, me->vel, sizeof(vel));
-	range(i, 2) {
-		pos[i] += me->radius[0]*thrustDir[i]/-axisMaxis;
-		vel[i] += 150*thrustDir[i]/-axisMaxis; // This is slower than the vertical dust
-	}
-	int32_t drift[3];
-	range(i, 3) {
-		drift[i] = (random(gs) % 21) - 10;
-	}
-	mkDust(gs, me, pos, vel, drift, 100, 0x808080);
-}
-
 static void pj_tick(gamestate *gs, ent *me) {
 	int32_t dvel[3] = {0, 0, 16};
 
@@ -109,81 +99,62 @@ static void pj_tick(gamestate *gs, ent *me) {
 	int32_t fuel = getSlider(me, s_fuel);
 	if (fuel && flying) uSlider(me, s_fuel, fuel-1);
 
-	char boost = 0;
-
 	if (me->wires.num == 1) {
 		ent *input = me->wires[0];
-		int32_t axis[2];
-		getAxis(axis, input);
 
+		// Vertical thrust
 		if (fuel && getTrigger(input, 0)) {
 			dvel[2] = -8;
 			verticalDust(gs, me);
 		}
 
-		boost = fuel && getTrigger(input, 1);
-		if (boost) {
-			int32_t axisLock[2] = {getSlider(me, s_axis), getSlider(me, s_axis1)};
-			if (axisLock[0] == -1 && axisLock[1] == -1) {
-				axisLock[0] = axis[0];
-				uSlider(me, s_axis , axisLock[0]);
-				axisLock[1] = axis[1];
-				uSlider(me, s_axis1, axisLock[1]);
-			}
-			// Let "moving" be the player-style movement,
-			// and "thrusting" be the spaceship-style acceleration (with dust).
-			// Then we have two options while `boost` is true:
-			int32_t *thrustDir;
-			if (axisLock[0] || axisLock[1]) {
-				// Option 1: we're moving and thrusting in the locked direction.
-				thrustDir = axisLock;
-			} else {
-				// Option 2: We're not moving (locked),
-				//           but we thrust according to player inputs (if non-zero).
-				if (axis[0] || axis[1]) {
-					thrustDir = axis;
-				} else {
-					goto skipThrust;
-				}
-			}
-			range(i, 2) {
-				dvel[i] += thrustDir[i]/16;
-			}
-			horizDust(gs, me, thrustDir);
-			skipThrust:;
-			memcpy(axis, axisLock, sizeof(axis));
-		}
-
-
-		// This stuff mirror the player movement logic pretty closely
-		if (flying || axis[0] || axis[1]) {
+		int32_t axis[2];
+		getAxis(axis, input);
+		if (axis[0] || axis[1]) {
 			int32_t sliders[2];
 			sliders[0] = getSlider(me, s_vel);
 			sliders[1] = getSlider(me, s_vel1);
-			int32_t speed;
-			if (flying) {
-				boundVec(sliders, PJ_SPD, 2);
-				speed = PJ_SPD;
-			} else {
-				speed = getMagnitude(sliders, 2);
-				if (speed < PJ_SPD) speed = PJ_SPD;
+			int32_t numerX, denomX, numerY, denomY;
+			int signX = 2*(axis[0] >= 0) - 1;
+			int signY = 2*(axis[1] >= 0) - 1;
+			denomX = signX * axis[0]; // Basically just abs(axis[0])
+			numerX = PJ_SPD - signX * sliders[0]; // How far we can go until sliders[0] reaches +/- PJ_SPD
+			denomY = signY * axis[1];
+			numerY = PJ_SPD - signY * sliders[1];
+
+			// This is the "good acceleration" you get inside the PJ_SPD square.
+			// It's capped at `PJ_ACCEL` units/frame/frame, which is pretty strong.
+			if (numerX > PJ_ACCEL) numerX = PJ_ACCEL;
+			else if (numerX < 0) numerX = 0; // Shouldn't happen, but prevents edge cases
+			if (numerY > PJ_ACCEL) numerY = PJ_ACCEL;
+			else if (numerY < 0) numerY = 0; // Same as for numerX
+
+			// We'll use numerX/denomX as our scaling factor for thrust,
+			// unless numerY/denomY is smaller. We do the comparison with
+			// cross-multiplication (which shouldn't exceed size limits).
+			// However, one denominator may be 0 (but not both, as we skip
+			// horizontal movement completely if there are no inputs), so
+			// we have to be aware of that when comparing our cross products.
+			if (denomY && numerY*denomX <= numerX*denomY) {
+				numerX = numerY;
+				denomX = denomY;
 			}
 
-			int32_t moveVel[2];
 			range(i, 2) {
-				moveVel[i] = speed*axis[i]/axisMaxis - sliders[i];
+				dvel[i] = numerX * axis[i] / denomX;
+				uSlider(me, s_vel + i, sliders[i] + dvel[i]);
+				// A little extra acceleration for free, not tracked by the s_vel sliders.
+				// (this is the "bad acceleration", only 4 u/f/f, but not bounded by a "square").
+				dvel[i] += axis[i]/16;
 			}
-			boundVec(moveVel, 40, 2);
-			range(i, 2) {
-				uSlider(me, s_vel + i, sliders[i] + moveVel[i]);
-				dvel[i] += moveVel[i];
-			}
+
+			// 2 = good acceleration,
+			// 1 = bad acceleration,
+			uSlider(me, s_power_indicator, numerX ? 2 : 1);
+		} else {
+			// 0 = no acceleration.
+			uSlider(me, s_power_indicator, 0);
 		}
-	}
-	if (!boost) {
-		// Unlock any inputs
-		uSlider(me, s_axis , -1);
-		uSlider(me, s_axis1, -1);
 	}
 
 	uVel(me, dvel);
