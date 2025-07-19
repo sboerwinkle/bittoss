@@ -13,6 +13,7 @@
 // it's okay to have a laundry-list file
 
 #include "modules/common.h"
+#include "modules/airbrake.h"
 #include "modules/bottle.h"
 #include "modules/explosion.h"
 #include "modules/flag.h"
@@ -49,6 +50,7 @@ list<void (*) ()> moduleDestroyHooks;
 void modules_init() {
 	moduleDestroyHooks.init();
 	module_common();
+	module_airbrake();
 	module_bottle();
 	module_explosion();
 	module_flag();

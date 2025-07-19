@@ -11,6 +11,8 @@
 #include "modules/bottle.h"
 #include "modules/puddlejumper.h"
 
+static void drawVeloceter(ent *p, int xSlider, int32_t speed);
+
 static tick_t gun_tick_held, blink_tick_held, jumper_tick_held, bottle_tick, pj_tick;
 static pushed_t flag_pushed;
 
@@ -203,16 +205,7 @@ static void drawHeldCursor(ent *p) {
 	drawHudRect(0.5-x_unit, 0.5-y_unit, 2*x_unit, 2*y_unit, hudColor);
 	ent *root = p->holdRoot;
 	if (root->tick == pj_tick) {
-		// Draw some additional notches to indicate horizontal engine power output
-		if (root->numSliders > PJ_POWER_SLIDER) {
-			int power = root->sliders[PJ_POWER_SLIDER].v;
-			if (power) {
-				drawHudRect(0.5-0.5*x_unit, 0.5-3*y_unit, x_unit, y_unit, hudColor);
-				if (power > 1) {
-					drawHudRect(0.5-0.5*x_unit, 0.5-5*y_unit, x_unit, y_unit, hudColor);
-				}
-			}
-		}
+		drawVeloceter(root, PJ_X_VEL_SLIDER, PJ_SPD);
 
 		// Up-facing arrow (on the left) - a hint that LMB is for thrust
 		double offset = 0.5 - 6*x_unit;
@@ -226,7 +219,7 @@ static void drawHeldCursor(ent *p) {
 	}
 }
 
-static void drawVeloceter(ent *p) {
+static void drawVeloceter(ent *p, int xSlider, int32_t speed) {
 	// Integer truncation is maybe helpful here.
 	// If we were to allow fractional number of pixels, it could come out different
 	// along the X axis than the Y axis after aspect ratio scaling (when they both get truncated independently).
@@ -236,10 +229,10 @@ static void drawVeloceter(ent *p) {
 	float x = width*2;
 	float y = 1 - 1.0/64 - height*2;
 
-	int32_t v[2] = {getSlider(p, 5), getSlider(p, 6)};
-	boundVec(v, PLAYER_SPD*1.25, 2);
-	float o_x = (float)v[0]/PLAYER_SPD;
-	float o_y = (float)v[1]/PLAYER_SPD;
+	int32_t v[2] = {getSlider(p, xSlider), getSlider(p, xSlider+1)};
+	boundVec(v, speed*1.25, 2);
+	float o_x = (float)v[0]/speed;
+	float o_y = (float)v[1]/speed;
 
 	flatCamRotated(displayPx, x, y);
 	drawHudRect(o_x - 0.5, o_y - 0.5, 1, 1, hudColor);
@@ -264,6 +257,6 @@ void drawHud(ent *p) {
 			drawHudRect(0.5 - 1.0/ 64, 0.6, 1.0/128, 2.0/displayHeight, hudColor);
 			drawHudRect(0.5 + 1.0/128, 0.6, 1.0/128, 2.0/displayHeight, hudColor);
 		}
-		drawVeloceter(p);
+		drawVeloceter(p, 5, PLAYER_SPD);
 	}
 }

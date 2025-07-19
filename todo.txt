@@ -1,5 +1,8 @@
 TODO:
-- pj's still feel bad
+- Font.json not so terrible
+	Make this a texture maybe??
+	If leaving as vector, should be array of arrays, not array + offsets
+/ pj's still feel bad
 / skewey slippy friction feel
 / Revert platform spawning change so it's less bad
 - Rehabilitate shipping.gam (not in git yet)

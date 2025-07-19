@@ -14,7 +14,6 @@
 
 #include "puddlejumper.h"
 
-#define PJ_SPD 200
 #define PJ_ACCEL 20
 
 enum {
@@ -28,6 +27,7 @@ enum {
 };
 
 static_assert(s_power_indicator == PJ_POWER_SLIDER);
+static_assert(s_vel == PJ_X_VEL_SLIDER);
 
 static char const * const * const HELP = (char const * const[]) {
 	"fuel",
