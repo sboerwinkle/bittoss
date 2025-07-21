@@ -973,11 +973,11 @@ static void drawEntTag(ent *e, int32_t const *const oldPos, int32_t const *const
 	if (e->numSliders > 2) {
 		signType = e->sliders[2].v;
 	}
+	char buf[15]; // 10 digits for 2^31, plus (-), plus 3x commas, plus null byte
 	const char *str;
 	if (signType == 0) {
 		str = gamestring_get(index);
 	} else { // Assuming == 1
-		char buf[15]; // 10 digits for 2^31, plus (-), plus 3x commas, plus null byte
 		str = buf;
 		if (e->wires.num) {
 			// IDK what to do if there are multiple wires, for now just take the first
